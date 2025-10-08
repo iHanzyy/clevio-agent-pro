@@ -122,7 +122,7 @@ async def log_requests(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception", error=str(exc), url=str(request.url))
-    
+
     # Always return CORS headers even on errors
     return JSONResponse(
         status_code=500,

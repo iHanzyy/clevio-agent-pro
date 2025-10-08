@@ -4,7 +4,9 @@ from typing import List, Optional, Dict, Any
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
+from sqlalchemy import update
 from app.core.config import settings
+from app.core.logging import logger
 from app.models.user import User
 from app.schemas.payment import (
     PaymentPlan, PaymentCreateResponse, PaymentWebhookRequest,
@@ -22,7 +24,7 @@ except ImportError:
 class PaymentService:
     def __init__(self, db: Session):
         self.db = db
-        
+
         # Payment plans
         self.plans = {
             "PRO_M": PaymentPlan(
@@ -32,7 +34,7 @@ class PaymentService:
                 duration_days=30
             ),
             "PRO_Y": PaymentPlan(
-                code="PRO_Y", 
+                code="PRO_Y",
                 name="Pro Yearly",
                 price=Decimal("1000000"),  # Rp 1,000,000
                 duration_days=365
@@ -54,28 +56,77 @@ class PaymentService:
         user_prefix = str(user.id).replace("-", "")[:10]
         order_id = f"ORD-{user_prefix}-{uuid4().hex[:6]}"
         
+        logger.info(f"Creating payment for user {user.id}, plan: {plan_code}")
+        
         # Check if we have real Midtrans credentials
         if settings.MIDTRANS_SERVER_KEY and settings.MIDTRANS_CLIENT_KEY:
             # Use real Midtrans
             snap_token = self._create_midtrans_transaction(order_id, plan, user)
+            logger.info(f"Real Midtrans token created: {snap_token[:20]}...")
         else:
-            # Use mock for development
+            # Use mock for development - IMMEDIATELY activate user
             snap_token = f"mock_snap_token_{uuid4().hex[:8]}"
+            logger.info(f"Mock payment mode - activating user {user.id}")
+            
+            try:
+                # Calculate expiration date
+                expires_at = datetime.utcnow() + timedelta(days=plan.duration_days)
+                
+                # Use direct SQL update to ensure changes persist
+                result = self.db.execute(
+                    update(User)
+                    .where(User.id == user.id)
+                    .values(
+                        is_active=True,
+                        subscription_expires_at=expires_at,
+                        subscription_plan=plan_code
+                    )
+                )
+                
+                # Commit the changes
+                self.db.commit()
+                
+                logger.info(f"SQL UPDATE executed, rows affected: {result.rowcount}")
+                
+                # Verify the update by querying fresh
+                updated_user = self.db.query(User).filter(User.id == user.id).first()
+                logger.info(
+                    f"User activation verified",
+                    user_id=str(updated_user.id),
+                    is_active=updated_user.is_active,
+                    plan=getattr(updated_user, 'subscription_plan', None),
+                    expires_at=getattr(updated_user, 'subscription_expires_at', None)
+                )
+                
+                if not updated_user.is_active:
+                    logger.error(f"❌ WARNING: User {user.id} is still inactive after update!")
+                else:
+                    logger.info(f"✅ User {user.id} successfully activated")
+                    
+            except Exception as e:
+                logger.error(f"Failed to activate user: {e}")
+                self.db.rollback()
+                raise
         
         # Create payment record only if Payment model exists
         if PAYMENT_MODEL_AVAILABLE:
             try:
+                # Set status to 'settlement' immediately for mock payments
+                payment_status = "settlement" if snap_token.startswith("mock_") else "pending"
+                
                 payment = Payment(
                     user_id=user.id,
                     order_id=order_id,
                     gross_amount=plan.price,
                     plan_code=plan_code,
-                    transaction_status="pending"
+                    transaction_status=payment_status,
+                    transaction_time=datetime.utcnow() if payment_status == "settlement" else None
                 )
                 self.db.add(payment)
                 self.db.commit()
+                logger.info(f"Payment record created: {order_id}")
             except Exception as e:
-                # If payment table doesn't exist, continue without saving
+                logger.error(f"Payment record creation failed: {e}")
                 pass
 
         return PaymentCreateResponse(
@@ -132,10 +183,9 @@ class PaymentService:
             return result["token"]
             
         except requests.exceptions.RequestException as e:
-            # Log the actual error for debugging
-            print(f"Midtrans API Error: {e}")
+            logger.error(f"Midtrans API Error: {e}")
             if hasattr(e, 'response') and e.response is not None:
-                print(f"Response: {e.response.text}")
+                logger.error(f"Response: {e.response.text}")
             raise Exception(f"Failed to create Midtrans transaction: {str(e)}")
 
     def handle_webhook(self, webhook_data: PaymentWebhookRequest) -> bool:
@@ -199,9 +249,15 @@ class PaymentService:
     def get_subscription_status(self, user: User) -> SubscriptionStatusResponse:
         """Get user's current subscription status"""
         try:
+            # Query fresh user from database
+            fresh_user = self.db.query(User).filter(User.id == user.id).first()
+            if not fresh_user:
+                return SubscriptionStatusResponse(is_active=False)
+            
             # Check if user has subscription fields
-            if not hasattr(user, 'subscription_expires_at'):
+            if not hasattr(fresh_user, 'subscription_expires_at'):
                 # For development, return active status
+                logger.warning(f"User {user.id} missing subscription fields")
                 return SubscriptionStatusResponse(
                     is_active=True,
                     expires_at=None,
@@ -209,26 +265,27 @@ class PaymentService:
                     days_remaining=999
                 )
             
-            if not user.is_active:
+            if not fresh_user.is_active:
                 return SubscriptionStatusResponse(is_active=False)
             
-            if user.subscription_expires_at and user.subscription_expires_at < datetime.utcnow():
+            if fresh_user.subscription_expires_at and fresh_user.subscription_expires_at < datetime.utcnow():
                 # Subscription expired, deactivate user
-                user.is_active = False
+                fresh_user.is_active = False
                 self.db.commit()
                 return SubscriptionStatusResponse(is_active=False)
             
             days_remaining = None
-            if user.subscription_expires_at:
-                days_remaining = (user.subscription_expires_at - datetime.utcnow()).days
+            if fresh_user.subscription_expires_at:
+                days_remaining = (fresh_user.subscription_expires_at - datetime.utcnow()).days
             
             return SubscriptionStatusResponse(
                 is_active=True,
-                expires_at=getattr(user, 'subscription_expires_at', None),
-                plan_code=getattr(user, 'subscription_plan', 'DEV'),
+                expires_at=getattr(fresh_user, 'subscription_expires_at', None),
+                plan_code=getattr(fresh_user, 'subscription_plan', 'DEV'),
                 days_remaining=days_remaining
             )
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error getting subscription status: {e}")
             # If any error occurs, return active status for development
             return SubscriptionStatusResponse(
                 is_active=True,
