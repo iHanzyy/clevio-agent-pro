@@ -11,5 +11,10 @@ repos:
     rev: v1.4.0
     hooks:
       - id: detect-secrets
-        args: ['--baseline', '.secrets.baseline']
-        exclude: '.*\.md$'
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: |
+          (?x)^(
+            .*\.env\.example|
+            .*\.md|
+            package-lock\.json
+          )$

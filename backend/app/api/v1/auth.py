@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import Dict, Any, Optional
@@ -14,7 +14,11 @@ from app.services.auth_service import (
     normalize_scopes,
 )
 from app.models import User
-from app.schemas.auth import Token, GoogleAuthRequest, GoogleAuthResponse, GoogleAuthCallback, ApiKeyRequest, ApiKeyResponse
+from app.schemas.auth import (
+    Token, GoogleAuthRequest, GoogleAuthResponse, GoogleAuthCallback,
+    ApiKeyRequest, ApiKeyResponse, UserLogin, UserRegister, LoginResponse, RegisterResponse
+)
+from app.services.payment_service import PaymentService
 from app.core.logging import logger
 
 router = APIRouter()
@@ -23,85 +27,128 @@ router = APIRouter()
 @router.options("/{path:path}", include_in_schema=False)
 async def auth_preflight(path: str) -> Response:
     """Handle CORS preflight requests for auth endpoints."""
-    return Response(status_code=204)
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 
 @router.options("/", include_in_schema=False)
 async def auth_preflight_root() -> Response:
-    return Response(status_code=204)
+    """Handle CORS preflight requests for auth root."""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 
-@router.post("/login", response_model=Token)
-async def login(
-    email: str,
-    password: str,
+@router.post("/login", response_model=LoginResponse)
+async def login_for_access_token(
+    user_credentials: Optional[UserLogin] = None,
+    email: Optional[str] = Query(None),
+    password: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """User login endpoint"""
-    try:
-        user = auth_service.authenticate_user(email, password)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    """Authenticate user and return access token - Supports both JSON body and query params"""
 
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user"
-            )
-
-        access_token = auth_service.create_access_token(str(user.id))
-        logger.info("User logged in successfully", user_id=str(user.id))
-
-        return {"access_token": access_token, "token_type": "bearer"}
-
-    except HTTPException as exc:
-        logger.warning("Login failed", error=str(exc.detail), email=email)
-        raise exc
-    except Exception as e:
-        logger.error("Login failed", error=str(e), email=email)
+    # Handle both JSON body and query parameters
+    if user_credentials:
+        user_email = user_credentials.email
+        user_password = user_credentials.password
+    elif email and password:
+        user_email = email
+        user_password = password
+    else:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Login failed: {str(e)}"
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Either provide JSON body with email/password or query parameters"
         )
 
+    user = auth_service.authenticate_user(user_email, user_password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-@router.post("/register")
-async def register(
-    email: str,
-    password: str,
+    # Check subscription status
+    payment_service = PaymentService(db)
+    subscription_status = payment_service.get_subscription_status(user)
+
+    # Generate token - FIX: Use the correct method signature
+    access_token = auth_service.create_access_token(str(user.id))  # Pass user_id as string
+
+    return LoginResponse(
+        access_token=access_token,
+        token_type="bearer",
+        user_id=user.id,
+        email=user.email,
+        is_active=subscription_status.is_active,
+        expires_at=subscription_status.expires_at,
+        plan_code=subscription_status.plan_code
+    )
+
+
+@router.post("/register", response_model=RegisterResponse)
+async def register_user(
+    user_data: Optional[UserRegister] = None,
+    email: Optional[str] = Query(None),
+    password: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     auth_service: AuthService = Depends(get_auth_service)
 ):
-    """User registration endpoint"""
+    """User registration endpoint - Supports both JSON body and query params"""
+
+    # Handle both JSON body and query parameters
+    if user_data:
+        user_email = user_data.email
+        user_password = user_data.password
+    elif email and password:
+        user_email = email
+        user_password = password
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Either provide JSON body with email/password or query parameters"
+        )
+
     try:
         # Check if user already exists
-        existing_user = db.query(User).filter(User.email == email).first()
+        existing_user = db.query(User).filter(User.email == user_email).first()
         if existing_user:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
 
-        user = auth_service.create_user(email, password)
+        user = auth_service.create_user(user_email, user_password)
 
         logger.info("User registered successfully", user_id=str(user.id))
 
-        return {
-            "message": "User registered successfully",
-            "user_id": str(user.id),
-            "email": user.email
-        }
+        return RegisterResponse(
+            user_id=user.id,
+            email=user.email,
+            is_active=False,
+            message="Registration successful. Please complete payment to activate your account."
+        )
 
     except HTTPException as exc:
-        logger.warning("Registration failed", error=str(exc.detail), email=email)
+        logger.warning("Registration failed", error=str(exc.detail), email=user_email)
         raise exc
     except Exception as e:
-        logger.error("Registration failed", error=str(e), email=email)
+        logger.error("Registration failed", error=str(e), email=user_email)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Registration failed: {str(e)}"

@@ -68,8 +68,14 @@ class AuthService:
         return user
 
     def create_user(self, email: str, password: str) -> User:
+        """Create a new user with hashed password"""
         hashed_password = get_password_hash(password)
-        db_user = User(email=email, password_hash=hashed_password, created_at=datetime.utcnow())
+        db_user = User(
+            email=email.lower(),  # Normalize email
+            password_hash=hashed_password,
+            created_at=datetime.utcnow(),
+            is_active=False  # New users start inactive until they pay
+        )
         self.db.add(db_user)
         self.db.commit()
         self.db.refresh(db_user)
@@ -141,11 +147,16 @@ class AuthService:
             return True
         return False
 
-    def create_access_token(self, user_id: str) -> str:
-        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-        return create_access_token(
-            subject=user_id, expires_delta=access_token_expires
-        )
+    def create_access_token(self, user_id: str = None, data: dict = None) -> str:
+        """Create access token"""
+        # Handle both old and new calling styles
+        if data and "sub" in data:
+            user_id = data["sub"]
+        elif not user_id:
+            raise ValueError("user_id is required")
+
+        from app.core.security import create_access_token as create_jwt_token
+        return create_jwt_token(user_id)
 
     def get_current_user(self, token: str) -> Optional[User]:
         token_data = self.verify_token(token)

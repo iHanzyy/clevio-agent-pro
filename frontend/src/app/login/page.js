@@ -1,6 +1,38 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const router = useRouter();
+  const { login } = useAuth();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await login(email, password);
+
+      // Check if user is active (subscription valid)
+      if (response.is_active) {
+        router.push("/dashboard");
+      } else {
+        router.push("/payment");
+      }
+    } catch (error) {
+      setError(error.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
       <div className="max-w-screen-xl m-0 sm:m-10 bg-white shadow sm:rounded-lg flex justify-center flex-1">
@@ -49,18 +81,33 @@ export default function Login() {
                 </div>
               </div>
 
-              <div className="mx-auto max-w-xs">
+              <form onSubmit={handleSubmit} className="mx-auto max-w-xs">
+                {error && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {error}
+                  </div>
+                )}
                 <input
                   className="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white"
                   type="email"
                   placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
                 <input
                   className="w-full px-8 py-4 rounded-lg font-medium bg-gray-100 border border-gray-200 placeholder-gray-500 text-sm focus:outline-none focus:border-gray-400 focus:bg-white mt-5"
                   type="password"
                   placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
-                <button className="mt-5 tracking-wide font-semibold bg-green-400 text-white w-full py-4 rounded-lg hover:bg-green-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none cursor-pointer">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="mt-5 tracking-wide font-semibold bg-green-400 text-white w-full py-4 rounded-lg hover:bg-green-700 transition-all duration-300 ease-in-out flex items-center justify-center focus:shadow-outline focus:outline-none cursor-pointer disabled:opacity-50"
+                >
                   <svg
                     className="w-6 h-6 -ml-2"
                     fill="none"
@@ -73,7 +120,9 @@ export default function Login() {
                     <circle cx="8.5" cy="7" r="4" />
                     <path d="M20 8v6M23 11h-6" />
                   </svg>
-                  <span className="ml-3">Sign In</span>
+                  <span className="ml-3">
+                    {loading ? "Signing in..." : "Sign In"}
+                  </span>
                 </button>
                 <h3 className="mt-6 text-lg text-gray-800 text-center">
                   Don't have an account?{" "}
@@ -100,7 +149,7 @@ export default function Login() {
                     Privacy Policy
                   </a>
                 </p>
-              </div>
+              </form>
             </div>
           </div>
         </div>
