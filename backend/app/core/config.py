@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import List
+from typing import List, Optional
 
 
 class Settings(BaseSettings):
@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = Field(..., env="OPENAI_API_KEY")
 
     # Midtrans Payment Gateway
-    MIDTRANS_SERVER_KEY: str = Field(..., env="MIDTRANS_SERVER_KEY")
-    MIDTRANS_CLIENT_KEY: str = Field(..., env="MIDTRANS_CLIENT_KEY")
-    MIDTRANS_IS_PRODUCTION: bool = Field(False, env="MIDTRANS_IS_PRODUCTION")
+    MIDTRANS_SERVER_KEY: Optional[str] = None
+    MIDTRANS_CLIENT_KEY: Optional[str] = None
+    MIDTRANS_IS_PRODUCTION: bool = False
 
     # Agent Configuration
     MAX_CONCURRENT_AGENTS: int = Field(10000, env="MAX_CONCURRENT_AGENTS")
