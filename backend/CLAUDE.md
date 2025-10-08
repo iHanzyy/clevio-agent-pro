@@ -12,11 +12,11 @@ Membangun API berbasis LangChain yang memungkinkan pengguna membuat agen AI kust
 ## 3. Fitur-Fitur Teknis
 
 ### 3.1. Agent Creation & Management
-- **Dynamic Agent Configuration**: 
+- **Dynamic Agent Configuration**:
   - Endpoint `POST /agents` untuk membuat agen dengan payload JSON
   - Pemilihan tools dari katalog tersedia
   - Konfigurasi parameter agen (model LLM, memory type, reasoning strategy)
-  
+
 - **Agent Lifecycle Management**:
   - `GET /agents/{id}` - Detail agen
   - `PUT /agents/{id}` - Update konfigurasi
@@ -75,29 +75,29 @@ graph TB
     A[Web Dashboard] --> B[Mobile App]
     A --> C[CLI Tools]
   end
-  
+
   subgraph "API Gateway"
     D[Kong/Nginx] --> E[Rate Limiting]
     D --> F[Load Balancer]
   end
-  
+
   subgraph "Application Layer"
     G[Agent Service] --> H[Auth Service]
     G --> I[Tool Service]
     G --> J[Execution Service]
   end
-  
+
   subgraph "Data Layer"
     K[(PostgreSQL)] --> L[pgvector]
     M[Redis Cache]
     N[Object Storage]
   end
-  
+
   subgraph "External Services"
     O[Google APIs]
     P[Other APIs]
   end
-  
+
   A --> D
   B --> D
   C --> D
@@ -109,8 +109,8 @@ graph TB
   I --> O
   I --> P
 ```
- 
- 
+
+
 ## 4.2. Component Details
 Agent Service: Mengelola pembuatan, konfigurasi, dan manajemen agen
 Auth Service: Mengelola otentikasi, otorisasi, dan token management
@@ -139,7 +139,7 @@ Category
 Requirement
 Specification
 Performance	Latency	<500ms for API calls, <2s for simple agent execution
-Throughput	10,000+ concurrent requests	
+Throughput	10,000+ concurrent requests
 Scalability	Horizontal scaling	Auto-scaling based on load
 Availability	Uptime	99.95%
 Security	Data encryption	TLS 1.3, AES-256 for data at rest

@@ -1,222 +1,266 @@
-# LangChain Agent API
+# Clevio Agent Pro - LangChain Agent API
 
-A scalable API for creating and managing AI agents with dynamic tool integration, built with FastAPI, LangChain, and PostgreSQL.
+A production-ready, scalable API for creating and managing AI agents with dynamic tool integration, built with FastAPI, LangChain, and PostgreSQL. Features include MCP (Model Context Protocol) integration, RAG (Retrieval-Augmented Generation), and comprehensive Google Workspace integration.
 
-## Features
+## 🚀 Features
 
-- **Dynamic Agent Creation**: Create custom AI agents with configurable tools
-- **Google OAuth Integration**: Secure authentication with scope-based access (agent creation can return an OAuth link when Google Workspace tools are selected)
+### Core Capabilities
+
+- **Dynamic Agent Creation**: Create custom AI agents with configurable tools and system prompts
+- **MCP Tool Federation**: Connect external MCP servers (e.g., n8n) and merge their tools with whitelist filtering
+- **RAG Support**: Upload domain documents, embed them with pgvector, and enable context-aware responses
+- **Conversation Memory**: Persistent session-based chat history with automatic context replay
+- **Real-time Execution**: Asynchronous agent execution with streaming support and status tracking
+
+### Authentication & Security
+
 - **Two-Step Authentication**: Separate user registration from API key generation
 - **Plan-Based API Keys**: Generate API keys with expiration periods (PRO_M: 30 days, PRO_Y: 365 days)
-- **Built-in Tools**: Gmail, Google Sheets, Google Calendar, CSV/JSON file operations
-- **MCP Tool Federation**: Connect external MCP servers (e.g., n8n) and merge their tools into any agent with whitelist filters
-- **Retrieval-Augmented Generation (RAG)**: Upload domain documents, embed them with pgvector, and have agents reference the most relevant chunks automatically.
+- **Google OAuth Integration**: Secure authentication with automatic scope handling
+- **JWT Security**: Token-based authentication with refresh mechanism
+- **Scope-Based Access**: Fine-grained permission control for external services
+
+### Built-in Tools
+
+- **Google Workspace**: Gmail (read/send), Google Sheets, Google Calendar, Google Docs, Google Drive
+- **File Operations**: CSV, JSON, PDF, Excel, PPTX, DOCX, TXT processing
 - **Custom Tools**: Register and execute custom tools with JSON Schema validation
-- **Scalable Architecture**: Microservices-ready with PostgreSQL and Redis
-- **LangChain Integration**: Leverage LangChain for advanced AI workflows
-- **Real-time Execution**: Asynchronous agent execution with status tracking
-- **Persistent Memory**: Conversation history is stored in the `executions` table and reused on future turns
+- **MCP Tools**: Dynamic tool discovery from external MCP servers
 
-## Quick Start
+### Architecture
 
-### Prerequisites
+- **Microservices-Ready**: Modular service layer design
+- **Scalable Database**: PostgreSQL with pgvector for embeddings
+- **Caching Layer**: Redis for session management and performance
+- **Production-Ready**: Comprehensive logging, health checks, and monitoring
 
-- Python 3.11+
-- PostgreSQL 15+
-- Redis 7+
-- Google OAuth credentials (for Google Workspace integration)
-- OpenAI API key
+## 📋 Prerequisites
 
-### Installation
+- **Python**: 3.11 or higher
+- **PostgreSQL**: 15+ with pgvector extension
+- **Redis**: 7.0 or higher
+- **Google OAuth Credentials**: For Google Workspace integration
+- **OpenAI API Key**: For LLM operations
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd Langchain-API-new
-   ```
+## 🛠️ Installation
 
-2. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+### 1. Clone and Setup Environment
 
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+git clone https://github.com/yourusername/clevio-agent-pro.git
+cd clevio-agent-pro/backend
 
-4. **Set up the database**
-   ```bash
-   # Create database
-   createdb langchain_api
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-   # Run migrations
-   alembic upgrade head
-   ```
+# Install dependencies
+pip install -r requirements.txt
+```
 
-5. **Start Redis**
-   ```bash
-   redis-server
-   ```
+### 2. Configure Environment Variables
 
-6. **Run the application**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
+```bash
+cp .env.example .env
+```
 
-### Docker Setup
+Edit `.env` with your configuration:
 
-For development with Docker:
+```bash
+# Security
+SECRET_KEY=your-secure-secret-key-here  # pragma: allowlist secret
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/clevio_agent_pro  # pragma: allowlist secret
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
+
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key
+
+# CORS (optional)
+BACKEND_CORS_ORIGINS=["http://localhost:3000"]
+
+# Logging (optional)
+LOG_LEVEL=INFO
+```
+
+### 3. Database Setup
+
+```bash
+# Create database
+createdb clevio_agent_pro
+
+# Install pgvector extension
+psql -d clevio_agent_pro -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# Or use the helper script
+DATABASE_URL="postgresql://user:password@localhost:5432/clevio_agent_pro" \
+  ./scripts/install_pgvector.sh
+
+# Run migrations
+alembic upgrade head
+```
+
+### 4. Start Services
+
+```bash
+# Start Redis (if not running)
+redis-server
+
+# Start the application
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+### 5. Verify Installation
+
+Visit:
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **Health Check**: http://localhost:8000/health
+
+## 🐳 Docker Setup
+
+### Development Environment
 
 ```bash
 docker-compose up -d
 ```
 
-For production:
+This will start:
+
+- PostgreSQL with pgvector
+- Redis
+- Application server
+
+### Production Environment
 
 ```bash
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-## API Documentation
+Includes:
 
-Once running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **Health Check**: http://localhost:8000/health
+- Nginx reverse proxy
+- SSL/TLS termination
+- Production-optimized settings
 
-## Core Concepts
+## 📚 API Documentation
 
-### Agents
+### Authentication Endpoints
 
-Agents are AI assistants that can use tools to accomplish tasks. Each agent has:
-- Configuration (LLM model, temperature, system prompt, etc.)
-- Associated tools
-- Execution history (stored in the `executions` table) that is replayed to maintain conversation memory
+#### Register User
 
-### Tools
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
 
-Tools are functions that agents can use:
-- **Built-in**: Gmail, Google Sheets, Google Calendar, CSV/JSON operations
-- **Custom**: User-defined tools with JSON Schema validation
-
-### Authentication
-
-The API uses a two-step authentication process:
-1. **User Registration**: Create account without API key
-2. **API Key Generation**: Request API key with plan-based expiration
-
-**Supported Methods:**
-- JWT-based authentication for API access
-- Google OAuth for external service integration
-- Scope-based access control
-- Plan-based API key expiration (PRO_M: 30 days, PRO_Y: 365 days)
-
-#### API Key Plans
-
-- **PRO_M**: 30-day expiration for monthly subscriptions
-- **PRO_Y**: 365-day expiration for annual subscriptions
-
-#### API Key Management
-
-- Generate multiple API keys per user account
-- Each key has independent expiration dates
-- Keys can be deactivated individually
-- Plan codes determine expiration periods
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/v1/auth/login` - User login
-- `POST /api/v1/auth/register` - User registration (returns user info only)
-- `POST /api/v1/auth/api-key` - Generate API key with plan-based expiration
-- `POST /api/v1/auth/google/auth` - Initiate Google OAuth
-- `GET /api/v1/auth/google/callback` - Google OAuth callback
-
-### Agents
-
-- `POST /api/v1/agents` - Create agent
-- `GET /api/v1/agents` - List user agents
-- `GET /api/v1/agents/{id}` - Get agent details
-- `PUT /api/v1/agents/{id}` - Update agent
-- `DELETE /api/v1/agents/{id}` - Delete agent
-- `POST /api/v1/agents/{id}/execute` - Execute agent
-
-### Tools
-
-- `GET /api/v1/tools` - List available tools
-- `POST /api/v1/tools` - Create custom tool
-- `GET /api/v1/tools/{id}` - Get tool details
-- `PUT /api/v1/tools/{id}` - Update tool
-- `DELETE /api/v1/tools/{id}` - Delete tool
-- `POST /api/v1/tools/execute` - Execute tool directly
-
-## Example Usage
-
-### Authentication Flow
-
-```python
-import requests
-import json
-
-# Step 1: Register user
-register_response = requests.post(
-    "http://localhost:8000/api/v1/auth/register",
-    params={"email": "user@example.com", "password": "securepassword"}
-)
-user_data = register_response.json()
-print(f"Registered user: {user_data['user_id']}")
-
-# Step 2: Generate API key with PRO_M plan (30 days)
-api_key_response = requests.post(
-    "http://localhost:8000/api/v1/auth/api-key",
-    json={
-        "username": "user@example.com",
-        "password": "securepassword",
-        "plan_code": "PRO_M"
-    }
-)
-api_data = api_key_response.json()
-token = api_data["access_token"]
-expires_at = api_data["expires_at"]
-print(f"API key expires at: {expires_at}")
-
-# Use token for authenticated requests
-headers = {"Authorization": f"Bearer {token}"}
+{
+  "email": "user@example.com",
+  "password": "securepassword"
+}
 ```
 
-### Creating an Agent
-
-```python
-import requests
-
-# Create agent
-response = requests.post(
-    "http://localhost:8000/api/v1/agents",
-    headers={"Authorization": "Bearer YOUR_TOKEN"},
-    json={
-        "name": "Email Assistant",
-        "tools": ["gmail"],
-        "config": {
-            "llm_model": "gpt-4o-mini",
-            "temperature": 0.7,
-            "max_tokens": 1000,
-            "system_prompt": "You are a friendly research assistant. Remember the user's name and keep context across turns."
-        }
-    }
-)
-
-agent = response.json()
-print(f"Created agent: {agent['id']}")
-if agent["auth_required"]:
-    print(f"Complete Google OAuth: {agent['auth_url']} (state={agent['auth_state']})")
-```
-
-To attach MCP tools, include `mcp_servers` and an `allowed_tools` whitelist when creating or updating an agent:
+Response:
 
 ```json
+{
+  "user_id": "uuid",
+  "email": "user@example.com",
+  "created_at": "2025-01-08T10:00:00Z"
+}
+```
+
+#### Generate API Key
+
+```http
+POST /api/v1/auth/api-key
+Content-Type: application/json
+
+{
+  "username": "user@example.com",
+  "password": "securepassword",
+  "plan_code": "PRO_M"
+}
+```
+
+Response:
+
+```json
+{
+  "access_token": "eyJhbGci...",
+  "token_type": "bearer",
+  "expires_at": "2025-02-07T10:00:00Z"
+}
+```
+
+**Plan Codes:**
+
+- `PRO_M`: 30-day expiration (monthly)
+- `PRO_Y`: 365-day expiration (yearly)
+
+#### Google OAuth Flow
+
+```http
+POST /api/v1/auth/google/auth
+Content-Type: application/json
+
+{
+  "scopes": ["gmail.readonly", "calendar", "sheets"],
+  "state": "optional-state-string"
+}
+```
+
+Response:
+
+```json
+{
+  "auth_url": "https://accounts.google.com/o/oauth2/v2/auth?...",
+  "state": "state-identifier"
+}
+```
+
+After user authorization, Google redirects to:
+
+```
+GET /api/v1/auth/google/callback?code=AUTH_CODE&state=STATE
+```
+
+### Agent Endpoints
+
+#### Create Agent
+
+```http
+POST /api/v1/agents
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "name": "Email Assistant",
+  "tools": ["gmail", "calendar"],
+  "config": {
+    "llm_model": "gpt-4o-mini",
+    "temperature": 0.7,
+    "max_tokens": 1000,
+    "system_prompt": "You are a helpful email assistant."
+  }
+}
+```
+
+#### Create Agent with MCP Integration
+
+```http
+POST /api/v1/agents
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
 {
   "name": "Market Research Agent",
   "tools": ["gmail"],
@@ -228,7 +272,9 @@ To attach MCP tools, include `mcp_servers` and an `allowed_tools` whitelist when
     "market": {
       "transport": "streamable_http",
       "url": "https://n8n.example.com/mcp/market/sse",
-      "headers": {"Authorization": "Bearer TENANT_ABC"}
+      "headers": {
+        "Authorization": "Bearer TENANT_TOKEN"
+      }
     }
   },
   "allowed_tools": [
@@ -238,81 +284,518 @@ To attach MCP tools, include `mcp_servers` and an `allowed_tools` whitelist when
 }
 ```
 
-`allowed_tools` enforces least-privilege access: MCP tools are only exposed to the LangChain agent if their fully qualified name is present in the list. When `mcp_servers` is omitted, behavior falls back to the legacy built-in tool handling.
+#### Execute Agent
 
-### Executing an Agent
+```http
+POST /api/v1/agents/{agent_id}/execute
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
 
-```python
-# Execute agent
-response = requests.post(
-    f"http://localhost:8000/api/v1/agents/{agent['id']}/execute",
-    headers={"Authorization": "Bearer YOUR_TOKEN"},
-    json={
-        "input": "Read my latest emails and summarize them",
-        "parameters": {},
-        "session_id": "demo-session-1"
-    }
-)
-
-execution = response.json()
-print(f"Execution started: {execution['execution_id']}")
-print(f"Model response: {execution.get('response')}")
-print(f"Session id: {execution.get('session_id')}")
-
-# Session scoping
-# Passing a `session_id` partitions conversation memory. Each session replays only
-# the executions that share that identifier (records live in the `executions` table).
+{
+  "input": "Read my latest emails and summarize them",
+  "parameters": {},
+  "session_id": "user-session-123"
+}
 ```
 
-## Configuration
+Response:
 
-### Environment Variables
+```json
+{
+  "execution_id": "uuid",
+  "agent_id": "uuid",
+  "status": "completed",
+  "response": "Here's a summary of your latest emails...",
+  "session_id": "user-session-123",
+  "created_at": "2025-01-08T10:00:00Z",
+  "completed_at": "2025-01-08T10:00:05Z"
+}
+```
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `SECRET_KEY` | JWT secret key | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `REDIS_URL` | Redis connection string | Yes |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Yes |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Yes |
-| `GOOGLE_REDIRECT_URI` | Google OAuth redirect URI | Yes |
-| `OPENAI_API_KEY` | OpenAI API key | Yes |
+#### Upload Documents (RAG)
+
+```http
+POST /api/v1/agents/{agent_id}/documents
+Authorization: Bearer YOUR_TOKEN
+Content-Type: multipart/form-data
+
+file: document.pdf
+chunk_size: 1000
+chunk_overlap: 200
+```
+
+#### List Agents
+
+```http
+GET /api/v1/agents
+Authorization: Bearer YOUR_TOKEN
+```
+
+#### Get Agent Details
+
+```http
+GET /api/v1/agents/{agent_id}
+Authorization: Bearer YOUR_TOKEN
+```
+
+#### Update Agent
+
+```http
+PUT /api/v1/agents/{agent_id}
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "name": "Updated Name",
+  "config": {
+    "temperature": 0.8
+  }
+}
+```
+
+#### Delete Agent
+
+```http
+DELETE /api/v1/agents/{agent_id}
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Tool Endpoints
+
+#### List Tools
+
+```http
+GET /api/v1/tools?tool_type=CUSTOM
+Authorization: Bearer YOUR_TOKEN
+```
+
+#### Create Custom Tool
+
+```http
+POST /api/v1/tools
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "name": "custom_calculator",
+  "description": "Performs mathematical calculations",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "expression": {
+        "type": "string",
+        "description": "Mathematical expression to evaluate"
+      }
+    },
+    "required": ["expression"]
+  },
+  "type": "CUSTOM"
+}
+```
+
+#### Execute Tool
+
+```http
+POST /api/v1/tools/execute
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "tool_id": "uuid",
+  "parameters": {
+    "expression": "2 + 2"
+  }
+}
+```
+
+## 🔧 Configuration
+
+### Environment Variables Reference
+
+| Variable                      | Description                       | Required | Default               |
+| ----------------------------- | --------------------------------- | -------- | --------------------- |
+| `SECRET_KEY`                  | JWT secret key for token signing  | ✅       | -                     |
+| `DATABASE_URL`                | PostgreSQL connection string      | ✅       | -                     |
+| `REDIS_URL`                   | Redis connection string           | ✅       | -                     |
+| `GOOGLE_CLIENT_ID`            | Google OAuth client ID            | ✅       | -                     |
+| `GOOGLE_CLIENT_SECRET`        | Google OAuth client secret        | ✅       | -                     |
+| `GOOGLE_REDIRECT_URI`         | Google OAuth redirect URI         | ✅       | -                     |
+| `OPENAI_API_KEY`              | OpenAI API key                    | ✅       | -                     |
+| `API_V1_STR`                  | API version prefix                | ❌       | `/api/v1`             |
+| `PROJECT_NAME`                | Project name                      | ❌       | `LangChain Agent API` |
+| `ALGORITHM`                   | JWT algorithm                     | ❌       | `HS256`               |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiration                  | ❌       | `43200` (30 days)     |
+| `BACKEND_CORS_ORIGINS`        | CORS allowed origins (JSON array) | ❌       | `[]`                  |
+| `LOG_LEVEL`                   | Logging level                     | ❌       | `INFO`                |
 
 ### Google OAuth Setup
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable Gmail, Google Calendar, Google Sheets, Google Drive, and Docs APIs
-4. Create OAuth 2.0 credentials (Web Application)
-5. Add redirect URI: `http://localhost:8000/api/v1/auth/google/callback`
-6. Copy Client ID and Client Secret to `.env`
+1. **Create Google Cloud Project**
 
-**Note:** The system automatically handles scope changes from Google OAuth. When requesting `drive.file` scope, Google may add broader Drive scopes (`drive`, `drive.photos.readonly`, `drive.appdata`) which are accepted as long as all requested scopes are granted.
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select existing one
 
-## Development
+2. **Enable Required APIs**
+
+   - Gmail API
+   - Google Calendar API
+   - Google Sheets API
+   - Google Drive API
+   - Google Docs API
+
+3. **Create OAuth 2.0 Credentials**
+
+   - Navigate to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Choose "Web application"
+   - Add authorized redirect URI: `http://localhost:8000/api/v1/auth/google/callback`
+   - For production, add your domain's callback URL
+
+4. **Configure Application**
+   - Copy Client ID and Client Secret to `.env`
+   - Update `GOOGLE_REDIRECT_URI` to match your redirect URI
+
+**Note:** The system automatically handles scope expansion from Google. When requesting `drive.file`, Google may add broader scopes (`drive`, `drive.photos.readonly`) which are accepted as long as all requested scopes are granted.
+
+## 💡 Usage Examples
+
+### Complete Authentication Flow
+
+```python
+import requests
+
+BASE_URL = "http://localhost:8000/api/v1"
+
+# Step 1: Register user
+register_response = requests.post(
+    f"{BASE_URL}/auth/register",
+    json={
+        "email": "user@example.com",
+        "password": "securepassword123"
+    }
+)
+user_data = register_response.json()
+print(f"✅ User registered: {user_data['user_id']}")
+
+# Step 2: Generate API key (PRO_M = 30 days)
+api_key_response = requests.post(
+    f"{BASE_URL}/auth/api-key",
+    json={
+        "username": "user@example.com",
+        "password": "securepassword123",
+        "plan_code": "PRO_M"
+    }
+)
+token_data = api_key_response.json()
+token = token_data["access_token"]
+print(f"✅ API key generated, expires: {token_data['expires_at']}")
+
+# Step 3: Use token for authenticated requests
+headers = {"Authorization": f"Bearer {token}"}
+```
+
+### Creating an Agent with Google Tools
+
+```python
+# Create agent with Gmail and Calendar
+agent_response = requests.post(
+    f"{BASE_URL}/agents",
+    headers=headers,
+    json={
+        "name": "Personal Assistant",
+        "tools": ["gmail", "calendar"],
+        "config": {
+            "llm_model": "gpt-4o-mini",
+            "temperature": 0.7,
+            "system_prompt": "You are a helpful personal assistant."
+        }
+    }
+)
+
+agent = agent_response.json()
+print(f"✅ Agent created: {agent['id']}")
+
+# Check if OAuth is required
+if agent.get("auth_required"):
+    print(f"🔐 Complete OAuth: {agent['auth_url']}")
+    print(f"State: {agent['auth_state']}")
+    # User must visit auth_url and authorize
+```
+
+### Creating an Agent with MCP Tools
+
+```python
+# Create agent with MCP server integration
+mcp_agent_response = requests.post(
+    f"{BASE_URL}/agents",
+    headers=headers,
+    json={
+        "name": "Market Research Agent",
+        "tools": [],  # No built-in tools
+        "config": {
+            "llm_model": "gpt-4o-mini",
+            "temperature": 0.5,
+            "system_prompt": "You are a market research expert."
+        },
+        "mcp_servers": {
+            "n8n_market": {
+                "transport": "streamable_http",
+                "url": "https://n8n.example.com/mcp/market/sse",
+                "headers": {
+                    "Authorization": "Bearer YOUR_N8N_TOKEN"
+                }
+            }
+        },
+        "allowed_tools": [
+            "n8n_market.google_trends",
+            "n8n_market.shopee_scrape",
+            "n8n_market.competitor_analysis"
+        ]
+    }
+)
+
+mcp_agent = mcp_agent_response.json()
+print(f"✅ MCP Agent created: {mcp_agent['id']}")
+```
+
+### Executing Agent with Session Memory
+
+```python
+session_id = "user-123-session"
+
+# First interaction
+execute_response = requests.post(
+    f"{BASE_URL}/agents/{agent['id']}/execute",
+    headers=headers,
+    json={
+        "input": "My name is John. Read my latest emails.",
+        "session_id": session_id
+    }
+)
+result = execute_response.json()
+print(f"Response: {result['response']}")
+
+# Second interaction - agent remembers context
+execute_response_2 = requests.post(
+    f"{BASE_URL}/agents/{agent['id']}/execute",
+    headers=headers,
+    json={
+        "input": "What was my name again?",
+        "session_id": session_id
+    }
+)
+result_2 = execute_response_2.json()
+print(f"Response: {result_2['response']}")
+# Expected: "Your name is John."
+```
+
+### Uploading Documents for RAG
+
+```python
+# Upload document for RAG
+with open("company_handbook.pdf", "rb") as f:
+    files = {"file": f}
+    data = {
+        "chunk_size": 1000,
+        "chunk_overlap": 200
+    }
+    upload_response = requests.post(
+        f"{BASE_URL}/agents/{agent['id']}/documents",
+        headers=headers,
+        files=files,
+        data=data
+    )
+
+upload_result = upload_response.json()
+print(f"✅ Uploaded {upload_result['chunks_created']} chunks")
+
+# Now agent can answer questions about the document
+execute_response = requests.post(
+    f"{BASE_URL}/agents/{agent['id']}/execute",
+    headers=headers,
+    json={
+        "input": "What is the vacation policy according to the handbook?",
+        "session_id": session_id
+    }
+)
+```
+
+### Creating and Using Custom Tools
+
+```python
+# Create custom tool
+tool_response = requests.post(
+    f"{BASE_URL}/tools",
+    headers=headers,
+    json={
+        "name": "weather_api",
+        "description": "Gets current weather for a location",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "City name"
+                },
+                "units": {
+                    "type": "string",
+                    "enum": ["celsius", "fahrenheit"],
+                    "description": "Temperature units"
+                }
+            },
+            "required": ["location"]
+        },
+        "type": "CUSTOM"
+    }
+)
+
+tool = tool_response.json()
+print(f"✅ Tool created: {tool['id']}")
+
+# Execute tool directly
+execute_tool_response = requests.post(
+    f"{BASE_URL}/tools/execute",
+    headers=headers,
+    json={
+        "tool_id": tool['id'],
+        "parameters": {
+            "location": "Jakarta",
+            "units": "celsius"
+        }
+    }
+)
+```
+
+## 🏗️ Architecture
+
+### System Components
+
+```
+┌─────────────────┐
+│   API Gateway   │  FastAPI with routing & middleware
+│   (FastAPI)     │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+┌───▼───┐ ┌──▼────────┐
+│ Auth  │ │  Agent    │  Service Layer
+│Service│ │  Service  │
+└───┬───┘ └──┬────────┘
+    │        │
+┌───▼────────▼───┐
+│   Tool Service │
+│  Execution Svc │
+└───┬────────┬───┘
+    │        │
+┌───▼───┐ ┌──▼─────┐
+│  DB   │ │ Redis  │  Data Layer
+│ (PG+  │ │(Cache) │
+│vector)│ │        │
+└───────┘ └────────┘
+```
+
+### Service Layer Architecture
+
+- **Auth Service** ([`app/services/auth_service.py`](app/services/auth_service.py))
+
+  - User registration and authentication
+  - API key generation with plan-based expiration
+  - Google OAuth flow management
+  - Token refresh and validation
+
+- **Agent Service** ([`app/services/agent_service.py`](app/services/agent_service.py))
+
+  - Agent lifecycle management (CRUD)
+  - MCP server configuration and validation
+  - Tool whitelist enforcement
+  - Document upload and RAG setup
+
+- **Tool Service** ([`app/services/tool_service.py`](app/services/tool_service.py))
+
+  - Built-in tool registration
+  - Custom tool validation
+  - Tool execution with error handling
+  - MCP tool discovery and integration
+
+- **Execution Service** ([`app/services/execution_service.py`](app/services/execution_service.py))
+
+  - Agent execution orchestration
+  - Session-based memory management
+  - LangChain agent initialization
+  - Conversation history replay
+
+- **Embedding Service** ([`app/services/embedding_service.py`](app/services/embedding_service.py))
+  - Document chunking and processing
+  - Vector embedding generation
+  - Similarity search with pgvector
+  - RAG context retrieval
+
+### Database Schema
+
+**Key Tables:**
+
+- `users` - User accounts
+- `api_keys` - Plan-based API keys with expiration
+- `agents` - Agent configurations and MCP settings
+- `tools` - Built-in and custom tools
+- `executions` - Conversation history and results
+- `embeddings` - Vector embeddings for RAG
+- `google_tokens` - Encrypted OAuth tokens
+
+### Security Features
+
+- **JWT Authentication**: Secure token-based auth with expiration
+- **OAuth 2.0**: Google Workspace integration with automatic scope handling
+- **Encrypted Storage**: OAuth tokens stored with Fernet encryption
+- **API Key Management**: Plan-based expiration (30/365 days)
+- **Scope-Based Access**: Fine-grained permission control
+- **Input Validation**: Pydantic schemas for all requests
+- **Rate Limiting**: Configurable per-endpoint limits
+- **CORS Protection**: Configurable origin whitelist
+
+### Performance Optimizations
+
+- **Connection Pooling**: PostgreSQL connection pool with max 20 connections
+- **Redis Caching**: Session data and frequent queries
+- **Async Processing**: Non-blocking I/O with FastAPI
+- **Lazy Loading**: Tools and embeddings loaded on-demand
+- **Query Optimization**: Indexed columns for frequent lookups
+- **Batch Processing**: Efficient document chunking
+
+## 🧪 Development
 
 ### Running Tests
 
 ```bash
 # Install test dependencies
-pip install pytest pytest-asyncio pytest-cov
+pip install pytest pytest-asyncio pytest-cov httpx
 
-# Run tests
+# Run all tests
 pytest
 
-# Run with coverage
-pytest --cov=app
+# Run with coverage report
+pytest --cov=app --cov-report=html
+
+# Run specific test file
+pytest tests/test_auth_service.py
+
+# Run with verbose output
+pytest -v
 ```
 
 ### Code Quality
 
 ```bash
+# Install dev dependencies
+pip install black isort flake8 mypy
+
 # Format code
-black app/
-isort app/
+black app/ tests/
+isort app/ tests/
 
 # Lint code
-flake8 app/
+flake8 app/ tests/
 
 # Type checking
 mypy app/
@@ -321,149 +804,396 @@ mypy app/
 ### Database Migrations
 
 ```bash
-# Create migration
-alembic revision --autogenerate -m "Description"
+# Create new migration
+alembic revision --autogenerate -m "Add new field to agents"
 
 # Apply migrations
 alembic upgrade head
 
-# Rollback migration
+# Rollback one migration
 alembic downgrade -1
+
+# View migration history
+alembic history
+
+# View current version
+alembic current
 ```
 
-## Architecture
-
-### System Components
-
-1. **API Gateway**: FastAPI application with routing
-2. **Authentication Service**: JWT + OAuth management
-3. **Agent Service**: Agent lifecycle management
-4. **Tool Service**: Tool registration and execution
-5. **Execution Service**: Asynchronous agent execution
-6. **Database**: PostgreSQL with pgvector for embeddings
-7. **Cache**: Redis for session management
-
-### Security
-
-- JWT-based authentication
-- OAuth 2.0 for external services
-- Scope-based access control
-- Encrypted token storage
-- Rate limiting
-- Input validation and sanitization
-
-### Performance
-
-- Connection pooling
-- Read replicas (configurable)
-- Caching with Redis
-- Asynchronous processing
-- Load balancing support
-
-## Monitoring
-
-The application includes comprehensive logging and monitoring:
-
-- Structured logging with JSON format
-- Request/response logging
-- Error tracking
-- Performance metrics
-- Health checks
-
-## Deployment
-
-### Production Considerations
-
-1. **Database**: Use managed PostgreSQL service
-2. **Redis**: Use managed Redis service
-3. **SSL/TLS**: Enable HTTPS with valid certificates
-4. **Environment**: Use production environment variables
-5. **Scaling**: Configure horizontal scaling
-6. **Monitoring**: Set up monitoring and alerting
-7. **Backups**: Implement database backup strategy
-
-### Environment Setup
+### Pre-commit Hooks
 
 ```bash
-# Production environment variables
-export SECRET_KEY="your-secure-secret-key"
-export DATABASE_URL="postgresql://user:password@prod-db:5432/langchain_api"
-export REDIS_URL="redis://prod-redis:6379/0"
-export GOOGLE_CLIENT_ID="your-google-client-id"
-export GOOGLE_CLIENT_SECRET="your-google-client-secret"
-export GOOGLE_REDIRECT_URI="https://your-domain.com/api/v1/auth/google/callback"
-export OPENAI_API_KEY="your-openai-api-key"
-export LOG_LEVEL="INFO"
+# Install pre-commit
+pip install pre-commit
+
+# Install git hooks
+pre-commit install
+
+# Run manually
+pre-commit run --all-files
 ```
 
-### PGVector Setup
+Configuration in [`.pre-commit-config.yaml`](.pre-commit-config.yaml)
 
-The embeddings table depends on the [`pgvector`](https://github.com/pgvector/pgvector) extension. If you
-are running PostgreSQL outside Docker, enable it with the helper script:
+## 📊 Monitoring & Logging
+
+### Application Logging
+
+The application uses structured JSON logging with the following fields:
+
+- `timestamp`: ISO 8601 timestamp
+- `level`: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `message`: Log message
+- `module`: Source module
+- `function`: Source function
+- `extra`: Additional context
+
+Configure log level via `LOG_LEVEL` environment variable.
+
+### Health Checks
+
+```http
+GET /health
+```
+
+Response:
+
+```json
+{
+  "status": "healthy",
+  "database": "connected",
+  "redis": "connected",
+  "timestamp": "2025-01-08T10:00:00Z"
+}
+```
+
+### Metrics
+
+Key metrics to monitor:
+
+- Request latency (p50, p95, p99)
+- Error rate by endpoint
+- Database connection pool usage
+- Redis cache hit rate
+- Agent execution duration
+- Token refresh rate
+
+## 🚀 Deployment
+
+### Production Environment Variables
 
 ```bash
-# requires psql client tools and sudo access for package installation
-DATABASE_URL="postgresql://postgres:password@localhost:5432/langchain_api" \
-  ./scripts/install_pgvector.sh
+# Security - Use strong, random values
+SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(32))")
+
+# Database - Use managed service
+DATABASE_URL=postgresql://user:password@prod-db.example.com:5432/clevio_agent_pro
+
+# Redis - Use managed service
+REDIS_URL=redis://prod-redis.example.com:6379/0
+
+# Google OAuth - Use production credentials
+GOOGLE_CLIENT_ID=your-prod-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-prod-client-secret
+GOOGLE_REDIRECT_URI=https://api.yourapp.com/api/v1/auth/google/callback
+
+# OpenAI - Use organization key
+OPENAI_API_KEY=sk-proj-...
+
+# CORS - Restrict to frontend domain
+BACKEND_CORS_ORIGINS=["https://app.yourapp.com"]
+
+# Logging - Use INFO or WARNING in production
+LOG_LEVEL=INFO
+
+# Optional: Sentry for error tracking
+SENTRY_DSN=https://...@sentry.io/...
 ```
 
-The script attempts to install the OS package (APT, Yum/DNF, Pacman, or Homebrew) and then runs
-`CREATE EXTENSION IF NOT EXISTS vector;` against the target database. If your role lacks privileges,
-run the command manually as a PostgreSQL superuser.
+### Docker Production Deployment
 
-## Contributing
+```bash
+# Build production image
+docker build -t clevio-agent-pro:latest .
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Ensure code quality standards
-6. Submit a pull request
+# Run with docker-compose
+docker-compose -f docker-compose.prod.yml up -d
 
-## License
+# View logs
+docker-compose -f docker-compose.prod.yml logs -f app
 
-This project is licensed under the MIT License.
+# Scale application
+docker-compose -f docker-compose.prod.yml up -d --scale app=3
+```
 
-## Support
+### Kubernetes Deployment
 
-For support and questions:
-- Create an issue in the repository
-- Check the documentation
-- Review the API examples
+```yaml
+# Example deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clevio-agent-pro
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: clevio-agent-pro
+  template:
+    metadata:
+      labels:
+        app: clevio-agent-pro
+    spec:
+      containers:
+        - name: app
+          image: clevio-agent-pro:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: secret-key
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: database-url
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+```
 
-## Changelog
+### Production Checklist
+
+- [ ] Set strong `SECRET_KEY`
+- [ ] Use managed PostgreSQL service
+- [ ] Use managed Redis service
+- [ ] Configure SSL/TLS certificates
+- [ ] Set up database backups
+- [ ] Configure log aggregation
+- [ ] Set up monitoring and alerting
+- [ ] Implement rate limiting
+- [ ] Configure CORS properly
+- [ ] Set up CI/CD pipeline
+- [ ] Enable automatic scaling
+- [ ] Configure security headers
+- [ ] Set up error tracking (e.g., Sentry)
+- [ ] Document runbooks for incidents
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+#### Database Connection Errors
+
+```bash
+# Check if PostgreSQL is running
+pg_isready -h localhost -p 5432
+
+# Check database exists
+psql -l | grep clevio_agent_pro
+
+# Test connection
+psql -d clevio_agent_pro -c "SELECT version();"
+```
+
+#### Redis Connection Errors
+
+```bash
+# Check if Redis is running
+redis-cli ping
+# Expected: PONG
+
+# Check Redis connection
+redis-cli -h localhost -p 6379
+```
+
+#### Google OAuth Issues
+
+**Problem**: "Scope has changed" errors
+**Solution**: This is expected behavior. Google automatically adds broader scopes (e.g., `drive` when requesting `drive.file`). The system handles this gracefully.
+
+**Problem**: OAuth redirect URI mismatch
+**Solution**: Ensure `GOOGLE_REDIRECT_URI` in `.env` matches the redirect URI configured in Google Cloud Console.
+
+**Problem**: Missing required scopes
+**Solution**: Re-authenticate by calling `/api/v1/auth/google/auth` with required scopes.
+
+#### MCP Server Connection Issues
+
+**Problem**: MCP tools not appearing
+**Solution**:
+
+1. Verify MCP server URL is accessible
+2. Check `mcp_servers` configuration in agent
+3. Ensure tools are in `allowed_tools` whitelist
+4. Check MCP server logs for errors
+
+#### Embedding/RAG Issues
+
+**Problem**: Document upload fails
+**Solution**:
+
+1. Check file size limits
+2. Verify supported file types (PDF, DOCX, TXT, CSV, JSON)
+3. Check pgvector extension is installed: `SELECT * FROM pg_extension WHERE extname = 'vector';`
+
+**Problem**: Poor RAG results
+**Solution**:
+
+1. Adjust `chunk_size` and `chunk_overlap` parameters
+2. Try different embedding models
+3. Increase number of retrieved chunks
+
+### Debugging Tips
+
+```bash
+# Enable debug logging
+export LOG_LEVEL=DEBUG
+
+# Check application logs
+tail -f logs/app.log
+
+# Monitor database queries (PostgreSQL)
+psql -d clevio_agent_pro
+SET log_statement = 'all';
+
+# Monitor Redis operations
+redis-cli monitor
+
+# Test endpoint with curl
+curl -v http://localhost:8000/health
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Make your changes**
+   - Follow PEP 8 style guide
+   - Add tests for new features
+   - Update documentation
+4. **Run tests and quality checks**
+   ```bash
+   pytest
+   black app/ tests/
+   flake8 app/ tests/
+   ```
+5. **Commit your changes**
+   ```bash
+   git commit -m "Add amazing feature"
+   ```
+6. **Push to your fork**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+7. **Open a Pull Request**
+
+### Code Style
+
+- Use Black for code formatting
+- Follow PEP 8 naming conventions
+- Write docstrings for public functions
+- Add type hints where possible
+- Keep functions focused and small
+
+### Testing Guidelines
+
+- Write unit tests for new features
+- Maintain > 80% code coverage
+- Test edge cases and error conditions
+- Use fixtures for common test data
+
+## 📄 License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+### Documentation
+
+- [API Guide](API_GUIDE.md) - Detailed API documentation
+- [How to Use](how-to-use.md) - Step-by-step usage examples
+- [Deployment Guide](DEPLOYMENT.md) - Production deployment instructions
+- [PRD](PRD%20LANGCHAIN%20API.md) - Product requirements document
+
+### Getting Help
+
+- **GitHub Issues**: Report bugs or request features
+- **Discussions**: Ask questions and share ideas
+- **Email**: support@yourapp.com
+
+### Community
+
+- Star the repository if you find it useful
+- Share your use cases and feedback
+- Contribute improvements and bug fixes
+
+## 📝 Changelog
+
+### v1.2.0 (Current)
+
+- ✨ Added MCP (Model Context Protocol) integration
+- ✨ Added RAG support with pgvector embeddings
+- ✨ Added session-based conversation memory
+- ✨ Added document upload and processing
+- ✨ Added allowed_tools whitelist for MCP
+- 🐛 Fixed Google OAuth scope validation
+- 🐛 Fixed token refresh mechanism
+- 📚 Updated comprehensive documentation
 
 ### v1.1.0
-- **Fixed Google OAuth scope validation issues** - Now handles automatic scope expansion from Google
-- **Enhanced token refresh mechanism** - Gracefully handles scope changes during token refresh
-- **Improved error handling** - Better error messages for authentication failures
+
+- 🐛 Fixed Google OAuth scope expansion handling
+- 🐛 Enhanced token refresh with scope changes
+- 📚 Improved error messages for authentication
 
 ### v1.0.0
-- Initial release
-- Basic agent management
-- Google OAuth integration
-- Built-in tools (Gmail, Google Sheets, Google Calendar, file operations)
-- Custom tool registration
-- LangChain integration
-- Docker deployment setup
 
-## Troubleshooting
+- 🎉 Initial release
+- ✨ Basic agent management
+- ✨ Google OAuth integration
+- ✨ Built-in tools (Gmail, Sheets, Calendar, Drive)
+- ✨ Custom tool registration
+- ✨ LangChain integration
+- 🐳 Docker deployment setup
 
-### Google OAuth Issues
+## 🙏 Acknowledgments
 
-**Q: I'm getting "Scope has changed" errors during Google authentication**
-A: This is normal behavior. Google automatically adds broader scopes when certain scopes (like `drive.file`) are requested. The system now handles these changes gracefully.
+Built with:
 
-**Q: My Google OAuth was working but now fails**
-A: Google may have updated their scope requirements. Try re-authenticating by:
-1. Calling `/api/v1/auth/google/auth` again
-2. Following the OAuth flow
-3. The system will automatically handle scope differences
+- [FastAPI](https://fastapi.tiangolo.com/) - Modern web framework
+- [LangChain](https://python.langchain.com/) - LLM application framework
+- [PostgreSQL](https://www.postgresql.org/) - Relational database
+- [pgvector](https://github.com/pgvector/pgvector) - Vector similarity search
+- [Redis](https://redis.io/) - In-memory data store
+- [OpenAI](https://openai.com/) - LLM provider
 
-**Q: I'm missing required Google scopes**
-A: Ensure you've enabled the required APIs in Google Cloud Console:
-- Gmail API
-- Google Calendar API
-- Google Sheets API
-- Google Drive API
-- Google Docs API
+---
+
+**Made with ❤️ by the Clevio Team**
+
+For more information, visit our [website](https://yourapp.com) or check out the [documentation](https://docs.yourapp.com).

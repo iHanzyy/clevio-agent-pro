@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<USAGE
-Usage: DATABASE_URL=postgresql://user:pass@host:5432/db \ 
+Usage: DATABASE_URL=postgresql://user:pass@host:5432/db \
        scripts/install_pgvector.sh
 
 Installs the pgvector extension package (if possible) and enables it in the

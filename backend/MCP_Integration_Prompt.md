@@ -24,7 +24,7 @@
           }'
   ```
 - We **extend** this payload with two **optional** top‑level fields for MCP support:
-  - `mcp_servers`: MCP server registry for this agent (one or more servers).  
+  - `mcp_servers`: MCP server registry for this agent (one or more servers).
   - `allowed_tools`: whitelist of MCP tools (fully‑qualified names, e.g., `market.google_trends`).
 
 **If `mcp_servers`/`allowed_tools` are omitted, load no MCP tools and keep legacy behavior.**
@@ -357,13 +357,13 @@ async def dry_run_tool(agent_id: str, tool_name: str, args: dict, db=Depends(get
 ---
 
 ## 12) Deliverables Codex Must Produce
-1) Alembic migration for Schema A and upgraded successfully  
-2) Updated SQLAlchemy `Agent` model (two new columns)  
-3) Updated Pydantic schemas (create/update/out) including the two optional fields  
-4) Updated CRUD to persist the two fields with safe defaults  
-5) New `app/integrations/mcp.py` that loads & filters MCP tools  
-6) Agent builder updated to merge built‑in tools with MCP tools when present  
-7) API docs/examples updated with payloads in section **9**  
+1) Alembic migration for Schema A and upgraded successfully
+2) Updated SQLAlchemy `Agent` model (two new columns)
+3) Updated Pydantic schemas (create/update/out) including the two optional fields
+4) Updated CRUD to persist the two fields with safe defaults
+5) New `app/integrations/mcp.py` that loads & filters MCP tools
+6) Agent builder updated to merge built‑in tools with MCP tools when present
+7) API docs/examples updated with payloads in section **9**
 8) No breaking changes to existing clients that only send `name`, `tools`, and `config`
 
 ---
@@ -376,9 +376,9 @@ async def dry_run_tool(agent_id: str, tool_name: str, args: dict, db=Depends(get
 ---
 
 ## 14) Test Checklist
-- [ ] Create agent with original payload (no MCP fields) → success, runs with built‑in tools only.  
-- [ ] Create agent with one MCP server and a couple of `allowed_tools` → MCP tools are available and callable.  
-- [ ] Create agent with two MCP servers → union of selected tools is available.  
-- [ ] Invalid MCP config → 422 with helpful error.  
-- [ ] Missing/unknown tool in `allowed_tools` → excluded gracefully.  
-- [ ] Dry‑run endpoint can call a selected MCP tool and returns output.  
+- [ ] Create agent with original payload (no MCP fields) → success, runs with built‑in tools only.
+- [ ] Create agent with one MCP server and a couple of `allowed_tools` → MCP tools are available and callable.
+- [ ] Create agent with two MCP servers → union of selected tools is available.
+- [ ] Invalid MCP config → 422 with helpful error.
+- [ ] Missing/unknown tool in `allowed_tools` → excluded gracefully.
+- [ ] Dry‑run endpoint can call a selected MCP tool and returns output.

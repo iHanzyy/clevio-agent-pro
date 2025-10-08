@@ -244,7 +244,7 @@ class ExecutionService:
             )
         if "google_sheets" in tool_names_lower:
             guidance_blocks.append(
-                "For spreadsheet actions, call the Google Sheets tool with the requested operation and range." 
+                "For spreadsheet actions, call the Google Sheets tool with the requested operation and range."
                 "Do not fabricate spreadsheet contents."
             )
         if "google_calendar" in tool_names_lower:
