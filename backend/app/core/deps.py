@@ -7,12 +7,12 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.security import verify_token
 from app.models import User
-from app.models.auth import ApiKey
 from app.services.auth_service import AuthService
 from app.services.agent_service import AgentService
 from app.services.tool_service import ToolService
 from app.services.execution_service import ExecutionService
 from app.services.embedding_service import EmbeddingService
+from app.core.logging import logger
 
 security = HTTPBearer()
 
@@ -21,26 +21,61 @@ def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
-    """Get current authenticated user"""
-    token = credentials.credentials
-    user_id = verify_token(token)
-
-    if user_id is None:
+    """Get current authenticated user via JWT token"""
+    try:
+        token = credentials.credentials
+        
+        logger.info(f"🔐 Authenticating JWT token: {token[:20]}...")
+        
+        # ONLY verify JWT - don't check api_keys table
+        try:
+            payload = verify_token(token)
+            user_id = payload.get("sub")
+            
+            logger.info(f"✅ JWT valid, user_id: {user_id}")
+            
+            if not user_id:
+                logger.error("❌ JWT missing 'sub' claim")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid authentication token"
+                )
+            
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                logger.error(f"❌ User not found: {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found"
+                )
+            
+            if not user.is_active:
+                logger.error(f"❌ User inactive: {user.email}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Inactive user"
+                )
+            
+            logger.info(f"✅ User authenticated: {user.email}")
+            return user
+            
+        except HTTPException:
+            raise
+        except Exception as jwt_error:
+            logger.error(f"❌ JWT verification failed: {str(jwt_error)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Authentication error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail=str(e)
         )
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
 
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
@@ -50,78 +85,26 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     return current_user
 
 
-def get_api_key_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
-) -> User:
-    """Get user from API key token (must exist in api_keys table)"""
-    token = credentials.credentials
-    user_id = verify_token(token)
-
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Check if this is a valid API key (exists in api_keys table)
-    api_key = db.query(ApiKey).filter(
-        ApiKey.access_token == token,
-        ApiKey.user_id == user_id,
-        ApiKey.is_active == True
-    ).first()
-
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Check if API key is expired
-    from datetime import timezone
-    if api_key.expires_at < datetime.now(timezone.utc):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API key expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
-
-    return user
-
-
+# Service dependencies
 def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
-    """Get auth service instance"""
     return AuthService(db)
 
 
-def get_agent_service(db: Session = Depends(get_db)) -> AgentService:
-    """Get agent service instance"""
-    return AgentService(db)
+def get_agent_service(
+    db: Session = Depends(get_db)
+) -> AgentService:
+    return AgentService(db)  # REMOVED current_user.id - AgentService doesn't need it in __init__
 
 
 def get_tool_service(db: Session = Depends(get_db)) -> ToolService:
-    """Get tool service instance"""
     return ToolService(db)
 
 
-def get_execution_service(db: Session = Depends(get_db)) -> ExecutionService:
-    """Get execution service instance"""
-    return ExecutionService(db)
+def get_execution_service(
+    db: Session = Depends(get_db)
+) -> ExecutionService:
+    return ExecutionService(db)  # REMOVED current_user.id - ExecutionService doesn't need it in __init__
 
 
 def get_embedding_service(db: Session = Depends(get_db)) -> EmbeddingService:
-    """Get embedding service instance"""
     return EmbeddingService(db)

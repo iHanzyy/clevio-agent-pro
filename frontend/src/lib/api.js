@@ -1,27 +1,39 @@
 const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
-// Or use the tunnel URL if you fixed CORS
-// const API_BASE_URL = "https://5qv3wb2p-8000.asse.devtunnels.ms/api/v1";
 
 class ApiService {
   constructor() {
     this.baseUrl = API_BASE_URL;
     this.token = null;
+    this.initialized = false;
 
     // Load token from sessionStorage on initialization
     if (typeof window !== "undefined") {
-      this.token = sessionStorage.getItem("auth_token");
+      const savedToken = sessionStorage.getItem("auth_token");
+      if (savedToken) {
+        this.token = savedToken;
+        this.initialized = true;
+        console.log("🔑 Token loaded from sessionStorage on init"); // Debug
+      }
     }
   }
 
   setToken(token) {
+    console.log("🔑 Setting token:", token ? "***" + token.slice(-10) : "null"); // Debug
     this.token = token;
+    this.initialized = true;
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("auth_token", token);
+      if (token) {
+        sessionStorage.setItem("auth_token", token);
+      } else {
+        sessionStorage.removeItem("auth_token");
+      }
     }
   }
 
   clearToken() {
+    console.log("🗑️ Clearing token"); // Debug
     this.token = null;
+    this.initialized = false;
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("auth_token");
     }
@@ -34,6 +46,9 @@ class ApiService {
 
     if (includeAuth && this.token) {
       headers["Authorization"] = `Bearer ${this.token}`;
+      console.log("📤 Request with auth header"); // Debug
+    } else if (includeAuth && !this.token) {
+      console.warn("⚠️ Auth requested but no token available"); // Debug
     }
 
     return headers;
@@ -41,16 +56,27 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
+
+    // Add more detailed logging
+    console.log(`🌐 API Request: ${options.method || "GET"} ${endpoint}`, {
+      hasToken: !!this.token,
+      includeAuth: options.auth || options.includeAuth,
+    });
+
     const config = {
       ...options,
       headers: {
-        ...this.getHeaders(options.auth),
+        ...this.getHeaders(options.auth || options.includeAuth),
         ...options.headers,
       },
     };
 
     try {
       const response = await fetch(url, config);
+
+      // Log response status
+      console.log(`📥 Response: ${response.status} ${response.statusText}`);
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -61,7 +87,7 @@ class ApiService {
 
       return data;
     } catch (error) {
-      console.error("API Request failed:", error);
+      console.error("❌ API Request failed:", error);
       throw error;
     }
   }
@@ -89,8 +115,15 @@ class ApiService {
   async createPayment(planCode) {
     return this.request("/payment/create", {
       method: "POST",
-      auth: true,
       body: JSON.stringify({ plan_code: planCode }),
+      auth: true,
+    });
+  }
+
+  async completeMockPayment(orderId) {
+    return this.request(`/payment/mock-complete/${orderId}`, {
+      method: "POST",
+      auth: true,
     });
   }
 

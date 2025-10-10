@@ -42,6 +42,7 @@ export default function Payment() {
     document.head.appendChild(script);
   };
 
+  // Update the handlePayment function to handle mock tokens
   const handlePayment = async () => {
     if (!selectedPlan) {
       setError("Please select a payment plan");
@@ -54,11 +55,33 @@ export default function Payment() {
     try {
       const paymentData = await apiService.createPayment(selectedPlan);
 
-      // Use Midtrans Snap
+      // Check if it's a mock token (for development)
+      if (paymentData.snap_token.startsWith("mock_")) {
+        // Mock payment - update subscription and redirect
+        console.log("Mock payment detected, updating subscription...");
+
+        // Wait a bit for database to update
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Update subscription status
+        const updatedStatus = await updateSubscription();
+        console.log("Updated subscription status:", updatedStatus);
+
+        if (updatedStatus && updatedStatus.is_active) {
+          alert("Mock payment successful! (Development mode)");
+          router.push("/dashboard");
+        } else {
+          setError(
+            "Payment completed but subscription not activated. Please contact support."
+          );
+        }
+        return;
+      }
+
+      // Use Midtrans Snap for real payments
       if (window.snap && paymentConfig) {
         window.snap.pay(paymentData.snap_token, {
           onSuccess: async (result) => {
-            // Payment successful, redirect to dashboard
             await updateSubscription();
             router.push("/dashboard");
           },
@@ -76,6 +99,7 @@ export default function Payment() {
         setError("Payment system not available");
       }
     } catch (error) {
+      console.error("Payment error:", error);
       setError(error.message || "Payment failed");
     } finally {
       setLoading(false);

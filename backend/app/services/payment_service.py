@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
 
@@ -8,9 +8,10 @@ from sqlalchemy import update
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.user import User
+from app.models import Payment, ApiKey
 from app.schemas.payment import (
     PaymentPlan, PaymentCreateResponse, PaymentWebhookRequest,
-    PaymentHistoryResponse, SubscriptionStatusResponse
+    PaymentHistoryResponse, SubscriptionStatusResponse  # REMOVED SubscriptionStatus
 )
 
 # Import Payment model only if it exists
@@ -70,7 +71,7 @@ class PaymentService:
             
             try:
                 # Calculate expiration date
-                expires_at = datetime.utcnow() + timedelta(days=plan.duration_days)
+                expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
                 
                 # Use direct SQL update to ensure changes persist
                 result = self.db.execute(
@@ -120,7 +121,7 @@ class PaymentService:
                     gross_amount=plan.price,
                     plan_code=plan_code,
                     transaction_status=payment_status,
-                    transaction_time=datetime.utcnow() if payment_status == "settlement" else None
+                    transaction_time=datetime.now(timezone.utc) if payment_status == "settlement" else None
                 )
                 self.db.add(payment)
                 self.db.commit()
@@ -204,7 +205,7 @@ class PaymentService:
             # Update payment status
             payment.transaction_status = webhook_data.transaction_status
             payment.transaction_id = webhook_data.transaction_id
-            payment.transaction_time = datetime.utcnow()
+            payment.transaction_time = datetime.now(timezone.utc)
             
             # If payment successful, activate user subscription
             if webhook_data.transaction_status == "settlement":
@@ -213,7 +214,7 @@ class PaymentService:
                     plan = self.plans[payment.plan_code]
                     user.is_active = True
                     if hasattr(user, 'subscription_expires_at'):
-                        user.subscription_expires_at = datetime.utcnow() + timedelta(days=plan.duration_days)
+                        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
                     if hasattr(user, 'subscription_plan'):
                         user.subscription_plan = payment.plan_code
             
@@ -249,46 +250,46 @@ class PaymentService:
     def get_subscription_status(self, user: User) -> SubscriptionStatusResponse:
         """Get user's current subscription status"""
         try:
-            # Query fresh user from database
-            fresh_user = self.db.query(User).filter(User.id == user.id).first()
-            if not fresh_user:
-                return SubscriptionStatusResponse(is_active=False)
-            
-            # Check if user has subscription fields
-            if not hasattr(fresh_user, 'subscription_expires_at'):
-                # For development, return active status
-                logger.warning(f"User {user.id} missing subscription fields")
-                return SubscriptionStatusResponse(
-                    is_active=True,
-                    expires_at=None,
-                    plan_code="DEV",
-                    days_remaining=999
+            # Get the most recent active API key
+            active_key = (
+                self.db.query(ApiKey)
+                .filter(
+                    ApiKey.user_id == user.id,
+                    ApiKey.is_active == True
                 )
-            
-            if not fresh_user.is_active:
-                return SubscriptionStatusResponse(is_active=False)
-            
-            if fresh_user.subscription_expires_at and fresh_user.subscription_expires_at < datetime.utcnow():
-                # Subscription expired, deactivate user
-                fresh_user.is_active = False
-                self.db.commit()
-                return SubscriptionStatusResponse(is_active=False)
-            
-            days_remaining = None
-            if fresh_user.subscription_expires_at:
-                days_remaining = (fresh_user.subscription_expires_at - datetime.utcnow()).days
-            
-            return SubscriptionStatusResponse(
-                is_active=True,
-                expires_at=getattr(fresh_user, 'subscription_expires_at', None),
-                plan_code=getattr(fresh_user, 'subscription_plan', 'DEV'),
-                days_remaining=days_remaining
+                .order_by(ApiKey.expires_at.desc())
+                .first()
             )
-        except Exception as e:
-            logger.error(f"Error getting subscription status: {e}")
-            # If any error occurs, return active status for development
+
+            # Make sure we're comparing timezone-aware datetimes
+            now = datetime.now(timezone.utc)
+
+            if active_key:
+                # Ensure expires_at is timezone-aware
+                expires_at = active_key.expires_at
+                if expires_at.tzinfo is None:
+                    # If naive, assume UTC
+                    expires_at = expires_at.replace(tzinfo=timezone.utc)
+                
+                is_active = expires_at > now
+                
+                return SubscriptionStatusResponse(
+                    is_active=is_active,
+                    plan_code=active_key.plan_code,
+                    expires_at=expires_at
+                )
+
             return SubscriptionStatusResponse(
-                is_active=True,
-                expires_at=None,
-                plan_code="DEV"
+                is_active=False,
+                plan_code=None,
+                expires_at=None
+            )
+
+        except Exception as e:
+            logger.error(f"Error getting subscription status: {str(e)}")
+            # Return inactive status on error
+            return SubscriptionStatusResponse(
+                is_active=False,
+                plan_code=None,
+                expires_at=None
             )
