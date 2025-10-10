@@ -82,6 +82,29 @@ export default function Payment() {
       if (window.snap && paymentConfig) {
         window.snap.pay(paymentData.snap_token, {
           onSuccess: async (result) => {
+            try {
+              if (result?.order_id) {
+                await apiService.confirmPayment({
+                  order_id: result.order_id,
+                  transaction_status: result.transaction_status || "settlement",
+                  transaction_id: result.transaction_id,
+                  gross_amount:
+                    result.gross_amount !== undefined
+                      ? String(result.gross_amount)
+                      : undefined,
+                  payment_type: result.payment_type,
+                  transaction_time: result.transaction_time,
+                });
+              }
+            } catch (confirmError) {
+              console.error("Payment confirmation failed:", confirmError);
+              setError(
+                confirmError.message ||
+                  "Payment succeeded, but confirmation failed. Please contact support."
+              );
+              return;
+            }
+
             await updateSubscription();
             router.push("/dashboard");
           },

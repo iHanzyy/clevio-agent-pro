@@ -6,7 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function DashboardLayout({ children }) {
-  const { user, subscription, loading, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const subscription = user?.subscription;
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false); // ✅ Changed to false
@@ -28,28 +29,44 @@ export default function DashboardLayout({ children }) {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    const storedPreference = localStorage.getItem("darkMode");
+    if (storedPreference !== null) {
+      setDarkMode(storedPreference === "true");
+    } else if (window.matchMedia) {
+      const prefersDark = window.matchMedia(
+        "(prefers-color-scheme: dark)"
+      ).matches;
+      setDarkMode(prefersDark);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("darkMode", darkMode.toString());
+    }
+  }, [darkMode]);
+
+  useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
 
-  useEffect(() => {
-    const isDark = localStorage.getItem("darkMode") === "true";
-    setDarkMode(isDark);
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
-
   const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem("darkMode", newDarkMode.toString());
-    if (newDarkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    setDarkMode((prev) => !prev);
   };
 
   const toggleSidebar = () => {

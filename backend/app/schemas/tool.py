@@ -40,6 +40,7 @@ class ToolResponse(BaseModel):
 
 
 class ToolExecuteRequest(BaseModel):
+    tool_id: str = Field(..., description="Tool identifier (UUID) or name")
     parameters: Dict[str, Any] = Field(default_factory=dict)
 
 

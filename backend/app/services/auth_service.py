@@ -396,3 +396,64 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to refresh token: {str(e)}"
             )
+
+    async def handle_google_callback(
+        self,
+        code: str,
+        state: str,
+        scope: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Finalise the Google OAuth handshake: validate state, exchange the code,
+        persist tokens, and return summary metadata.
+        """
+        if not state:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing OAuth state parameter"
+            )
+
+        try:
+            padding = "=" * (-len(state) % 4)
+            decoded_state = base64.urlsafe_b64decode(state + padding).decode("utf-8")
+            state_payload = json.loads(decoded_state)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OAuth state parameter"
+            ) from exc
+
+        user_id = state_payload.get("u")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OAuth state is missing user identifier"
+            )
+
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found for OAuth callback"
+            )
+
+        requested_scopes = state_payload.get("s") or []
+        if isinstance(requested_scopes, str):
+            requested_scopes = requested_scopes.split()
+
+        if scope:
+            requested_scopes = normalize_scopes(scope.split())
+        else:
+            requested_scopes = normalize_scopes(requested_scopes)
+
+        token_data = self.exchange_google_code(code, state, scopes=requested_scopes)
+        auth_record = self.save_auth_token(str(user.id), token_data)
+
+        return {
+            "user_id": str(user.id),
+            "email": user.email,
+            "scope": auth_record.scope,
+            "expires_at": auth_record.expires_at,
+            "access_token": token_data["access_token"],
+            "refresh_token": token_data.get("refresh_token"),
+        }

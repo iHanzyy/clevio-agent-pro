@@ -4,7 +4,6 @@ from typing import List, Optional, Dict, Any
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
-from sqlalchemy import update
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.user import User
@@ -50,15 +49,15 @@ class PaymentService:
         """Create payment transaction"""
         if plan_code not in self.plans:
             raise ValueError(f"Invalid plan code: {plan_code}")
-        
+
         plan = self.plans[plan_code]
-        
+
         # Generate order_id FIRST before using it
         user_prefix = str(user.id).replace("-", "")[:10]
         order_id = f"ORD-{user_prefix}-{uuid4().hex[:6]}"
-        
+
         logger.info(f"Creating payment for user {user.id}, plan: {plan_code}")
-        
+
         # Check if we have real Midtrans credentials
         if settings.MIDTRANS_SERVER_KEY and settings.MIDTRANS_CLIENT_KEY:
             # Use real Midtrans
@@ -68,57 +67,55 @@ class PaymentService:
             # Use mock for development - IMMEDIATELY activate user
             snap_token = f"mock_snap_token_{uuid4().hex[:8]}"
             logger.info(f"🎭 MOCK PAYMENT MODE - Activating user {user.id}")
-            
+
             try:
                 # Calculate expiration date
                 expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
-                
-                # Step 1: Update user status
-                result = self.db.execute(
-                    update(User)
-                    .where(User.id == user.id)
-                    .values(
-                        is_active=True,
-                        subscription_expires_at=expires_at,
-                        subscription_plan=plan_code
-                    )
-                )
-                
-                logger.info(f"✅ User status updated, rows affected: {result.rowcount}")
-                
+
+                # Step 1: Update user status in-session so identity map stays consistent
+                user.is_active = True
+                if hasattr(user, "subscription_expires_at"):
+                    user.subscription_expires_at = expires_at
+                if hasattr(user, "subscription_plan"):
+                    user.subscription_plan = plan_code
+
+                logger.info("✅ User status updated in mock payment", user_id=str(user.id))
+
                 # Step 2: Create or update API key for the user
                 existing_key = self.db.query(ApiKey).filter(
                     ApiKey.user_id == user.id,
                     ApiKey.plan_code == plan_code
                 ).first()
-                
+
                 if existing_key:
                     # Update existing key
                     existing_key.is_active = True
                     existing_key.expires_at = expires_at
+                    existing_key.access_token = existing_key.access_token or f"sk-{uuid4().hex}"
                     logger.info(f"♻️ Updated existing API key: {existing_key.id}")
                 else:
                     # Create new API key
                     api_key = ApiKey(
                         user_id=user.id,
-                        key=f"sk-{uuid4().hex}",
+                        access_token=f"sk-{uuid4().hex}",
                         plan_code=plan_code,
                         expires_at=expires_at,
-                        is_active=True
+                        is_active=True,
+                        created_at=datetime.now(timezone.utc)
                     )
                     self.db.add(api_key)
                     logger.info(f"🔑 Created new API key for user")
-                
-                # Commit all changes
+
+                # Commit all changes and refresh user state in-session
                 self.db.commit()
-                
-                # Verify the update
-                updated_user = self.db.query(User).filter(User.id == user.id).first()
+                self.db.refresh(user)
+
+                updated_user = user
                 api_keys_count = self.db.query(ApiKey).filter(
                     ApiKey.user_id == user.id,
                     ApiKey.is_active == True
                 ).count()
-                
+
                 logger.info(
                     f"✅ MOCK PAYMENT ACTIVATION COMPLETE",
                     user_id=str(updated_user.id),
@@ -127,26 +124,26 @@ class PaymentService:
                     expires_at=getattr(updated_user, 'subscription_expires_at', None),
                     active_api_keys=api_keys_count
                 )
-                
+
                 if not updated_user.is_active:
                     logger.error(f"❌ WARNING: User {user.id} is still inactive after update!")
                     raise Exception("Failed to activate user")
-                
+
                 if api_keys_count == 0:
                     logger.error(f"❌ WARNING: No active API keys for user {user.id}!")
                     raise Exception("Failed to create API key")
-                    
+
             except Exception as e:
                 logger.error(f"❌ Failed to activate user in mock mode: {e}")
                 self.db.rollback()
                 raise
-        
+
         # Create payment record only if Payment model exists
         if PAYMENT_MODEL_AVAILABLE:
             try:
                 # Set status to 'settlement' immediately for mock payments
                 payment_status = "settlement" if snap_token.startswith("mock_") else "pending"
-                
+
                 payment = Payment(
                     user_id=user.id,
                     order_id=order_id,
@@ -172,18 +169,18 @@ class PaymentService:
         """Create Midtrans Snap transaction"""
         import requests
         import base64
-        
+
         # Create base64 encoded auth header
         auth_string = f"{settings.MIDTRANS_SERVER_KEY}:"
         auth_bytes = auth_string.encode('ascii')
         auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
-        
+
         # Midtrans API endpoint
         if settings.MIDTRANS_IS_PRODUCTION:
             url = "https://app.midtrans.com/snap/v1/transactions"
         else:
             url = "https://app.sandbox.midtrans.com/snap/v1/transactions"
-        
+
         # Transaction details
         payload = {
             "transaction_details": {
@@ -211,10 +208,10 @@ class PaymentService:
         try:
             response = requests.post(url, json=payload, headers=headers)
             response.raise_for_status()
-            
+
             result = response.json()
             return result["token"]
-            
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Midtrans API Error: {e}")
             if hasattr(e, 'response') and e.response is not None:
@@ -225,54 +222,59 @@ class PaymentService:
         """Handle Midtrans webhook notification"""
         if not PAYMENT_MODEL_AVAILABLE:
             return True
-            
+
         try:
             payment = self.db.query(Payment).filter(
                 Payment.order_id == webhook_data.order_id
             ).first()
-            
+
             if not payment:
                 return False
-            
+
             # Update payment status
             payment.transaction_status = webhook_data.transaction_status
             payment.transaction_id = webhook_data.transaction_id
             payment.transaction_time = datetime.now(timezone.utc)
-            
+
             # If payment successful, activate user subscription
+            user = None
             if webhook_data.transaction_status == "settlement":
                 user = self.db.query(User).filter(User.id == payment.user_id).first()
                 if user:
                     plan = self.plans[payment.plan_code]
                     expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
-                    
+
                     # Update user
                     user.is_active = True
                     if hasattr(user, 'subscription_expires_at'):
                         user.subscription_expires_at = expires_at
                     if hasattr(user, 'subscription_plan'):
                         user.subscription_plan = payment.plan_code
-                    
+
                     # Create/update API key
                     api_key = self.db.query(ApiKey).filter(
                         ApiKey.user_id == user.id
                     ).first()
-                    
+
                     if api_key:
                         api_key.is_active = True
                         api_key.expires_at = expires_at
                         api_key.plan_code = payment.plan_code
+                        api_key.access_token = api_key.access_token or f"sk-{uuid4().hex}"
                     else:
                         api_key = ApiKey(
                             user_id=user.id,
-                            key=f"sk-{uuid4().hex}",
+                            access_token=f"sk-{uuid4().hex}",
                             plan_code=payment.plan_code,
                             expires_at=expires_at,
-                            is_active=True
+                            is_active=True,
+                            created_at=datetime.now(timezone.utc)
                         )
                         self.db.add(api_key)
-            
+
             self.db.commit()
+            if webhook_data.transaction_status == "settlement" and user:
+                self.db.refresh(user)
             return True
         except Exception as e:
             logger.error(f"Webhook processing failed: {e}")
@@ -283,12 +285,12 @@ class PaymentService:
         """Get user's payment history"""
         if not PAYMENT_MODEL_AVAILABLE:
             return []
-            
+
         try:
             payments = self.db.query(Payment).filter(
                 Payment.user_id == user.id
             ).order_by(Payment.created_at.desc()).all()
-            
+
             return [
                 PaymentHistoryResponse(
                     id=payment.id,
@@ -326,9 +328,9 @@ class PaymentService:
                 if expires_at.tzinfo is None:
                     # If naive, assume UTC
                     expires_at = expires_at.replace(tzinfo=timezone.utc)
-                
+
                 is_active = expires_at > now
-                
+
                 logger.info(
                     f"📊 Subscription status check",
                     user_id=str(user.id),
@@ -336,7 +338,7 @@ class PaymentService:
                     plan_code=active_key.plan_code,
                     expires_at=expires_at
                 )
-                
+
                 return SubscriptionStatusResponse(
                     is_active=is_active,
                     plan_code=active_key.plan_code,
@@ -344,7 +346,15 @@ class PaymentService:
                 )
 
             logger.warning(f"⚠️ No active API key found for user {user.id}")
-            
+
+            # Fallback to user record if available (e.g., activation occurred but key missing)
+            if getattr(user, "is_active", False):
+                return SubscriptionStatusResponse(
+                    is_active=True,
+                    plan_code=getattr(user, "subscription_plan", None),
+                    expires_at=getattr(user, "subscription_expires_at", None)
+                )
+
             return SubscriptionStatusResponse(
                 is_active=False,
                 plan_code=None,

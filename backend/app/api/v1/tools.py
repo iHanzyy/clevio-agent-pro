@@ -102,8 +102,8 @@ async def execute_tool(
     try:
         result = tool_service.execute_tool(
             request.tool_id,
-            current_user.id,
-            request.parameters
+            request.parameters,
+            current_user.id
         )
         return result
     except Exception as e:

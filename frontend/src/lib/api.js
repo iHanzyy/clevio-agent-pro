@@ -107,6 +107,13 @@ class ApiService {
     });
   }
 
+  async loginForPayment(email, password) {
+    return this.request("/auth/login-for-payment", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+  }
+
   // Payment endpoints
   async getPaymentPlans() {
     return this.request("/payment/plans");
@@ -116,6 +123,14 @@ class ApiService {
     return this.request("/payment/create", {
       method: "POST",
       body: JSON.stringify({ plan_code: planCode }),
+      auth: true,
+    });
+  }
+
+  async confirmPayment(payload) {
+    return this.request("/payment/confirm", {
+      method: "POST",
+      body: JSON.stringify(payload),
       auth: true,
     });
   }

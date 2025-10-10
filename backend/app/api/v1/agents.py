@@ -147,7 +147,7 @@ async def execute_agent(
 ):
     """Execute an agent"""
     try:
-        execution = execution_service.execute_agent(
+        execution = await execution_service.execute_agent(
             agent_id,
             current_user.id,
             execute_data.input,

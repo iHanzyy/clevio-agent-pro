@@ -221,19 +221,19 @@ async def process_google_callback(
     """
     try:
         logger.info("Processing Google OAuth callback", state=state)
-        
+
         # Handle the OAuth callback
         result = await auth_service.handle_google_callback(code, state, scope)
-        
+
         logger.info("✅ Google OAuth successful", user_id=result.get("user_id"))
-        
+
         # Return success response
         return {
             "status": "success",
             "message": "Google authentication successful",
             "data": result
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

@@ -20,7 +20,11 @@ export default function Login() {
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
-        router.push("/dashboard");
+        if (result.redirect === "payment") {
+          router.push("/payment");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         setError(
           result.error || "Login failed. Please check your credentials."

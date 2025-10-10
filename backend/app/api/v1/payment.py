@@ -80,7 +80,7 @@ async def complete_mock_payment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Mock completion only available in development"
         )
-    
+
     # Simulate webhook data
     webhook_data = PaymentWebhookRequest(
         order_id=order_id,
@@ -89,16 +89,34 @@ async def complete_mock_payment(
         gross_amount="100000",
         payment_type="mock"
     )
-    
+
     success = payment_service.handle_webhook(webhook_data)
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to complete mock payment"
         )
-    
+
     return {"status": "success", "message": "Mock payment completed"}
+
+
+@router.post("/confirm")
+async def confirm_payment(
+    payload: PaymentWebhookRequest,
+    current_user: User = Depends(get_current_user_for_payment),
+    payment_service: PaymentService = Depends(get_payment_service)
+):
+    """Manually confirm a payment when webhooks are unavailable."""
+    success = payment_service.handle_webhook(payload)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to confirm payment"
+        )
+
+    return {"status": "success"}
 
 
 @router.get("/history", response_model=List[PaymentHistoryResponse])
@@ -117,7 +135,7 @@ async def get_subscription_status(
 ):
     """Get current user's subscription status"""
     status_result = payment_service.get_subscription_status(current_user)
-    
+
     # Log for debugging
     from app.core.logging import logger
     logger.info(
@@ -126,5 +144,5 @@ async def get_subscription_status(
         is_active=status_result.is_active,
         plan_code=status_result.plan_code
     )
-    
+
     return status_result
