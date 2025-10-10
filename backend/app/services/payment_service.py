@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models import Payment, ApiKey
 from app.schemas.payment import (
     PaymentPlan, PaymentCreateResponse, PaymentWebhookRequest,
-    PaymentHistoryResponse, SubscriptionStatusResponse  # REMOVED SubscriptionStatus
+    PaymentHistoryResponse, SubscriptionStatusResponse
 )
 
 # Import Payment model only if it exists
@@ -67,13 +67,13 @@ class PaymentService:
         else:
             # Use mock for development - IMMEDIATELY activate user
             snap_token = f"mock_snap_token_{uuid4().hex[:8]}"
-            logger.info(f"Mock payment mode - activating user {user.id}")
+            logger.info(f"🎭 MOCK PAYMENT MODE - Activating user {user.id}")
             
             try:
                 # Calculate expiration date
                 expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
                 
-                # Use direct SQL update to ensure changes persist
+                # Step 1: Update user status
                 result = self.db.execute(
                     update(User)
                     .where(User.id == user.id)
@@ -84,28 +84,60 @@ class PaymentService:
                     )
                 )
                 
-                # Commit the changes
+                logger.info(f"✅ User status updated, rows affected: {result.rowcount}")
+                
+                # Step 2: Create or update API key for the user
+                existing_key = self.db.query(ApiKey).filter(
+                    ApiKey.user_id == user.id,
+                    ApiKey.plan_code == plan_code
+                ).first()
+                
+                if existing_key:
+                    # Update existing key
+                    existing_key.is_active = True
+                    existing_key.expires_at = expires_at
+                    logger.info(f"♻️ Updated existing API key: {existing_key.id}")
+                else:
+                    # Create new API key
+                    api_key = ApiKey(
+                        user_id=user.id,
+                        key=f"sk-{uuid4().hex}",
+                        plan_code=plan_code,
+                        expires_at=expires_at,
+                        is_active=True
+                    )
+                    self.db.add(api_key)
+                    logger.info(f"🔑 Created new API key for user")
+                
+                # Commit all changes
                 self.db.commit()
                 
-                logger.info(f"SQL UPDATE executed, rows affected: {result.rowcount}")
-                
-                # Verify the update by querying fresh
+                # Verify the update
                 updated_user = self.db.query(User).filter(User.id == user.id).first()
+                api_keys_count = self.db.query(ApiKey).filter(
+                    ApiKey.user_id == user.id,
+                    ApiKey.is_active == True
+                ).count()
+                
                 logger.info(
-                    f"User activation verified",
+                    f"✅ MOCK PAYMENT ACTIVATION COMPLETE",
                     user_id=str(updated_user.id),
                     is_active=updated_user.is_active,
                     plan=getattr(updated_user, 'subscription_plan', None),
-                    expires_at=getattr(updated_user, 'subscription_expires_at', None)
+                    expires_at=getattr(updated_user, 'subscription_expires_at', None),
+                    active_api_keys=api_keys_count
                 )
                 
                 if not updated_user.is_active:
                     logger.error(f"❌ WARNING: User {user.id} is still inactive after update!")
-                else:
-                    logger.info(f"✅ User {user.id} successfully activated")
+                    raise Exception("Failed to activate user")
+                
+                if api_keys_count == 0:
+                    logger.error(f"❌ WARNING: No active API keys for user {user.id}!")
+                    raise Exception("Failed to create API key")
                     
             except Exception as e:
-                logger.error(f"Failed to activate user: {e}")
+                logger.error(f"❌ Failed to activate user in mock mode: {e}")
                 self.db.rollback()
                 raise
         
@@ -125,7 +157,7 @@ class PaymentService:
                 )
                 self.db.add(payment)
                 self.db.commit()
-                logger.info(f"Payment record created: {order_id}")
+                logger.info(f"💳 Payment record created: {order_id}, status: {payment_status}")
             except Exception as e:
                 logger.error(f"Payment record creation failed: {e}")
                 pass
@@ -212,15 +244,39 @@ class PaymentService:
                 user = self.db.query(User).filter(User.id == payment.user_id).first()
                 if user:
                     plan = self.plans[payment.plan_code]
+                    expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
+                    
+                    # Update user
                     user.is_active = True
                     if hasattr(user, 'subscription_expires_at'):
-                        user.subscription_expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
+                        user.subscription_expires_at = expires_at
                     if hasattr(user, 'subscription_plan'):
                         user.subscription_plan = payment.plan_code
+                    
+                    # Create/update API key
+                    api_key = self.db.query(ApiKey).filter(
+                        ApiKey.user_id == user.id
+                    ).first()
+                    
+                    if api_key:
+                        api_key.is_active = True
+                        api_key.expires_at = expires_at
+                        api_key.plan_code = payment.plan_code
+                    else:
+                        api_key = ApiKey(
+                            user_id=user.id,
+                            key=f"sk-{uuid4().hex}",
+                            plan_code=payment.plan_code,
+                            expires_at=expires_at,
+                            is_active=True
+                        )
+                        self.db.add(api_key)
             
             self.db.commit()
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Webhook processing failed: {e}")
+            self.db.rollback()
             return False
 
     def get_payment_history(self, user: User) -> List[PaymentHistoryResponse]:
@@ -273,12 +329,22 @@ class PaymentService:
                 
                 is_active = expires_at > now
                 
+                logger.info(
+                    f"📊 Subscription status check",
+                    user_id=str(user.id),
+                    is_active=is_active,
+                    plan_code=active_key.plan_code,
+                    expires_at=expires_at
+                )
+                
                 return SubscriptionStatusResponse(
                     is_active=is_active,
                     plan_code=active_key.plan_code,
                     expires_at=expires_at
                 )
 
+            logger.warning(f"⚠️ No active API key found for user {user.id}")
+            
             return SubscriptionStatusResponse(
                 is_active=False,
                 plan_code=None,

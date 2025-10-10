@@ -2,7 +2,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Optional
-from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import verify_token
@@ -19,28 +18,28 @@ security = HTTPBearer()
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    require_active: bool = True  # NEW: Make activation check optional
 ) -> User:
     """Get current authenticated user via JWT token"""
     try:
         token = credentials.credentials
-        
+
         logger.info(f"🔐 Authenticating JWT token: {token[:20]}...")
-        
-        # ONLY verify JWT - don't check api_keys table
+
         try:
             payload = verify_token(token)
             user_id = payload.get("sub")
-            
+
             logger.info(f"✅ JWT valid, user_id: {user_id}")
-            
+
             if not user_id:
                 logger.error("❌ JWT missing 'sub' claim")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid authentication token"
                 )
-            
+
             user = db.query(User).filter(User.id == user_id).first()
             if not user:
                 logger.error(f"❌ User not found: {user_id}")
@@ -48,17 +47,18 @@ def get_current_user(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="User not found"
                 )
-            
-            if not user.is_active:
+
+            # Only check is_active if required
+            if require_active and not user.is_active:
                 logger.error(f"❌ User inactive: {user.email}")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Inactive user"
+                    detail="Inactive user. Please complete payment first."
                 )
-            
-            logger.info(f"✅ User authenticated: {user.email}")
+
+            logger.info(f"✅ User authenticated: {user.email}, active: {user.is_active}")
             return user
-            
+
         except HTTPException:
             raise
         except Exception as jwt_error:
@@ -67,7 +67,7 @@ def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token"
             )
-            
+
     except HTTPException:
         raise
     except Exception as e:
@@ -76,6 +76,16 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e)
         )
+
+
+def get_current_user_for_payment(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """
+    Get current user for payment routes - allows INACTIVE users
+    """
+    return get_current_user(credentials, db, require_active=False)
 
 
 def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:

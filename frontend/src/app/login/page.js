@@ -44,10 +44,10 @@ export default function Login() {
         <div className="lg:w-1/2 xl:w-5/12 p-6 sm:p-12">
           <div className="flex items-center justify-center">
             <Image
-              src="/clevioLogo.png"
+              src="/clevioLogoDark.png"
               alt="Clevio Innovator Pro"
-              width={300}
-              height={300}
+              width={200}
+              height={60}
               className="mb-4"
             />
           </div>

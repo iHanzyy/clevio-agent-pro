@@ -199,13 +199,13 @@ async def create_agent_embeddings(
     try:
         content = await file.read()
         text = content.decode('utf-8')
-        
+
         embeddings = embedding_service.create_embeddings(
             agent_id,
             current_user.id,
             text
         )
-        
+
         return {
             "message": "Embeddings created successfully",
             "count": len(embeddings)

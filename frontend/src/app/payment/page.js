@@ -120,7 +120,7 @@ export default function Payment() {
         <div className="w-full p-6 sm:p-12">
           <div className="text-center mb-8">
             <Image
-              src="/clevioLogo.png"
+              src="/clevioLogoDark.png"
               alt="Clevio Logo"
               width={200}
               height={60}

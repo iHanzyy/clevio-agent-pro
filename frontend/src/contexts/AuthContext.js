@@ -1,15 +1,12 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
 import { apiService } from "@/lib/api";
-import { useRouter } from "next/navigation";
 
-const AuthContext = createContext({});
+const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     checkAuth();
@@ -17,42 +14,29 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      const token = sessionStorage.getItem("auth_token");
-      const savedUser = sessionStorage.getItem("user");
+      console.log("🔍 Checking auth - Token exists:", !!apiService.token);
 
-      console.log("🔍 Checking auth - Token exists:", !!token);
-      console.log("🔍 Checking auth - User exists:", !!savedUser);
+      if (!apiService.token) {
+        setLoading(false);
+        return;
+      }
 
-      if (token && savedUser) {
-        // CRITICAL: Set token in apiService FIRST
-        apiService.setToken(token);
+      console.log("✅ Auth restored from session");
 
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-
-        console.log("✅ Auth restored from session");
-
-        // Fetch subscription status (optional, don't fail if it errors)
-        try {
-          const subStatus = await apiService.getSubscriptionStatus();
-          setSubscription(subStatus);
-          console.log("✅ Subscription loaded");
-        } catch (error) {
-          console.warn("⚠️ Failed to fetch subscription:", error.message);
-          // Don't logout on subscription fetch failure
-        }
-      } else {
-        console.log("ℹ️ No saved auth found");
+      // Try to get subscription status to verify token
+      try {
+        const subscription = await apiService.getSubscriptionStatus();
+        setUser({ subscription });
+      } catch (error) {
+        console.warn("⚠️ Failed to fetch subscription:", error.message);
+        // Token might be invalid, clear it
+        apiService.clearToken();
+        setUser(null);
       }
     } catch (error) {
       console.error("❌ Auth check failed:", error);
-      // Only logout on critical errors
-      if (
-        error.message?.includes("Invalid API key") ||
-        error.message?.includes("Unauthorized")
-      ) {
-        logout();
-      }
+      apiService.clearToken();
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -60,81 +44,59 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      console.log("🔐 Attempting login...");
-
+      console.log("🔐 Attempting login for:", email);
       const response = await apiService.login(email, password);
 
-      console.log("✅ Login response received:", {
-        hasToken: !!response.access_token,
-        userId: response.user_id,
-        email: response.email,
-      });
-
-      if (!response.access_token) {
-        throw new Error("No access token received from server");
+      if (response.access_token) {
+        apiService.setToken(response.access_token);
+        setUser({
+          email: response.email,
+          is_active: response.is_active,
+        });
+        console.log("✅ Login successful");
+        return { success: true };
       }
 
-      const token = response.access_token;
-      const userData = {
-        email: response.email || email,
-        id: response.user_id || response.id,
-      };
-
-      // CRITICAL: Set token in apiService IMMEDIATELY
-      apiService.setToken(token);
-
-      // Save to sessionStorage
-      sessionStorage.setItem("auth_token", token);
-      sessionStorage.setItem("user", JSON.stringify(userData));
-
-      console.log("💾 Token and user saved to sessionStorage");
-      console.log("🔑 ApiService token set:", !!apiService.token);
-
-      setUser(userData);
-
-      // Fetch subscription status after login (optional)
-      try {
-        const subStatus = await apiService.getSubscriptionStatus();
-        setSubscription(subStatus);
-        console.log("✅ Subscription status loaded");
-      } catch (error) {
-        console.warn("⚠️ Failed to fetch subscription:", error.message);
-        // Don't fail login if subscription fetch fails
-      }
-
-      return { success: true };
+      return { success: false, error: "Invalid credentials" };
     } catch (error) {
-      console.error("❌ Login failed:", error);
-      return {
-        success: false,
-        error: error.message || "Login failed. Please try again.",
-      };
+      console.error("❌ Login error:", error);
+      return { success: false, error: error.message };
     }
   };
 
   const logout = () => {
-    console.log("🚪 Logging out...");
+    console.log("👋 Logging out");
     apiService.clearToken();
-    sessionStorage.removeItem("auth_token");
-    sessionStorage.removeItem("user");
     setUser(null);
-    setSubscription(null);
-    router.push("/login");
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        subscription,
-        loading,
-        login,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
+  const updateSubscription = async () => {
+    try {
+      const subscription = await apiService.getSubscriptionStatus();
+      setUser((prev) => ({ ...prev, subscription }));
+      return subscription;
+    } catch (error) {
+      console.error("Failed to update subscription:", error);
+      return null;
+    }
+  };
+
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    checkAuth,
+    updateSubscription,
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export const useAuth = () => useContext(AuthContext);
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import Image from "next/image";
 import Link from "next/link";
 
 export default function DashboardLayout({ children }) {
@@ -169,12 +170,13 @@ export default function DashboardLayout({ children }) {
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
             <Link href="/dashboard" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">C</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                Clevio Agent
-              </span>
+              <Image
+                src="/clevioLogoLight.png"
+                alt="Clevio Innovator Pro"
+                width={100}
+                height={100}
+                className="mb-0 ml-10"
+              />
             </Link>
           </div>
 

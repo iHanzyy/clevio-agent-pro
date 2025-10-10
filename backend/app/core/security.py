@@ -25,11 +25,11 @@ def get_password_hash(password: str) -> str:
 def create_access_token(data: Union[str, dict], expires_delta: Optional[timedelta] = None) -> str:
     """
     Create a JWT access token.
-    
+
     Args:
         data: Either a user_id string OR a dict with 'sub' key
         expires_delta: Optional expiration time
-    
+
     Returns:
         Encoded JWT token string
     """
@@ -38,14 +38,14 @@ def create_access_token(data: Union[str, dict], expires_delta: Optional[timedelt
         to_encode = {"sub": data}
     else:
         to_encode = data.copy()
-    
+
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
-    
+
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
@@ -56,17 +56,17 @@ def create_access_token(data: Union[str, dict], expires_delta: Optional[timedelt
 def verify_token(token: str) -> Dict[str, Any]:
     """
     Verify a JWT token and return the payload dictionary.
-    
+
     Returns:
         Dict containing the token payload with 'sub' (user_id) and 'exp' (expiration)
-    
+
     Raises:
         JWTError if token is invalid or expired
     """
     try:
         payload = jwt.decode(
-            token, 
-            settings.SECRET_KEY, 
+            token,
+            settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM]
         )
         return payload  # Return the full payload dict, not just user_id!
