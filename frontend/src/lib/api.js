@@ -194,11 +194,16 @@ class ApiService {
     });
   }
 
-  async executeAgent(agentId, input, parameters = {}) {
+  async executeAgent(agentId, input, parameters = {}, sessionId = null) {
+    const payload = { input, parameters };
+    if (sessionId) {
+      payload.session_id = sessionId;
+    }
+
     return this.request(`/agents/${agentId}/execute`, {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ input, parameters }),
+      body: JSON.stringify(payload),
     });
   }
 

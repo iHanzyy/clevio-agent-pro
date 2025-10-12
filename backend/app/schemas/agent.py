@@ -159,7 +159,7 @@ class AgentExecuteResponse(BaseModel):
     execution_id: str
     status: str
     message: str
-    response: Optional[str] = None
+    response: Optional[Any] = None
     session_id: Optional[str] = None
 
 
