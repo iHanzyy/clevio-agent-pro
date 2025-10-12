@@ -165,11 +165,17 @@ class ApiService {
     });
   }
 
-  async createAgent(name, tools = [], config = {}) {
+  async createAgent(payload) {
     return this.request("/agents/", {
       method: "POST",
       auth: true,
-      body: JSON.stringify({ name, tools, config }),
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getAgent(agentId) {
+    return this.request(`/agents/${agentId}`, {
+      auth: true,
     });
   }
 
