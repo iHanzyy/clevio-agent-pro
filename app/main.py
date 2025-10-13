@@ -8,14 +8,29 @@ from urllib.parse import urlparse
 
 from app.core.config import settings
 from app.core.database import init_db
-from app.core.logging import setup_logging
+from app.core.logging import setup_logging, logger
 from app.api import api_router
-from app.core.logging import logger
 from app.core.database import get_db
 from app.core.deps import get_auth_service
 from app.services.auth_service import AuthService
 from app.api.v1.auth import process_google_callback
 from sqlalchemy.orm import Session
+
+# Import individual routers
+from app.api.v1 import auth, agents, tools
+
+# Import new routers (only if they exist)
+try:
+    from app.api.v1 import payment
+    PAYMENT_AVAILABLE = True
+except ImportError:
+    PAYMENT_AVAILABLE = False
+
+try:
+    from app.api.v1 import whatsapp
+    WHATSAPP_AVAILABLE = True
+except ImportError:
+    WHATSAPP_AVAILABLE = False
 
 
 @asynccontextmanager
@@ -41,14 +56,38 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Add CORS middleware - UPDATED WITH PROPER CONFIGURATION
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://localhost:3000",
+        "https://5qv3wb2p-3000.asse.devtunnels.ms",
+        "http://localhost:8000",
+        "https://5qv3wb2p-8000.asse.devtunnels.ms",
+        "*"  # Allow all origins for dev (remove in production)
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+
+# Global CORS preflight handler
+@app.options("/{path:path}")
+async def global_preflight_handler(path: str) -> Response:
+    """Handle CORS preflight requests globally."""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )
 
 
 # Request logging middleware
@@ -83,36 +122,40 @@ async def log_requests(request: Request, call_next):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error("Unhandled exception", error=str(exc), url=str(request.url))
+
+    # Always return CORS headers even on errors
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"}
+        content={"detail": "Internal server error"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true"
+        }
     )
 
 
 # Include API routes
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+# Include individual routers
+app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(agents.router, prefix=f"{settings.API_V1_STR}/agents", tags=["agents"])
+app.include_router(tools.router, prefix=f"{settings.API_V1_STR}/tools", tags=["tools"])
 
+# Include payment router if available
+if PAYMENT_AVAILABLE:
+    app.include_router(payment.router, prefix=f"{settings.API_V1_STR}/payment", tags=["payment"])
+
+# Include whatsapp router if available
+if WHATSAPP_AVAILABLE:
+    app.include_router(whatsapp.router, prefix=f"{settings.API_V1_STR}/whatsapp", tags=["whatsapp"])
+
+
+# Google OAuth callback route
 redirect_path = urlparse(settings.GOOGLE_REDIRECT_URI).path or ""
-if redirect_path and not redirect_path.startswith("/"):
-    redirect_path = f"/{redirect_path}"
-default_redirect_path = f"{settings.API_V1_STR}/auth/google/callback"
-
-# Normalise for comparison while preserving the configured path for routing
-normalised_redirect = redirect_path.rstrip("/") or "/"
-normalised_default = default_redirect_path.rstrip("/") or "/"
-
-if (
-    redirect_path
-    and normalised_redirect != normalised_default
-    and redirect_path != "/"
-):
-    logger.info(
-        "Registering additional Google OAuth callback path",
-        configured_path=redirect_path,
-        default_path=default_redirect_path,
-    )
-
+if redirect_path and redirect_path != f"{settings.API_V1_STR}/auth/google/callback":
     @app.get(redirect_path, include_in_schema=False)
     async def google_callback_alias(
         code: str,
@@ -124,7 +167,6 @@ if (
         return await process_google_callback(code, state, db, auth_service, scope)
 
 
-# Health check endpoint
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -135,7 +177,6 @@ async def health_check():
     }
 
 
-# Root endpoint
 @app.get("/")
 async def root():
     """Root endpoint"""
@@ -145,12 +186,6 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
-
-
-@app.options("/{path:path}")
-async def preflight_handler(path: str) -> Response:
-    """Handle CORS preflight requests with an empty 204 response."""
-    return Response(status_code=204)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

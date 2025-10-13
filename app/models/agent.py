@@ -38,3 +38,9 @@ class Agent(Base):
     tools = relationship("AgentTool", back_populates="agent", passive_deletes=True)
     executions = relationship("Execution", back_populates="agent", passive_deletes=True)
     embeddings = relationship("Embedding", back_populates="agent")
+    knowledge_documents = relationship(
+        "AgentKnowledgeDocument",
+        back_populates="agent",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
