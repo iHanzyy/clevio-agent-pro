@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from langchain_openai import OpenAIEmbeddings
 
 from app.core.config import settings
-from app.models import Agent, Embedding
+from app.models import Agent, Embedding, AgentKnowledgeDocument
 from app.core.logging import logger
 
 
@@ -123,9 +123,27 @@ class EmbeddingService:
         buffer = BytesIO(data)
 
         if extension == "pdf":
-            reader = PdfReader(buffer)
-            pages = [page.extract_text() or "" for page in reader.pages]
-            return "\n".join(pages)
+            try:
+                reader = PdfReader(buffer)
+                if reader.is_encrypted:
+                    try:
+                        reader.decrypt("")  # attempt empty password
+                    except Exception:
+                        raise ValueError(
+                            "The PDF is encrypted and requires a password before it can be processed."
+                        )
+                pages = [page.extract_text() or "" for page in reader.pages]
+                return "\n".join(pages)
+            except ValueError:
+                raise
+            except Exception as exc:
+                message = str(exc)
+                if "PyCryptodome is required" in message:
+                    raise ValueError(
+                        "Failed to process PDF because PyCryptodome is not installed. "
+                        "Install pycryptodome or upload an unencrypted PDF."
+                    ) from exc
+                raise
 
         if extension == "docx":
             document = Document(buffer)
@@ -189,6 +207,42 @@ class EmbeddingService:
             vectors.extend(self.embedding_client.embed_documents(batch))
             start += len(batch)
         return vectors
+
+    def record_document_upload(
+        self,
+        agent: Agent,
+        user_id: UUID,
+        filename: str,
+        content_type: Optional[str],
+        size_bytes: int,
+        chunk_count: int,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> AgentKnowledgeDocument:
+        document = AgentKnowledgeDocument(
+            agent_id=agent.id,
+            user_id=user_id,
+            filename=filename,
+            content_type=content_type,
+            size_bytes=size_bytes,
+            chunk_count=chunk_count,
+            metadata_json=metadata or {},
+        )
+        self.db.add(document)
+        self.db.commit()
+        self.db.refresh(document)
+        return document
+
+    def list_documents(self, agent_id: UUID, user_id: UUID) -> List[AgentKnowledgeDocument]:
+        return (
+            self.db.query(AgentKnowledgeDocument)
+            .join(Agent, AgentKnowledgeDocument.agent_id == Agent.id)
+            .filter(
+                AgentKnowledgeDocument.agent_id == agent_id,
+                Agent.user_id == user_id,
+            )
+            .order_by(AgentKnowledgeDocument.created_at.desc())
+            .all()
+        )
 
     def get_relevant_chunks(
         self,

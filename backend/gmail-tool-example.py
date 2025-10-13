@@ -86,7 +86,7 @@ def _resolve_token_for_agent(agent_id: Optional[str]) -> Tuple[Optional[str], bo
 class GmailSearchArgs(BaseModel):
     """Arguments for Gmail search."""
     query: str = Field(
-        ..., 
+        ...,
         description="Gmail search query (e.g., 'from:sender@email.com', 'subject:Invoice', 'is:unread')"
     )
     max_results: int = Field(
@@ -191,7 +191,7 @@ def initialize_gmail_service(agent_id: Optional[str] = None):
                 get_gmail_credentials,
                 build_resource_service,
             )
-        
+
         # Check for required files
         missing_files = []
         if not os.path.exists(CLIENT_SECRETS_PATH):
@@ -212,7 +212,7 @@ def initialize_gmail_service(agent_id: Optional[str] = None):
             client_secrets_file=CLIENT_SECRETS_PATH,
             scopes=SCOPES,
         )
-        
+
         # Build service
         try:
             service = build_resource_service(credentials=creds)
@@ -224,10 +224,10 @@ def initialize_gmail_service(agent_id: Optional[str] = None):
                 service = gbuild("gmail", "v1", credentials=creds, cache_discovery=False)
             except Exception as e2:
                 error_messages.append(f"Discovery build failed: {e2}")
-                
+
     except Exception as e:
         error_messages.append(f"Service initialization failed: {e}")
-    
+
     return service, error_messages
 
 
@@ -250,15 +250,15 @@ def extract_message_body(payload: dict) -> tuple[Optional[str], Optional[str]]:
     mime_type = payload.get("mimeType", "")
     body = payload.get("body", {})
     data = body.get("data")
-    
+
     text_plain = None
     text_html = None
-    
+
     if mime_type == "text/plain" and data:
         text_plain = decode_base64(data)
     elif mime_type == "text/html" and data:
         text_html = decode_base64(data)
-    
+
     # Check parts for multipart messages
     parts = payload.get("parts", [])
     for part in parts:
@@ -267,7 +267,7 @@ def extract_message_body(payload: dict) -> tuple[Optional[str], Optional[str]]:
         text_html = text_html or th
         if text_plain and text_html:
             break
-    
+
     return text_plain, text_html
 
 
@@ -277,16 +277,16 @@ def format_message_data(message_data: dict) -> dict:
         h.get("name", "").lower(): h.get("value", "")
         for h in message_data.get("payload", {}).get("headers", [])
     }
-    
+
     text_plain, text_html = extract_message_body(message_data.get("payload", {}))
-    
+
     # Truncate body if too long
     max_chars = int(os.getenv("GMAIL_MAX_BODY_CHARS", "5000"))
     if text_plain and len(text_plain) > max_chars:
         text_plain = text_plain[:max_chars] + "... [truncated]"
     if text_html and len(text_html) > max_chars:
         text_html = text_html[:max_chars] + "... [truncated]"
-    
+
     return {
         "id": message_data.get("id"),
         "threadId": message_data.get("threadId"),
@@ -379,7 +379,7 @@ def gmail_search_messages(
             )
         except Exception as e:
             return f"Gmail tool unavailable: {'; '.join(errors)}"
-    
+
     try:
         # Search messages
         results = service.users().messages().list(
@@ -387,11 +387,11 @@ def gmail_search_messages(
             q=query,
             maxResults=max_results
         ).execute()
-        
+
         messages = results.get("messages", [])
         if not messages:
             return f"No messages found for query: {query}"
-        
+
         output = []
         for msg in messages:
             # Get message details
@@ -401,12 +401,12 @@ def gmail_search_messages(
                 format="metadata",
                 metadataHeaders=["Subject", "From", "Date", "To"]
             ).execute()
-            
+
             headers = {
                 h.get("name", "").lower(): h.get("value", "")
                 for h in message_data.get("payload", {}).get("headers", [])
             }
-            
+
             output.append({
                 "id": msg["id"],
                 "subject": headers.get("subject", ""),
@@ -415,14 +415,14 @@ def gmail_search_messages(
                 "date": headers.get("date", ""),
                 "snippet": message_data.get("snippet", "")
             })
-        
+
         return json.dumps({
             "status": "success",
             "query": query,
             "count": len(output),
             "messages": output
         }, ensure_ascii=False, indent=2)
-        
+
     except Exception as e:
         return f"Gmail search failed: {str(e)}"
 
@@ -497,22 +497,22 @@ def gmail_read_messages(
             )
         except Exception as e:
             return f"Gmail tool unavailable: {'; '.join(errors)}"
-    
+
     try:
         # Use default query if none provided
         search_query = query or "is:unread"
-        
+
         # Search messages
         results = service.users().messages().list(
             userId="me",
             q=search_query,
             maxResults=max_results
         ).execute()
-        
+
         messages = results.get("messages", [])
         if not messages:
             return f"No messages found for query: {search_query}"
-        
+
         output = []
         for msg in messages:
             # Get full message
@@ -521,11 +521,11 @@ def gmail_read_messages(
                 id=msg["id"],
                 format="full"
             ).execute()
-            
+
             # Format message data
             formatted_msg = format_message_data(message_data)
             output.append(formatted_msg)
-            
+
             # Mark as read if requested
             if mark_as_read and "UNREAD" in message_data.get("labelIds", []):
                 try:
@@ -536,14 +536,14 @@ def gmail_read_messages(
                     ).execute()
                 except Exception:
                     pass  # Don't fail if marking as read fails
-        
+
         return json.dumps({
             "status": "success",
             "query": search_query,
             "count": len(output),
             "messages": output
         }, ensure_ascii=False, indent=2)
-        
+
     except Exception as e:
         return f"Gmail read failed: {str(e)}"
 
@@ -563,7 +563,7 @@ def gmail_send_message(
     # Check if sending is disabled
     if os.getenv("GMAIL_DISABLE_SEND", "false").lower() == "true":
         return "Gmail send is disabled by server policy (GMAIL_DISABLE_SEND=true)"
-    
+
     service, errors = initialize_gmail_service(agent_id=agent_id)
     if not service:
         # REST fallback: construct MIME and POST to Gmail send endpoint
@@ -617,38 +617,38 @@ def gmail_send_message(
             }, ensure_ascii=False, indent=2)
         except Exception:
             return f"Gmail tool unavailable: {'; '.join(errors)}"
-    
+
     try:
         import base64
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
-        
+
         # Create message
         if is_html:
             msg = MIMEMultipart("alternative")
             msg["to"] = to
             msg["subject"] = subject
-            
+
             # Add plain text version
             text_part = MIMEText(message, "plain", "utf-8")
             html_part = MIMEText(message, "html", "utf-8")
-            
+
             msg.attach(text_part)
             msg.attach(html_part)
         else:
             msg = MIMEText(message, "plain", "utf-8")
             msg["to"] = to
             msg["subject"] = subject
-        
+
         # Encode message
         raw_message = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
-        
+
         # Send message
         result = service.users().messages().send(
             userId="me",
             body={"raw": raw_message}
         ).execute()
-        
+
         return json.dumps({
             "status": "success",
             "message": f"Email sent successfully to {to}",
@@ -659,7 +659,7 @@ def gmail_send_message(
                 "is_html": is_html
             }
         }, ensure_ascii=False, indent=2)
-        
+
     except Exception as e:
         return f"Gmail send failed: {str(e)}"
 
@@ -676,7 +676,7 @@ def gmail_get_message(
     service, errors = initialize_gmail_service(agent_id=agent_id)
     if not service:
         return f"Gmail tool unavailable: {'; '.join(errors)}"
-    
+
     try:
         # Get message
         message_data = service.users().messages().get(
@@ -684,7 +684,7 @@ def gmail_get_message(
             id=message_id,
             format=format
         ).execute()
-        
+
         if format == "full":
             # Format full message
             formatted_msg = format_message_data(message_data)
@@ -698,7 +698,7 @@ def gmail_get_message(
                 "status": "success",
                 "message": message_data
             }, ensure_ascii=False, indent=2)
-            
+
     except Exception as e:
         return f"Gmail get message failed: {str(e)}"
 
@@ -935,7 +935,7 @@ def build_gmail_oauth_url(state: Optional[str] = None) -> Optional[str]:
         os.path.join(os.getcwd(), "credentials.json"),
         os.getenv("GOOGLE_APPLICATION_CREDENTIALS"),
     ]
-    
+
     secrets_path = next((p for p in secrets_candidates if p and os.path.exists(p)), None)
     # Prefer a universal redirect if configured, else provider-specific
     redirect_uri = (
@@ -943,24 +943,24 @@ def build_gmail_oauth_url(state: Optional[str] = None) -> Optional[str]:
         or os.getenv("OAUTH_REDIRECT_URI")
         or os.getenv("GMAIL_REDIRECT_URI")
     )
-    
+
     if not secrets_path or not redirect_uri or not os.path.exists(secrets_path):
         return None
-    
+
     try:
         with open(secrets_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        
+
         client_id = (
-            data.get("web", {}).get("client_id") or 
+            data.get("web", {}).get("client_id") or
             data.get("installed", {}).get("client_id")
         )
-        
+
         if not client_id:
             return None
     except Exception:
         return None
-    
+
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
@@ -969,10 +969,10 @@ def build_gmail_oauth_url(state: Optional[str] = None) -> Optional[str]:
         "access_type": "offline",
         "prompt": "consent",
     }
-    
+
     if state:
         params["state"] = state
-    
+
     return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode(params)
 
 
