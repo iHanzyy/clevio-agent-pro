@@ -319,9 +319,16 @@ POST /api/v1/agents/{agent_id}/documents
 Authorization: Bearer YOUR_TOKEN
 Content-Type: multipart/form-data
 
-file: document.pdf
-chunk_size: 1000
-chunk_overlap: 200
+files: List[File]  # up to 10 attachments (pdf, pptx, docx, txt)
+```
+
+- Limits: maximum **10 files** per request, **20 MB** per file.
+- Returns: summary of chunk counts plus metadata for each stored document.
+- Listing history:
+
+```http
+GET /api/v1/agents/{agent_id}/documents
+Authorization: Bearer YOUR_TOKEN
 ```
 
 #### List Agents

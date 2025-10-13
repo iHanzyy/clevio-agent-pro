@@ -8,6 +8,7 @@ Create Date: 2025-10-01 16:22:44.076398
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision = '6ee1a8575943'
@@ -21,21 +22,41 @@ def upgrade() -> None:
     op.alter_column('agent_tools', 'config',
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
                nullable=False)
-    op.drop_index(op.f('ix_agent_tools_id'), table_name='agent_tools')
+    op.execute("DROP INDEX IF EXISTS ix_agent_tools_id")
     op.create_foreign_key(None, 'agent_tools', 'tools', ['tool_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key(None, 'agent_tools', 'agents', ['agent_id'], ['id'], ondelete='CASCADE')
-    op.drop_column('agent_tools', 'id')
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("agent_tools")}
+    if "id" in columns:
+        op.drop_column('agent_tools', 'id')
     op.create_foreign_key(None, 'agents', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key(None, 'auth_tokens', 'users', ['user_id'], ['id'], ondelete='CASCADE')
     op.create_foreign_key(None, 'embeddings', 'agents', ['agent_id'], ['id'], ondelete='CASCADE')
-    op.create_index(op.f('ix_executions_session_id'), 'executions', ['session_id'], unique=False)
+    # Create session_id index if it does not already exist
+    existing_indexes = {
+        row["name"]
+        for row in inspector.get_indexes("executions")
+    }
+    if "ix_executions_session_id" not in existing_indexes:
+        op.create_index(op.f('ix_executions_session_id'), 'executions', ['session_id'], unique=False)
     op.create_foreign_key(None, 'executions', 'agents', ['agent_id'], ['id'], ondelete='CASCADE')
     op.alter_column('users', 'created_at',
                existing_type=postgresql.TIMESTAMP(timezone=True),
                nullable=False,
                existing_server_default=sa.text('now()'))
-    op.drop_constraint(op.f('uq_users_api_key'), 'users', type_='unique')
-    op.drop_column('users', 'api_key')
+    constraints = {
+        constraint["name"]
+        for constraint in inspector.get_unique_constraints("users")
+    }
+    if "uq_users_api_key" in constraints:
+        op.drop_constraint(op.f('uq_users_api_key'), 'users', type_='unique')
+    columns = {
+        column["name"]
+        for column in inspector.get_columns("users")
+    }
+    if "api_key" in columns:
+        op.drop_column('users', 'api_key')
     # ### end Alembic commands ###
 
 
@@ -55,7 +76,7 @@ def downgrade() -> None:
     op.add_column('agent_tools', sa.Column('id', sa.INTEGER(), autoincrement=False, nullable=False))
     op.drop_constraint(None, 'agent_tools', type_='foreignkey')
     op.drop_constraint(None, 'agent_tools', type_='foreignkey')
-    op.create_index(op.f('ix_agent_tools_id'), 'agent_tools', ['id'], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_agent_tools_id ON agent_tools (id)")
     op.alter_column('agent_tools', 'config',
                existing_type=postgresql.JSONB(astext_type=sa.Text()),
                nullable=True)

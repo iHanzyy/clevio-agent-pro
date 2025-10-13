@@ -153,8 +153,7 @@ curl -H "Authorization: Bearer $TOKEN" "$BASE_URL$API_PREFIX/auth/me"
           "mcp_servers": {
             "market": {
               "transport": "streamable_http",
-              "url": "https://n8n.example.com/mcp/market/sse",
-              "headers": {"Authorization": "Bearer TENANT_ABC"}
+              "url": "https://n8n.example.com/mcp/market/sse"
             }
           },
           "allowed_tools": ["market.google_trends", "market.shopee_scrape"]
@@ -295,18 +294,23 @@ curl -H "Authorization: Bearer $TOKEN" "$BASE_URL$API_PREFIX/auth/me"
 
 ## Document Ingestion (`$API_PREFIX/agents/{agent_id}/documents`)
 
-Upload knowledge files so an agent can reference them later. Supported formats: `pdf`, `docx`, `pptx`, `txt`.
+Upload knowledge files so an agent can reference them later. Supported formats: `pdf`, `docx`, `pptx`, `txt`. You can attach up to 10 files per request (each ≤ 20 MB).
 
 ```bash
 curl -X POST "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
   -H "Authorization: Bearer $TOKEN" \
-  -F "file=@/path/to/report.pdf" \
-  -F "chunk_size=400" \
-  -F "chunk_overlap=80" \
-  -F "batch_size=50"
+  -F "files=@/path/to/report.pdf" \
+  -F "files=@/path/to/notes.txt"
 ```
 
-The API converts the file to plain text, removes noisy characters, chunks the content, embeds each chunk with OpenAI, and stores the vectors in the `embeddings` table.
+List previously uploaded knowledge files:
+
+```bash
+curl "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+The API converts the file to plain text, removes noisy characters, chunks the content, embeds each chunk with OpenAI, stores vectors in the `embeddings` table, and records file metadata in `agent_knowledge_documents`.
 
 - **GET /schemas/{tool_name}**
   ```bash

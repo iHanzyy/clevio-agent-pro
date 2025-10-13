@@ -175,6 +175,27 @@ curl -X POST "http://localhost:8000/api/v1/tools/execute" \
   }'
 ```
 
+## Knowledge Upload (RAG)
+
+### Upload Knowledge Files
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/agents/{agent_id}/documents" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "files=@/path/to/document.pdf" \
+  -F "files=@/path/to/notes.txt"
+```
+
+- Supports PDF, DOCX, PPTX, TXT
+- Up to 10 files per request, 20 MB each
+
+### List Uploaded Knowledge
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/agents/{agent_id}/documents" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
 ## Google OAuth Integration
 
 ### Initiate Google OAuth
