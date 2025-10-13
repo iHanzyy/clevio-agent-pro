@@ -6,6 +6,7 @@ from .tool import Tool, ToolType, AgentTool
 from .embedding import Embedding
 from .execution import Execution, ExecutionStatus
 from .payment import Payment  # Add this line
+from .knowledge import AgentKnowledgeDocument
 
 __all__ = [
     "Base",
@@ -20,5 +21,6 @@ __all__ = [
     "Embedding",
     "Execution",
     "ExecutionStatus",
-    "Payment"  # Add this line
+    "Payment",  # Add this line
+    "AgentKnowledgeDocument",
 ]

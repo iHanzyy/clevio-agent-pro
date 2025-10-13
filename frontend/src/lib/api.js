@@ -207,6 +207,39 @@ class ApiService {
     });
   }
 
+  async getAgentDocuments(agentId) {
+    return this.request(`/agents/${agentId}/documents`, {
+      auth: true,
+    });
+  }
+
+  async uploadAgentDocuments(agentId, files) {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    const response = await fetch(
+      `${this.baseUrl}/agents/${agentId}/documents`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(
+        error.detail || error.message || "Failed to upload knowledge documents"
+      );
+    }
+
+    return response.json();
+  }
+
   // WhatsApp endpoints
   async createWhatsAppSession(agentId) {
     return this.request("/whatsapp/sessions", {

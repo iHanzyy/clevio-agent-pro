@@ -9,6 +9,7 @@ from .agent import (
     AgentConfig, AgentToolConfig
 )
 from .tool import ToolCreate, ToolUpdate, ToolResponse, ToolExecuteRequest, ToolExecuteResponse, ToolSchema
+from .knowledge import KnowledgeDocumentResponse, KnowledgeDocumentUploadResponse
 
 __all__ = [
     "User", "UserCreate", "UserUpdate", "UserInDB",
@@ -17,5 +18,6 @@ __all__ = [
     "UserLogin", "UserRegister", "AuthTokenCreate",  # Add AuthTokenCreate
     "AgentCreate", "AgentUpdate", "AgentResponse", "AgentExecuteRequest", "AgentExecuteResponse",
     "AgentConfig", "AgentToolConfig",
-    "ToolCreate", "ToolUpdate", "ToolResponse", "ToolExecuteRequest", "ToolExecuteResponse", "ToolSchema"
+    "ToolCreate", "ToolUpdate", "ToolResponse", "ToolExecuteRequest", "ToolExecuteResponse", "ToolSchema",
+    "KnowledgeDocumentResponse", "KnowledgeDocumentUploadResponse",
 ]

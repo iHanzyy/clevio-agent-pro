@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { apiService } from "@/lib/api";
@@ -23,6 +23,13 @@ export default function AgentDetailPage() {
   const [chatError, setChatError] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [sessionId] = useState(() => `dashboard-session-${Date.now()}`);
+  const [knowledge, setKnowledge] = useState([]);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(true);
+  const [knowledgeError, setKnowledgeError] = useState("");
+  const [knowledgeSuccess, setKnowledgeSuccess] = useState("");
+  const [selectedKnowledgeFiles, setSelectedKnowledgeFiles] = useState([]);
+  const [knowledgeUploading, setKnowledgeUploading] = useState(false);
+  const [knowledgeInputKey, setKnowledgeInputKey] = useState(() => Date.now());
 
   const authUrl = searchParams?.get("authUrl");
   const authState = searchParams?.get("authState");
@@ -68,6 +75,31 @@ export default function AgentDetailPage() {
 
     return () => abortController.abort();
   }, [params?.agentId, authLoading, user, router]);
+
+  const loadKnowledge = useCallback(async () => {
+    if (!params?.agentId || !user) {
+      return;
+    }
+
+    setKnowledgeLoading(true);
+    setKnowledgeError("");
+    try {
+      const docs = await apiService.getAgentDocuments(params.agentId);
+      setKnowledge(docs || []);
+    } catch (err) {
+      setKnowledgeError(
+        err?.message || "Unable to load uploaded knowledge files."
+      );
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  }, [params?.agentId, user]);
+
+  useEffect(() => {
+    if (agent && user) {
+      loadKnowledge();
+    }
+  }, [agent, user, loadKnowledge]);
 
   const capabilitySummary = useMemo(() => {
     const labels = [];
@@ -119,6 +151,62 @@ export default function AgentDetailPage() {
 
   const appendMessage = (message) => {
     setChatMessages((prev) => [...prev, message]);
+  };
+
+  const resetKnowledgeSelection = () => {
+    setSelectedKnowledgeFiles([]);
+    setKnowledgeInputKey(Date.now());
+  };
+
+  const handleKnowledgeFileChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    setKnowledgeSuccess("");
+    setKnowledgeError("");
+
+    if (!files.length) {
+      resetKnowledgeSelection();
+      return;
+    }
+
+    if (files.length > 10) {
+      setKnowledgeError("You can upload up to 10 files at a time.");
+      resetKnowledgeSelection();
+      return;
+    }
+
+    const oversized = files.find((file) => file.size > 20 * 1024 * 1024);
+    if (oversized) {
+      setKnowledgeError(
+        `${oversized.name} exceeds the 20 MB size limit. Please remove it.`
+      );
+      resetKnowledgeSelection();
+      return;
+    }
+
+    setSelectedKnowledgeFiles(files);
+  };
+
+  const handleKnowledgeUpload = async () => {
+    if (!agent || !selectedKnowledgeFiles.length) {
+      setKnowledgeError("Select at least one file to upload.");
+      return;
+    }
+
+    setKnowledgeUploading(true);
+    setKnowledgeError("");
+    setKnowledgeSuccess("");
+    try {
+      await apiService.uploadAgentDocuments(agent.id, selectedKnowledgeFiles);
+      setKnowledgeSuccess("Knowledge uploaded successfully.");
+      resetKnowledgeSelection();
+      await loadKnowledge();
+    } catch (err) {
+      setKnowledgeError(
+        err?.message || "Failed to upload knowledge. Please try again."
+      );
+    } finally {
+      setKnowledgeUploading(false);
+    }
   };
 
   const handleChatSubmit = async (event) => {
@@ -192,6 +280,27 @@ export default function AgentDetailPage() {
       hour: "2-digit",
       minute: "2-digit",
     });
+
+  const formatDateTime = (value) =>
+    new Date(value).toLocaleString([], {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const formatBytes = (bytes) => {
+    if (!bytes) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytes;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit += 1;
+    }
+    return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+  };
 
   if (authLoading || loading) {
     return (
@@ -359,6 +468,108 @@ export default function AgentDetailPage() {
               : "Connect additional tools or adjust agent settings at any time."}
           </li>
         </ul>
+      </section>
+
+      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Add Knowledge
+          </h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+            Upload up to 10 documents (PDF, PPTX, DOCX, TXT), 20 MB per file, to
+            enrich this agent&apos;s context.
+          </p>
+        </div>
+
+        {(knowledgeError || knowledgeSuccess) && (
+          <div
+            className={`p-3 rounded-lg text-sm ${
+              knowledgeError
+                ? "bg-red-50 border border-red-200 text-red-700"
+                : "bg-green-50 border border-green-200 text-green-700"
+            }`}
+          >
+            {knowledgeError || knowledgeSuccess}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-3 md:space-y-0">
+            <input
+              key={knowledgeInputKey}
+              type="file"
+              multiple
+              accept=".pdf,.pptx,.docx,.txt"
+              onChange={handleKnowledgeFileChange}
+              className="flex-1 text-sm text-gray-700 dark:text-gray-200 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700"
+              disabled={knowledgeUploading}
+            />
+            <button
+              type="button"
+              onClick={handleKnowledgeUpload}
+              disabled={
+                knowledgeUploading || selectedKnowledgeFiles.length === 0
+              }
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {knowledgeUploading ? "Uploading..." : "Upload"}
+            </button>
+          </div>
+          {selectedKnowledgeFiles.length > 0 && (
+            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-3">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                Files ready to upload:
+              </p>
+              <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+                {selectedKnowledgeFiles.map((file) => (
+                  <li key={file.name}>
+                    {file.name} · {formatBytes(file.size)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+            Upload History
+          </h3>
+          {knowledgeLoading ? (
+            <div className="flex items-center justify-center py-6">
+              <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : knowledge.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No knowledge documents uploaded yet.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {knowledge.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-4"
+                >
+                  <div className="flex items-center justify-between text-sm">
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                      {doc.filename}
+                    </p>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      {formatDateTime(doc.created_at)}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid md:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <span>Size: {formatBytes(doc.size_bytes)}</span>
+                    <span>Chunks: {doc.chunk_count}</span>
+                    <span>
+                      Type: {doc.content_type || "Unknown"}{" "}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
