@@ -51,7 +51,6 @@ curl -X POST "http://localhost:8000/api/v1/agents" \
       "market": {
         "transport": "streamable_http",
         "url": "https://n8n.example.com/mcp/market/sse",
-        "headers": {"Authorization": "Bearer TENANT_ABC"}
       }
     },
     "allowed_tools": ["market.google_trends", "market.shopee_scrape"]

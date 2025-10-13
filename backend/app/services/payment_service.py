@@ -4,13 +4,19 @@ from typing import List, Optional, Dict, Any
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
+import requests
+from fastapi import HTTPException
+
 from app.core.config import settings
 from app.core.logging import logger
 from app.models.user import User
 from app.models import Payment, ApiKey
 from app.schemas.payment import (
-    PaymentPlan, PaymentCreateResponse, PaymentWebhookRequest,
-    PaymentHistoryResponse, SubscriptionStatusResponse
+    PaymentPlan,
+    PaymentCreateResponse,
+    PaymentWebhookRequest,
+    PaymentHistoryResponse,
+    SubscriptionStatusResponse,
 )
 
 # Import Payment model only if it exists
@@ -46,128 +52,123 @@ class PaymentService:
         return list(self.plans.values())
 
     def create_payment(self, user: User, plan_code: str) -> PaymentCreateResponse:
-        """Create payment transaction"""
+        """Initiate payment via N8N webhook (or mock fallback)."""
         if plan_code not in self.plans:
-            raise ValueError(f"Invalid plan code: {plan_code}")
+            raise HTTPException(status_code=400, detail="Invalid plan code")
 
         plan = self.plans[plan_code]
 
-        # Generate order_id FIRST before using it
         user_prefix = str(user.id).replace("-", "")[:10]
         order_id = f"ORD-{user_prefix}-{uuid4().hex[:6]}"
 
-        logger.info(f"Creating payment for user {user.id}, plan: {plan_code}")
+        logger.info("Creating payment", user_id=str(user.id), plan=plan_code)
 
-        # Check if we have real Midtrans credentials
-        if settings.MIDTRANS_SERVER_KEY and settings.MIDTRANS_CLIENT_KEY:
-            # Use real Midtrans
-            snap_token = self._create_midtrans_transaction(order_id, plan, user)
-            logger.info(f"Real Midtrans token created: {snap_token[:20]}...")
-        else:
-            # Use mock for development - IMMEDIATELY activate user
-            snap_token = f"mock_snap_token_{uuid4().hex[:8]}"
-            logger.info(f"🎭 MOCK PAYMENT MODE - Activating user {user.id}")
+        webhook_url = settings.N8N_MIDTRANS_WEBHOOK_URL
+        if not webhook_url:
+            logger.error(
+                "N8N_MIDTRANS_WEBHOOK_URL is not configured; cannot initiate payment",
+                user_id=str(user.id),
+                plan_code=plan_code,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Payment processor is not configured. Please contact support.",
+            )
+
+        status = "pending"
+        message = "Payment request submitted. Please follow the instructions sent by our payment partner."
+        redirect_url: Optional[str] = None
+
+        payload_for_n8n = {
+            "user_id": str(user.id),
+            "email": str(user.email),
+            "plan_code": str(plan_code),
+            "harga": str(plan.price),
+        }
+
+        try:
+            response = requests.post(
+                webhook_url,
+                json=payload_for_n8n,
+                timeout=15,
+            )
+            response.raise_for_status()
+            logger.info("Forwarded payment request to n8n", order_id=order_id, status_code=response.status_code)
 
             try:
-                # Calculate expiration date
-                expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
+                response_payload = response.json()
+            except ValueError:
+                response_payload = {}
 
-                # Step 1: Update user status in-session so identity map stays consistent
-                user.is_active = True
-                if hasattr(user, "subscription_expires_at"):
-                    user.subscription_expires_at = expires_at
-                if hasattr(user, "subscription_plan"):
-                    user.subscription_plan = plan_code
+            if isinstance(response_payload, dict):
+                redirect_url = response_payload.get("redirect_url") or response_payload.get("redirectUrl")
+                message = response_payload.get("message", message)
+            else:
+                logger.debug("n8n response not JSON", payload=str(response_payload))
+        except Exception as exc:
+            logger.error("Failed to invoke n8n Midtrans webhook", order_id=order_id, error=str(exc))
+            raise HTTPException(status_code=502, detail="Failed to contact payment processor. Please try again shortly.")
 
-                logger.info("✅ User status updated in mock payment", user_id=str(user.id))
-
-                # Step 2: Create or update API key for the user
-                existing_key = self.db.query(ApiKey).filter(
-                    ApiKey.user_id == user.id,
-                    ApiKey.plan_code == plan_code
-                ).first()
-
-                if existing_key:
-                    # Update existing key
-                    existing_key.is_active = True
-                    existing_key.expires_at = expires_at
-                    existing_key.access_token = existing_key.access_token or f"sk-{uuid4().hex}"
-                    logger.info(f"♻️ Updated existing API key: {existing_key.id}")
-                else:
-                    # Create new API key
-                    api_key = ApiKey(
-                        user_id=user.id,
-                        access_token=f"sk-{uuid4().hex}",
-                        plan_code=plan_code,
-                        expires_at=expires_at,
-                        is_active=True,
-                        created_at=datetime.now(timezone.utc)
-                    )
-                    self.db.add(api_key)
-                    logger.info(f"🔑 Created new API key for user")
-
-                # Commit all changes and refresh user state in-session
-                self.db.commit()
-                self.db.refresh(user)
-
-                updated_user = user
-                api_keys_count = self.db.query(ApiKey).filter(
-                    ApiKey.user_id == user.id,
-                    ApiKey.is_active == True
-                ).count()
-
-                logger.info(
-                    f"✅ MOCK PAYMENT ACTIVATION COMPLETE",
-                    user_id=str(updated_user.id),
-                    is_active=updated_user.is_active,
-                    plan=getattr(updated_user, 'subscription_plan', None),
-                    expires_at=getattr(updated_user, 'subscription_expires_at', None),
-                    active_api_keys=api_keys_count
-                )
-
-                if not updated_user.is_active:
-                    logger.error(f"❌ WARNING: User {user.id} is still inactive after update!")
-                    raise Exception("Failed to activate user")
-
-                if api_keys_count == 0:
-                    logger.error(f"❌ WARNING: No active API keys for user {user.id}!")
-                    raise Exception("Failed to create API key")
-
-            except Exception as e:
-                logger.error(f"❌ Failed to activate user in mock mode: {e}")
-                self.db.rollback()
-                raise
-
-        # Create payment record only if Payment model exists
         if PAYMENT_MODEL_AVAILABLE:
             try:
-                # Set status to 'settlement' immediately for mock payments
-                payment_status = "settlement" if snap_token.startswith("mock_") else "pending"
-
                 payment = Payment(
                     user_id=user.id,
                     order_id=order_id,
                     gross_amount=plan.price,
                     plan_code=plan_code,
-                    transaction_status=payment_status,
-                    transaction_time=datetime.now(timezone.utc) if payment_status == "settlement" else None
+                    transaction_status="pending" if status == "pending" else "settlement",
+                    transaction_time=datetime.now(timezone.utc) if status == "completed" else None,
                 )
                 self.db.add(payment)
                 self.db.commit()
-                logger.info(f"💳 Payment record created: {order_id}, status: {payment_status}")
-            except Exception as e:
-                logger.error(f"Payment record creation failed: {e}")
-                pass
+                logger.info("Payment record stored", order_id=order_id, status=payment.transaction_status)
+            except Exception as exc:
+                logger.error("Failed to persist payment record", error=str(exc))
+                self.db.rollback()
 
         return PaymentCreateResponse(
-            snap_token=snap_token,
             order_id=order_id,
-            gross_amount=plan.price
+            gross_amount=plan.price,
+            status=status,
+            message=message,
+            redirect_url=redirect_url,
         )
 
+    def _activate_mock_subscription(self, user: User, plan_code: str) -> None:
+        plan = self.plans[plan_code]
+        expires_at = datetime.now(timezone.utc) + timedelta(days=plan.duration_days)
+
+        user.is_active = True
+        if hasattr(user, "subscription_expires_at"):
+            user.subscription_expires_at = expires_at
+        if hasattr(user, "subscription_plan"):
+            user.subscription_plan = plan_code
+
+        existing_key = self.db.query(ApiKey).filter(
+            ApiKey.user_id == user.id,
+            ApiKey.plan_code == plan_code,
+        ).first()
+
+        if existing_key:
+            existing_key.is_active = True
+            existing_key.expires_at = expires_at
+            existing_key.access_token = existing_key.access_token or f"sk-{uuid4().hex}"
+        else:
+            api_key = ApiKey(
+                user_id=user.id,
+                access_token=f"sk-{uuid4().hex}",
+                plan_code=plan_code,
+                expires_at=expires_at,
+                is_active=True,
+                created_at=datetime.now(timezone.utc),
+            )
+            self.db.add(api_key)
+
+        self.db.commit()
+        self.db.refresh(user)
+
     def _create_midtrans_transaction(self, order_id: str, plan: PaymentPlan, user: User) -> str:
-        """Create Midtrans Snap transaction"""
-        import requests
+        """Create Midtrans Snap transaction (legacy fallback)."""
         import base64
 
         # Create base64 encoded auth header

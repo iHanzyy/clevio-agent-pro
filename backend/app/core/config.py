@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     MIDTRANS_SERVER_KEY: Optional[str] = None
     MIDTRANS_CLIENT_KEY: Optional[str] = None
     MIDTRANS_IS_PRODUCTION: bool = False
+    N8N_MIDTRANS_WEBHOOK_URL: Optional[str] = None
 
     # Agent Configuration
     MAX_CONCURRENT_AGENTS: int = Field(10000, env="MAX_CONCURRENT_AGENTS")

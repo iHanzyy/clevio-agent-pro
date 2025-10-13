@@ -10,36 +10,22 @@ export default function Payment() {
   const [selectedPlan, setSelectedPlan] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [paymentConfig, setPaymentConfig] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [orderId, setOrderId] = useState("");
   const router = useRouter();
   const { updateSubscription } = useAuth();
 
   useEffect(() => {
     loadPaymentData();
-    loadMidtransScript();
   }, []);
 
   const loadPaymentData = async () => {
     try {
-      const [plansData, configData] = await Promise.all([
-        apiService.getPaymentPlans(),
-        apiService.getPaymentConfig(),
-      ]);
+      const plansData = await apiService.getPaymentPlans();
       setPlans(plansData);
-      setPaymentConfig(configData);
     } catch (error) {
       setError("Failed to load payment options");
     }
-  };
-
-  const loadMidtransScript = () => {
-    if (document.getElementById("midtrans-script")) return;
-
-    const script = document.createElement("script");
-    script.id = "midtrans-script";
-    script.src = "https://app.sandbox.midtrans.com/snap/snap.js";
-    script.setAttribute("data-client-key", "SB-Mid-client-your-client-key"); // Will be replaced with actual key
-    document.head.appendChild(script);
   };
 
   // Update the handlePayment function to handle mock tokens
@@ -55,71 +41,27 @@ export default function Payment() {
     try {
       const paymentData = await apiService.createPayment(selectedPlan);
 
-      // Check if it's a mock token (for development)
-      if (paymentData.snap_token.startsWith("mock_")) {
-        // Mock payment - update subscription and redirect
-        console.log("Mock payment detected, updating subscription...");
+      if (!paymentData || !paymentData.order_id) {
+        throw new Error("Payment request failed. Please try again.");
+      }
 
-        // Wait a bit for database to update
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      setOrderId(paymentData.order_id);
 
-        // Update subscription status
-        const updatedStatus = await updateSubscription();
-        console.log("Updated subscription status:", updatedStatus);
+      const baseMessage =
+        paymentData?.message ||
+        "Payment request submitted. Please follow the instructions sent to your email.";
+      const orderSuffix = ` (Order ${paymentData.order_id})`;
+      setSuccessMessage(`${baseMessage}${orderSuffix}`);
 
-        if (updatedStatus && updatedStatus.is_active) {
-          alert("Mock payment successful! (Development mode)");
-          router.push("/dashboard");
-        } else {
-          setError(
-            "Payment completed but subscription not activated. Please contact support."
-          );
-        }
+      if (paymentData.redirect_url) {
+        window.location.href = paymentData.redirect_url;
         return;
       }
 
-      // Use Midtrans Snap for real payments
-      if (window.snap && paymentConfig) {
-        window.snap.pay(paymentData.snap_token, {
-          onSuccess: async (result) => {
-            try {
-              if (result?.order_id) {
-                await apiService.confirmPayment({
-                  order_id: result.order_id,
-                  transaction_status: result.transaction_status || "settlement",
-                  transaction_id: result.transaction_id,
-                  gross_amount:
-                    result.gross_amount !== undefined
-                      ? String(result.gross_amount)
-                      : undefined,
-                  payment_type: result.payment_type,
-                  transaction_time: result.transaction_time,
-                });
-              }
-            } catch (confirmError) {
-              console.error("Payment confirmation failed:", confirmError);
-              setError(
-                confirmError.message ||
-                  "Payment succeeded, but confirmation failed. Please contact support."
-              );
-              return;
-            }
-
-            await updateSubscription();
-            router.push("/dashboard");
-          },
-          onPending: (result) => {
-            setError("Payment is pending. Please complete the payment.");
-          },
-          onError: (result) => {
-            setError("Payment failed. Please try again.");
-          },
-          onClose: () => {
-            setError("Payment was cancelled.");
-          },
-        });
-      } else {
-        setError("Payment system not available");
+      if (paymentData?.status === "completed") {
+        // Mock/dev mode – subscription activated immediately
+        await updateSubscription();
+        router.push("/dashboard");
       }
     } catch (error) {
       console.error("Payment error:", error);
@@ -217,8 +159,14 @@ export default function Payment() {
               >
                 {loading ? "Processing..." : "Continue to Payment"}
               </button>
+              {successMessage && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded max-w-xl mx-auto text-sm">
+                  {successMessage}
+                </div>
+              )}
               <p className="mt-4 text-sm text-gray-600">
-                Secure payment powered by Midtrans
+                If you were not redirected automatically, please check the payment instructions sent by our billing partner.
+                Keep this order ID for reference: <span className="font-semibold">{orderId || "pending"}</span>.
               </p>
             </div>
 

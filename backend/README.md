@@ -126,6 +126,12 @@ Visit:
 - **ReDoc**: http://localhost:8000/redoc
 - **Health Check**: http://localhost:8000/health
 
+### Payment Flow (Midtrans via n8n)
+
+1. The frontend calls `POST /api/v1/payment/create` with the chosen plan. The backend forwards the request to `N8N_MIDTRANS_WEBHOOK_URL`, including `order_id`, `user_id`, `email`, `plan_code`, and `price` (strings).
+2. n8n handles the Midtrans process and, once completed, calls `POST /api/v1/payment/confirm` (or the existing webhook endpoint) to mark the subscription as settled.
+3. Until confirmation arrives, the API records the payment as `pending`. In development, when no webhook URL is configured, the backend falls back to mock activation immediately.
+
 ## 🐳 Docker Setup
 
 ### Development Environment

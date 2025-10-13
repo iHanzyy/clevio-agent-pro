@@ -17,9 +17,11 @@ class PaymentCreateRequest(BaseModel):
 
 
 class PaymentCreateResponse(BaseModel):
-    snap_token: str
     order_id: str
     gross_amount: Decimal
+    status: str
+    message: str
+    redirect_url: Optional[str] = None
 
 
 class PaymentWebhookRequest(BaseModel):
