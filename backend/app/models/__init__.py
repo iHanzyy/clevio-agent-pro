@@ -1,26 +1,24 @@
 from .base import Base
 from .user import User
-from .auth import ApiKey, AuthToken
 from .agent import Agent, AgentStatus
 from .tool import Tool, ToolType, AgentTool
-from .embedding import Embedding
+from .auth import AuthToken, ApiKey
 from .execution import Execution, ExecutionStatus
-from .payment import Payment  # Add this line
-from .knowledge import AgentKnowledgeDocument
+from .embedding import Embedding
+from .payment import Payment
 
 __all__ = [
     "Base",
     "User",
-    "ApiKey",
-    "AuthToken",
     "Agent",
     "AgentStatus",
     "Tool",
     "ToolType",
     "AgentTool",
-    "Embedding",
+    "AuthToken",
+    "ApiKey",
     "Execution",
     "ExecutionStatus",
-    "Payment",  # Add this line
-    "AgentKnowledgeDocument",
+    "Embedding",
+    "Payment",
 ]

@@ -1,44 +1,32 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Union
-from jose import JWTError, jwt
+from typing import Optional, Union, Any
+from jose import jwt
 from passlib.context import CryptContext
 from app.core.config import settings
 
-# Support BOTH bcrypt and bcrypt-sha256 for backwards compatibility
+try:
+    import bcrypt  # type: ignore
+    import types
+
+    if not hasattr(bcrypt, "__about__"):
+        bcrypt.__about__ = types.SimpleNamespace(  # type: ignore[attr-defined]
+            __version__=getattr(bcrypt, "__version__", "")
+        )
+except Exception:  # pragma: no cover - defensive fallback
+    bcrypt = None  # type: ignore
+
+# Support both bcrypt (default 2b, 12 rounds) and legacy bcrypt_sha256 hashes.
 pwd_context = CryptContext(
-    schemes=["bcrypt_sha256", "bcrypt"],  # Try bcrypt_sha256 first, then bcrypt
-    deprecated="auto"
+    schemes=["bcrypt", "bcrypt_sha256"],
+    deprecated="auto",
+    bcrypt__rounds=12,
+    bcrypt__ident="2b",
 )
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password: str) -> str:
-    """Hash a password using bcrypt (standard format)."""
-    # Use standard bcrypt for NEW passwords
-    return CryptContext(schemes=["bcrypt"], deprecated="auto").hash(password)
-
-
-def create_access_token(data: Union[str, dict], expires_delta: Optional[timedelta] = None) -> str:
-    """
-    Create a JWT access token.
-
-    Args:
-        data: Either a user_id string OR a dict with 'sub' key
-        expires_delta: Optional expiration time
-
-    Returns:
-        Encoded JWT token string
-    """
-    # Handle both string user_id and dict formats
-    if isinstance(data, str):
-        to_encode = {"sub": data}
-    else:
-        to_encode = data.copy()
-
+def create_access_token(
+    subject: Union[str, Any], expires_delta: Optional[timedelta] = None
+) -> str:
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
@@ -46,29 +34,26 @@ def create_access_token(data: Union[str, dict], expires_delta: Optional[timedelt
             minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
         )
 
-    to_encode.update({"exp": expire})
+    to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
     return encoded_jwt
 
 
-def verify_token(token: str) -> Dict[str, Any]:
-    """
-    Verify a JWT token and return the payload dictionary.
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
 
-    Returns:
-        Dict containing the token payload with 'sub' (user_id) and 'exp' (expiration)
 
-    Raises:
-        JWTError if token is invalid or expired
-    """
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_token(token: str) -> Optional[str]:
     try:
         payload = jwt.decode(
-            token,
-            settings.SECRET_KEY,
-            algorithms=[settings.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        return payload  # Return the full payload dict, not just user_id!
-    except JWTError as e:
-        raise JWTError(f"Token verification failed: {str(e)}")
+        return payload.get("sub")
+    except jwt.JWTError:
+        return None

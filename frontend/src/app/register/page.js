@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { apiService } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -11,6 +12,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,67 +26,30 @@ export default function Register() {
     }
 
     try {
-      console.log("📝 Registering user:", email);
+      await apiService.register(email, password);
+      const loginResult = await login(email, password);
 
-      // Step 1: Register user (NO token returned, is_active=False)
-      const registerResponse = await apiService.register(email, password);
-
-      console.log("✅ Registration response:", registerResponse);
-
-      // Step 2: Login to get temporary token for payment page access
-      console.log("🔐 Logging in for payment access...");
-
-      try {
-        const loginResponse = await apiService.request(
-          "/auth/login-for-payment",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ email, password }),
-          }
-        );
-
-        console.log("✅ Login response:", loginResponse);
-
-        if (loginResponse.access_token) {
-          // Save temporary token for payment page
-          apiService.setToken(loginResponse.access_token);
-
-          console.log("✅ Got payment access token, redirecting to payment");
-
-          // Redirect to payment page
+      if (loginResult.success) {
+        if (loginResult.redirect === "payment") {
           router.push("/payment");
         } else {
-          setError(
-            "Registration successful but couldn't log in. Please try logging in manually."
-          );
-          setTimeout(() => {
-            router.push("/login");
-          }, 2000);
+          router.push("/dashboard");
         }
-      } catch (loginError) {
-        console.error("❌ Login for payment failed:", loginError);
-        setError("Registration successful! Please login to continue.");
-        setTimeout(() => {
-          router.push(`/login?email=${encodeURIComponent(email)}`);
-        }, 2000);
+      } else {
+        setError(
+          loginResult.error ||
+            "Registration successful, but automatic login failed. Please sign in manually."
+        );
       }
-    } catch (error) {
-      console.error("❌ Registration error:", error);
-
-      // Better error message handling
+    } catch (err) {
       let errorMessage = "Registration failed";
-
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.detail) {
-        errorMessage = error.detail;
-      } else if (typeof error === "string") {
-        errorMessage = error;
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (err?.detail) {
+        errorMessage = err.detail;
+      } else if (typeof err === "string") {
+        errorMessage = err;
       }
-
       setError(errorMessage);
     } finally {
       setLoading(false);

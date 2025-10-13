@@ -37,32 +37,33 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      console.log("🔍 Checking auth - Token exists:", !!apiService.token);
-
       if (!apiService.token) {
         persistUser(null);
         setLoading(false);
         return;
       }
 
-      console.log("✅ Auth restored from session");
+      const [profile, subscription] = await Promise.all([
+        apiService.getCurrentUser().catch(() => null),
+        apiService.getSubscriptionStatus().catch(() => null),
+      ]);
 
-      // Try to get subscription status to verify token
-      try {
-        const subscription = await apiService.getSubscriptionStatus();
-        persistUser((prev) => ({
-          ...(prev || {}),
-          is_active: subscription?.is_active ?? prev?.is_active,
-          subscription,
-        }));
-      } catch (error) {
-        console.warn("⚠️ Failed to fetch subscription:", error.message);
-        // Token might be invalid, clear it
-        apiService.clearToken();
-        persistUser(null);
+      if (!profile || !subscription) {
+        throw new Error("Unable to refresh session");
       }
+
+      persistUser((prev) => ({
+        email: profile.email,
+        is_active: subscription.is_active,
+        subscription: {
+          is_active: subscription.is_active,
+          plan_code: subscription.plan_code ?? null,
+          expires_at: subscription.expires_at ?? null,
+          days_remaining: subscription.days_remaining ?? null,
+        },
+        user_id: profile.id ?? prev?.user_id ?? null,
+      }));
     } catch (error) {
-      console.error("❌ Auth check failed:", error);
       apiService.clearToken();
       persistUser(null);
     } finally {
@@ -72,69 +73,33 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      console.log("🔐 Attempting login for:", email);
       const response = await apiService.login(email, password);
 
       if (response.access_token) {
         apiService.setToken(response.access_token);
+        const isActive = Boolean(response.is_active);
         const nextUser = {
           email: response.email,
-          is_active: response.is_active,
+          user_id: response.user_id,
+          is_active: isActive,
           subscription: {
-            is_active: response.is_active,
+            is_active: isActive,
             plan_code: response.plan_code || null,
             expires_at: response.expires_at || null,
             days_remaining: response.days_remaining ?? null,
           },
         };
         persistUser(nextUser);
-        console.log("✅ Login successful");
-        return { success: true };
+        return { success: true, redirect: isActive ? undefined : "payment" };
       }
 
       return { success: false, error: "Invalid credentials" };
     } catch (error) {
-      if (error.message?.includes("Account not activated")) {
-        try {
-          const paymentResponse = await apiService.loginForPayment(
-            email,
-            password
-          );
-
-          if (paymentResponse.access_token) {
-            apiService.setToken(paymentResponse.access_token);
-            const nextUser = {
-              email: paymentResponse.email,
-              is_active: paymentResponse.is_active,
-              subscription: {
-                is_active: paymentResponse.is_active,
-                plan_code: paymentResponse.plan_code || null,
-                expires_at: paymentResponse.expires_at || null,
-                days_remaining: paymentResponse.days_remaining ?? null,
-              },
-            };
-            persistUser(nextUser);
-            console.log("✅ Login for payment successful");
-            return { success: true, redirect: "payment" };
-          }
-        } catch (paymentError) {
-          console.error("❌ Login for payment error:", paymentError);
-          return {
-            success: false,
-            error:
-              paymentError.message ||
-              "Account inactive. Please complete payment to continue.",
-          };
-        }
-      }
-
-      console.error("❌ Login error:", error);
       return { success: false, error: error.message };
     }
   };
 
   const logout = () => {
-    console.log("👋 Logging out");
     apiService.clearToken();
     persistUser(null);
   };
@@ -144,12 +109,16 @@ export function AuthProvider({ children }) {
       const subscription = await apiService.getSubscriptionStatus();
       persistUser((prev) => ({
         ...(prev || {}),
-        is_active: subscription?.is_active ?? prev?.is_active,
-        subscription,
+        is_active: subscription?.is_active ?? false,
+        subscription: {
+          is_active: subscription?.is_active ?? false,
+          plan_code: subscription?.plan_code ?? null,
+          expires_at: subscription?.expires_at ?? null,
+          days_remaining: subscription?.days_remaining ?? null,
+        },
       }));
       return subscription;
     } catch (error) {
-      console.error("Failed to update subscription:", error);
       return null;
     }
   };

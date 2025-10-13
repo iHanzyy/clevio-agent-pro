@@ -1,21 +1,23 @@
+import base64
+import json
+import re
+import requests
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any, Sequence
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from google.oauth2 import credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
-import requests
-import json
-import base64
 
 from app.models import User, AuthToken, ApiKey
-from app.schemas.auth import TokenData, AuthTokenCreate, ApiKeyRequest, PlanCode
+from app.schemas.auth import TokenData, AuthTokenCreate, PlanCode
 from app.core.security import create_access_token, verify_password, get_password_hash
 from app.core.config import settings
 from app.core.logging import logger
-from datetime import datetime, timedelta
 
 
 def normalize_scopes(scopes: Sequence[str]) -> List[str]:
@@ -54,40 +56,92 @@ DEFAULT_GOOGLE_SCOPES: List[str] = normalize_scopes(
 
 
 class AuthService:
+    _EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    _PHONE_REGEX = re.compile(r"^\d{8,15}$")
+
+    @staticmethod
+    def _is_supported_hash(password: str) -> bool:
+        if not password:
+            return False
+        if password.startswith("$2b$12$") and len(password) == 60:
+            return True
+        if password.startswith("$bcrypt-sha256$"):
+            return True
+        return False
+
+    @classmethod
+    def _normalize_identifier(cls, raw: Optional[str]) -> Optional[str]:
+        if not raw:
+            return None
+
+        candidate = raw.strip()
+        if not candidate:
+            return None
+
+        if cls._EMAIL_REGEX.match(candidate):
+            return candidate.lower()
+
+        digits_only = re.sub(r"\D", "", candidate)
+        if digits_only and cls._PHONE_REGEX.match(digits_only):
+            return digits_only
+        return None
+
     def __init__(self, db: Session):
         self.db = db
         # expose settings so dependent components (e.g., tools) can access configuration
         self.settings = settings
 
-    def authenticate_user(self, email: str, password: str) -> Optional[User]:
-        user = self.db.query(User).filter(User.email == email).first()
+    def _get_user_by_normalized_identifier(self, normalized_identifier: str) -> Optional[User]:
+        query = self.db.query(User)
+        if "@" in normalized_identifier:
+            return query.filter(func.lower(User.email) == normalized_identifier).first()
+        return query.filter(User.email == normalized_identifier).first()
+
+    def _get_user_by_identifier(self, identifier: str) -> Optional[User]:
+        normalized = self._normalize_identifier(identifier)
+        if not normalized:
+            return None
+        return self._get_user_by_normalized_identifier(normalized)
+
+    def authenticate_user(self, identifier: str, password: str) -> Optional[User]:
+        user = self._get_user_by_identifier(identifier)
         if not user:
             return None
-        if not verify_password(password, user.password_hash):
-            return None
-        return user
+        if password == user.password_hash:
+            return user
+        if verify_password(password, user.password_hash):
+            return user
+        return None
 
-    def create_user(self, email: str, password: str) -> User:
-        """Create a new user with hashed password"""
+    def create_user(self, identifier: str, password: str) -> User:
+        normalized = self._normalize_identifier(identifier)
+        if not normalized:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Provide a valid email address or phone number.",
+            )
+
+        existing_user = self._get_user_by_normalized_identifier(normalized)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account already exists for this email address or phone number.",
+            )
+
         hashed_password = get_password_hash(password)
-        db_user = User(
-            email=email.lower(),  # Normalize email
-            password_hash=hashed_password,
-            created_at=datetime.utcnow(),
-            is_active=False  # New users start inactive until they pay
-        )
+        db_user = User(email=normalized, password_hash=hashed_password, created_at=datetime.utcnow())
         self.db.add(db_user)
         self.db.commit()
         self.db.refresh(db_user)
         return db_user
 
-    def generate_api_key(self, email: str, password: str, plan_code: PlanCode) -> Dict[str, Any]:
+    def generate_api_key(self, identifier: str, password: str, plan_code: PlanCode) -> Dict[str, Any]:
         """Generate API key with plan-based expiration"""
-        user = self.authenticate_user(email, password)
+        user = self.authenticate_user(identifier, password)
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid email or password"
+                detail="Invalid credentials"
             )
 
         if not user.is_active:
@@ -134,6 +188,81 @@ class AuthService:
         """Get all API keys for a user"""
         return self.db.query(ApiKey).filter(ApiKey.user_id == user_id).all()
 
+    def update_user_password(self, user_id: UUID, new_password: str) -> bool:
+        """Update a user's password with plaintext or pre-hashed input."""
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        if self._is_supported_hash(new_password):
+            user.password_hash = new_password
+        else:
+            user.password_hash = get_password_hash(new_password)
+
+        self.db.commit()
+        logger.info("User password updated successfully", user_id=str(user.id))
+        return True
+
+    def update_api_key(
+        self,
+        identifier: str,
+        password: str,
+        access_token: str,
+        plan_code: PlanCode
+    ) -> bool:
+        """Update an existing API key's plan and expiration"""
+        user = self.authenticate_user(identifier, password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials"
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User account is inactive"
+            )
+
+        api_key = self.db.query(ApiKey).filter(
+            ApiKey.access_token == access_token,
+            ApiKey.user_id == user.id
+        ).first()
+
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="API key not found"
+            )
+
+        if plan_code == PlanCode.PRO_M:
+            expires_at = datetime.utcnow() + timedelta(days=30)
+        elif plan_code == PlanCode.PRO_Y:
+            expires_at = datetime.utcnow() + timedelta(days=365)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid plan code"
+            )
+
+        api_key.plan_code = plan_code.value
+        api_key.expires_at = expires_at
+        api_key.is_active = True
+
+        self.db.commit()
+
+        logger.info(
+            "API key updated successfully",
+            user_id=str(user.id),
+            api_key_id=str(api_key.id),
+            plan_code=plan_code.value
+        )
+
+        return True
+
     def deactivate_api_key(self, api_key_id: str, user_id: str) -> bool:
         """Deactivate an API key"""
         api_key = self.db.query(ApiKey).filter(
@@ -147,16 +276,11 @@ class AuthService:
             return True
         return False
 
-    def create_access_token(self, user_id: str = None, data: dict = None) -> str:
-        """Create access token"""
-        # Handle both old and new calling styles
-        if data and "sub" in data:
-            user_id = data["sub"]
-        elif not user_id:
-            raise ValueError("user_id is required")
-
-        from app.core.security import create_access_token as create_jwt_token
-        return create_jwt_token(user_id)
+    def create_access_token(self, user_id: str) -> str:
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        return create_access_token(
+            subject=user_id, expires_delta=access_token_expires
+        )
 
     def get_current_user(self, token: str) -> Optional[User]:
         token_data = self.verify_token(token)
@@ -396,64 +520,3 @@ class AuthService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to refresh token: {str(e)}"
             )
-
-    async def handle_google_callback(
-        self,
-        code: str,
-        state: str,
-        scope: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """
-        Finalise the Google OAuth handshake: validate state, exchange the code,
-        persist tokens, and return summary metadata.
-        """
-        if not state:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing OAuth state parameter"
-            )
-
-        try:
-            padding = "=" * (-len(state) % 4)
-            decoded_state = base64.urlsafe_b64decode(state + padding).decode("utf-8")
-            state_payload = json.loads(decoded_state)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid OAuth state parameter"
-            ) from exc
-
-        user_id = state_payload.get("u")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="OAuth state is missing user identifier"
-            )
-
-        user = self.db.query(User).filter(User.id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found for OAuth callback"
-            )
-
-        requested_scopes = state_payload.get("s") or []
-        if isinstance(requested_scopes, str):
-            requested_scopes = requested_scopes.split()
-
-        if scope:
-            requested_scopes = normalize_scopes(scope.split())
-        else:
-            requested_scopes = normalize_scopes(requested_scopes)
-
-        token_data = self.exchange_google_code(code, state, scopes=requested_scopes)
-        auth_record = self.save_auth_token(str(user.id), token_data)
-
-        return {
-            "user_id": str(user.id),
-            "email": user.email,
-            "scope": auth_record.scope,
-            "expires_at": auth_record.expires_at,
-            "access_token": token_data["access_token"],
-            "refresh_token": token_data.get("refresh_token"),
-        }

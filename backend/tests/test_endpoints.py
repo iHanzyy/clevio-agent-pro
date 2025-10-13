@@ -18,7 +18,7 @@ def _register_user(client) -> Dict[str, str]:
     creds = _generate_credentials()
     response = client.post(
         f"{API_PREFIX}/auth/register",
-        params={"email": creds["email"], "password": creds["password"]},
+        json={"email": creds["email"], "password": creds["password"]},
     )
     assert response.status_code == 200, response.text
     data = response.json()
@@ -40,6 +40,14 @@ def _auth_headers(token: str) -> Dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _activate_user(client, email: str) -> None:
+    response = client.post(
+        f"{API_PREFIX}/auth/activate",
+        params={"email": email},
+    )
+    assert response.status_code == 200, response.text
+
+
 def test_public_endpoints(client):
     root_resp = client.get("/")
     assert root_resp.status_code == 200
@@ -53,12 +61,29 @@ def test_public_endpoints(client):
 def test_register_and_login_flow(client):
     creds = _register_user(client)
 
+    initial_login = client.post(
+        f"{API_PREFIX}/auth/login",
+        json={"email": creds["email"], "password": creds["password"]},
+    )
+    assert initial_login.status_code == 200, initial_login.text
+    login_data = initial_login.json()
+    assert login_data["is_active"] is False
+
     # Duplicate registration should fail
     duplicate = client.post(
         f"{API_PREFIX}/auth/register",
-        params={"email": creds["email"], "password": creds["password"]},
+        json={"email": creds["email"], "password": creds["password"]},
     )
     assert duplicate.status_code == 400
+
+    _activate_user(client, creds["email"])
+
+    post_activation_login = client.post(
+        f"{API_PREFIX}/auth/login",
+        json={"email": creds["email"], "password": creds["password"]},
+    )
+    assert post_activation_login.status_code == 200, post_activation_login.text
+    assert post_activation_login.json()["is_active"] is True
 
     # Test API key generation with PRO_M plan
     api_key_m = _generate_api_key(client, creds["email"], creds["password"], "PRO_M")
@@ -79,6 +104,7 @@ def test_register_and_login_flow(client):
 
 def test_google_auth_endpoints(client, monkeypatch):
     creds = _register_user(client)
+    _activate_user(client, creds["email"])
     api_key = _generate_api_key(client, creds["email"], creds["password"])
     headers = _auth_headers(api_key)
 
@@ -129,7 +155,9 @@ def test_google_auth_endpoints(client, monkeypatch):
 
 def test_tool_endpoints(client, tmp_path):
     creds = _register_user(client)
-    headers = _auth_headers(creds["token"])
+    _activate_user(client, creds["email"])
+    token = _generate_api_key(client, creds["email"], creds["password"])
+    headers = _auth_headers(token)
 
     list_resp = client.get(f"{API_PREFIX}/tools/", headers=headers)
     assert list_resp.status_code == 200
@@ -225,7 +253,9 @@ def test_tool_endpoints(client, tmp_path):
 
 def test_agent_endpoints(client):
     creds = _register_user(client)
-    headers = _auth_headers(creds["token"])
+    _activate_user(client, creds["email"])
+    token = _generate_api_key(client, creds["email"], creds["password"])
+    headers = _auth_headers(token)
 
     # Ensure built-in tools exist for agent tool validation
     client.get(f"{API_PREFIX}/tools/", headers=headers)

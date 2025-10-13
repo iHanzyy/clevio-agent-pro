@@ -1,12 +1,13 @@
+import json
+from typing import Optional, List
 from pydantic_settings import BaseSettings
-from pydantic import Field
-from typing import List, Optional
+from pydantic import Field, field_validator
 
 
 class Settings(BaseSettings):
     # API Settings
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "Clevio Agent Pro API"
+    PROJECT_NAME: str = "LangChain Agent API"
 
     # Security
     SECRET_KEY: str = Field(..., env="SECRET_KEY")
@@ -27,32 +28,60 @@ class Settings(BaseSettings):
     # OpenAI
     OPENAI_API_KEY: str = Field(..., env="OPENAI_API_KEY")
 
-    # Midtrans Payment Gateway
-    MIDTRANS_SERVER_KEY: Optional[str] = None
-    MIDTRANS_CLIENT_KEY: Optional[str] = None
-    MIDTRANS_IS_PRODUCTION: bool = False
-    N8N_MIDTRANS_WEBHOOK_URL: Optional[str] = None
+    # Midtrans / Payments
+    MIDTRANS_SERVER_KEY: Optional[str] = Field(default=None, env="MIDTRANS_SERVER_KEY")
+    MIDTRANS_CLIENT_KEY: Optional[str] = Field(default=None, env="MIDTRANS_CLIENT_KEY")
+    MIDTRANS_IS_PRODUCTION: bool = Field(default=False, env="MIDTRANS_IS_PRODUCTION")
+    N8N_MIDTRANS_WEBHOOK_URL: Optional[str] = Field(default=None, env="N8N_MIDTRANS_WEBHOOK_URL")
 
-    # Agent Configuration
-    MAX_CONCURRENT_AGENTS: int = Field(10000, env="MAX_CONCURRENT_AGENTS")
-    AGENT_EXECUTION_TIMEOUT: int = Field(300, env="AGENT_EXECUTION_TIMEOUT")
-
-    # CORS - FIX THIS
-    BACKEND_CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://localhost:3000",
-        "https://5qv3wb2p-3000.asse.devtunnels.ms",
-        "http://localhost:8000",
-        "https://5qv3wb2p-8000.asse.devtunnels.ms"
-    ]
+    # CORS
+    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
     # Logging
-    LOG_LEVEL: str = Field("INFO", env="LOG_LEVEL")
-    LOG_FORMAT: str = Field("json", env="LOG_FORMAT")
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "json"  # json or console
+
+    # Performance
+    MAX_CONCURRENT_AGENTS: int = 10000
+    AGENT_EXECUTION_TIMEOUT: int = 300  # 5 minutes
+
+    MCP_SSE_URL: Optional[str] = Field(default=None, env="MCP_SSE_URL")
+    MCP_SSE_TOKEN: Optional[str] = Field(default=None, env="MCP_SSE_TOKEN")
+    MCP_SSE_ALLOWED_TOOLS: List[str] = Field(default_factory=list, env="MCP_SSE_ALLOWED_TOOLS")
+    MCP_SSE_ALLOWED_TOOL_CATEGORIES: List[str] = Field(
+        default_factory=list,
+        env="MCP_SSE_ALLOWED_TOOL_CATEGORIES",
+    )
+
+    MCP_HTTP_URL: Optional[str] = Field(default=None, env="MCP_HTTP_URL")
+    MCP_HTTP_TOKEN: Optional[str] = Field(default=None, env="MCP_HTTP_TOKEN")
+    MCP_HTTP_ALLOWED_TOOLS: List[str] = Field(default_factory=list, env="MCP_HTTP_ALLOWED_TOOLS")
+
+    @field_validator(
+        "MCP_SSE_ALLOWED_TOOLS",
+        "MCP_HTTP_ALLOWED_TOOLS",
+        "MCP_SSE_ALLOWED_TOOL_CATEGORIES",
+        mode="before",
+    )
+    @classmethod
+    def _split_allowed_tools(cls, value):
+        if value is None:
+            return []
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped.startswith("[") and stripped.endswith("]"):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, list):
+                        return [str(item).strip() for item in parsed if str(item).strip()]
+                except json.JSONDecodeError:
+                    pass
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
 
     class Config:
         env_file = ".env"
+        case_sensitive = True
 
 
 settings = Settings()

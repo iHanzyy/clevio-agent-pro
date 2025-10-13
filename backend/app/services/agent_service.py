@@ -41,6 +41,7 @@ class AgentService:
 
             # Create agent
             config_dict = agent_data.config.model_dump() if agent_data.config else {}
+
             mcp_servers = {
                 alias: cfg.model_dump(mode="json", exclude_none=True)
                 for alias, cfg in (agent_data.mcp_servers or {}).items()
@@ -101,7 +102,10 @@ class AgentService:
                 agent.name = agent_data.name
 
             if agent_data.config is not None:
-                agent.config = agent_data.config.model_dump()
+                existing_config = dict(agent.config or {})
+                updates = agent_data.config.model_dump(exclude_unset=True, exclude_none=True)
+                existing_config.update(updates)
+                agent.config = existing_config
 
             if agent_data.status is not None:
                 agent.status = agent_data.status
@@ -113,7 +117,7 @@ class AgentService:
                 }
 
             if agent_data.allowed_tools is not None:
-                agent.allowed_tools = list(agent_data.allowed_tools)
+                agent.allowed_tools = list(agent_data.allowed_tools or [])
 
             if agent_data.tools is not None:
                 # Remove existing tools

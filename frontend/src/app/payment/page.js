@@ -13,11 +13,23 @@ export default function Payment() {
   const [successMessage, setSuccessMessage] = useState("");
   const [orderId, setOrderId] = useState("");
   const router = useRouter();
-  const { updateSubscription } = useAuth();
+  const { user, loading: authLoading, updateSubscription } = useAuth();
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (user.subscription?.is_active) {
+      router.replace("/dashboard");
+      return;
+    }
     loadPaymentData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
 
   const loadPaymentData = async () => {
     try {
@@ -28,7 +40,6 @@ export default function Payment() {
     }
   };
 
-  // Update the handlePayment function to handle mock tokens
   const handlePayment = async () => {
     if (!selectedPlan) {
       setError("Please select a payment plan");
@@ -72,11 +83,13 @@ export default function Payment() {
   };
 
   const formatPrice = (price) => {
+    const numericPrice =
+      typeof price === "string" ? Number(price) : Number(price || 0);
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(Number.isNaN(numericPrice) ? 0 : numericPrice);
   };
 
   return (

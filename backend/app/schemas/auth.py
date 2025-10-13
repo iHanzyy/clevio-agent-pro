@@ -5,31 +5,9 @@ from enum import Enum
 from uuid import UUID
 
 
-class UserLogin(BaseModel):
-    email: str
-    password: str
-
-
-class UserRegister(BaseModel):
-    email: str
-    password: str
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str
-    user_id: UUID
-    email: str
-    is_active: bool = False
-    expires_at: Optional[datetime] = None
-    plan_code: Optional[str] = None
-
-
-class RegisterResponse(BaseModel):
-    user_id: UUID
-    email: str
-    is_active: bool = False
-    message: str
+class PlanCode(str, Enum):
+    PRO_M = "PRO_M"
+    PRO_Y = "PRO_Y"
 
 
 class Token(BaseModel):
@@ -38,20 +16,11 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
-
-
-class AuthTokenCreate(BaseModel):
-    service: str
-    access_token: str
-    refresh_token: Optional[str] = None
-    scope: List[str] = []
-    expires_at: Optional[datetime] = None
+    sub: Optional[str] = None
 
 
 class GoogleAuthRequest(BaseModel):
     email: str
-    scopes: Optional[List[str]] = None
 
 
 class GoogleAuthResponse(BaseModel):
@@ -62,30 +31,94 @@ class GoogleAuthResponse(BaseModel):
 class GoogleAuthCallback(BaseModel):
     code: str
     state: str
-    scope: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+    @validator("email")
+    def _validate_email(cls, value: str) -> str:
+        if not value or "@" not in value:
+            raise ValueError("Valid email address required")
+        return value.lower().strip()
+
+
+class UserRegister(BaseModel):
+    email: str
+    password: str
+
+    @validator("email")
+    def _validate_email(cls, value: str) -> str:
+        if not value or "@" not in value:
+            raise ValueError("Valid email address required")
+        return value.lower().strip()
+
+    @validator("password")
+    def _validate_password(cls, value: str) -> str:
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return value
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user_id: UUID
+    email: str
+    is_active: bool
+    expires_at: Optional[datetime] = None
+    plan_code: Optional[str] = None
+    days_remaining: Optional[int] = None
+
+
+class RegisterResponse(BaseModel):
+    user_id: UUID
+    email: str
+    is_active: bool
+    message: str
+
+
+class AuthTokenCreate(BaseModel):
+    service: str
+    access_token: str
+    refresh_token: Optional[str] = None
+    scope: List[str]
+    expires_at: Optional[datetime] = None
 
 
 class AuthToken(BaseModel):
-    id: UUID
-    token_name: str
+    id: str
+    user_id: str
+    service: str
+    scope: List[str]
+    expires_at: Optional[datetime] = None
     created_at: datetime
-    last_used_at: Optional[datetime] = None
-    is_active: bool
+
+    class Config:
+        from_attributes = True
 
 
 class ApiKeyRequest(BaseModel):
     username: str
     password: str
-    plan_code: Literal["PRO_M", "PRO_Y"]
+    plan_code: PlanCode
 
 
 class ApiKeyResponse(BaseModel):
     access_token: str
     token_type: str
-    expires_in: int
+    expires_at: datetime
+    plan_code: str
+
+
+class ApiKeyUpdateRequest(BaseModel):
+    username: str
+    password: str
+    access_token: str
+    plan_code: PlanCode
+
+
+class UserPasswordUpdateRequest(BaseModel):
     user_id: UUID
-
-
-class PlanCode(str, Enum):
-    PRO_M = "PRO_M"
-    PRO_Y = "PRO_Y"
+    new_password: str

@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 
 from app.core.database import get_db
 from app.core.deps import (
-    get_current_user,  # Changed from get_api_key_user
+    get_api_key_user,
     get_agent_service,
     get_execution_service,
     get_auth_service,
@@ -15,7 +15,7 @@ from app.services.agent_service import AgentService
 from app.services.execution_service import ExecutionService
 from app.services.embedding_service import EmbeddingService
 from app.services.auth_service import AuthService, DEFAULT_GOOGLE_SCOPES
-from app.models import User, ExecutionStatus, Agent, AgentKnowledgeDocument
+from app.models import User, ExecutionStatus
 from app.schemas.agent import (
     AgentCreate,
     AgentUpdate,
@@ -23,10 +23,6 @@ from app.schemas.agent import (
     AgentExecuteRequest,
     AgentExecuteResponse,
     AgentCreateResponse,
-)
-from app.schemas.knowledge import (
-    KnowledgeDocumentResponse,
-    KnowledgeDocumentUploadResponse,
 )
 from app.core.logging import logger
 
@@ -36,7 +32,7 @@ router = APIRouter()
 @router.post("/", response_model=AgentCreateResponse)
 async def create_agent(
     agent_data: AgentCreate,
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     agent_service: AgentService = Depends(get_agent_service),
     auth_service: AuthService = Depends(get_auth_service)
 ):
@@ -84,7 +80,7 @@ async def create_agent(
 @router.get("/", response_model=List[AgentResponse])
 @router.get("", response_model=List[AgentResponse], include_in_schema=False)
 async def get_user_agents(
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """Get all agents for the current user"""
@@ -95,7 +91,7 @@ async def get_user_agents(
 @router.get("/{agent_id}", response_model=AgentResponse)
 async def get_agent(
     agent_id: UUID,
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """Get a specific agent"""
@@ -107,7 +103,7 @@ async def get_agent(
 async def update_agent(
     agent_id: UUID,
     agent_data: AgentUpdate,
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """Update an agent"""
@@ -126,7 +122,7 @@ async def update_agent(
 @router.delete("/{agent_id}")
 async def delete_agent(
     agent_id: UUID,
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     agent_service: AgentService = Depends(get_agent_service)
 ):
     """Delete an agent"""
@@ -142,11 +138,97 @@ async def delete_agent(
         )
 
 
+@router.post("/{agent_id}/documents")
+async def upload_agent_document(
+    agent_id: UUID,
+    file: UploadFile = File(...),
+    chunk_size: Optional[int] = Form(None),
+    chunk_overlap: Optional[int] = Form(None),
+    batch_size: Optional[int] = Form(None),
+    current_user: User = Depends(get_api_key_user),
+    agent_service: AgentService = Depends(get_agent_service),
+    embedding_service: EmbeddingService = Depends(get_embedding_service),
+):
+    """Upload a document, convert it to clean text, and store vector embeddings."""
+    try:
+        agent = agent_service.get_agent(agent_id, current_user.id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Failed to load agent for document ingestion", error=str(exc), agent_id=str(agent_id))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to prepare agent: {exc}"
+        )
+
+    allowed_types = {
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "text/plain",
+    }
+
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported file type. Upload pdf, docx, pptx, or txt files.",
+        )
+
+    file_bytes = await file.read()
+    if not file_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is empty.",
+        )
+
+    try:
+        result = await embedding_service.ingest_file(
+            agent,
+            file.filename,
+            file.content_type,
+            file_bytes,
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            batch_size=batch_size,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error(
+            "Failed to ingest document",
+            error=str(exc),
+            agent_id=str(agent_id),
+            filename=file.filename,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to ingest document: {exc}"
+        )
+
+    logger.info(
+        "Document ingested",
+        agent_id=str(agent_id),
+        filename=file.filename,
+        chunks=result.get("chunks"),
+    )
+
+    return {
+        "message": "Document processed and embeddings stored.",
+        "chunks": result.get("chunks"),
+        "embedding_ids": result.get("embedding_ids"),
+    }
+
+
 @router.post("/{agent_id}/execute", response_model=AgentExecuteResponse)
 async def execute_agent(
     agent_id: UUID,
     execute_data: AgentExecuteRequest,
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
     """Execute an agent"""
@@ -159,13 +241,38 @@ async def execute_agent(
             execute_data.session_id
         )
 
+        if execution.status == ExecutionStatus.FAILED:
+            error_detail = None
+            if isinstance(execution.output, dict):
+                error_detail = execution.output.get("error")
+            error_detail = error_detail or execution.error_message or "Agent execution failed"
+            logger.error(
+                "Agent execution failed",
+                agent_id=str(agent_id),
+                execution_id=str(execution.id),
+                error=error_detail
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error_detail
+            )
+
+        logger.info("Agent executed", agent_id=str(agent_id), execution_id=str(execution.id))
+        response_text = None
+        if isinstance(execution.output, dict):
+            response_text = execution.output.get("output")
+        elif isinstance(execution.output, str):
+            response_text = execution.output
+
         return AgentExecuteResponse(
             execution_id=str(execution.id),
             status=execution.status.value,
             message="Agent execution started",
-            response=execution.output,
+            response=response_text,
             session_id=execution.session_id
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Failed to execute agent", error=str(e), agent_id=str(agent_id))
         raise HTTPException(
@@ -177,133 +284,32 @@ async def execute_agent(
 @router.get("/{agent_id}/executions")
 async def get_agent_executions(
     agent_id: UUID,
-    current_user: User = Depends(get_current_user),  # Changed
+    current_user: User = Depends(get_api_key_user),
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
     """Get execution history for an agent"""
-    try:
-        executions = execution_service.get_agent_executions(agent_id, current_user.id)
-        return executions
-    except Exception as e:
-        logger.error("Failed to get executions", error=str(e), agent_id=str(agent_id))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get executions: {str(e)}"
-        )
-
-
-MAX_UPLOAD_FILES = 10
-MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
-
-
-@router.post(
-    "/{agent_id}/documents",
-    response_model=KnowledgeDocumentUploadResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def upload_agent_documents(
-    agent_id: UUID,
-    files: List[UploadFile] = File(...),
-    current_user: User = Depends(get_current_user),
-    embedding_service: EmbeddingService = Depends(get_embedding_service),
-):
-    """Upload documents to enrich agent knowledge (RAG)."""
-    if not files:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one file must be provided.",
-        )
-
-    if len(files) > MAX_UPLOAD_FILES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"You can upload up to {MAX_UPLOAD_FILES} files at once.",
-        )
-
-    agent: Optional[Agent] = (
-        embedding_service.db.query(Agent)
-        .filter(Agent.id == agent_id, Agent.user_id == current_user.id)
-        .first()
-    )
-    if not agent:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Agent not found",
-        )
-
-    uploaded_documents: List[AgentKnowledgeDocument] = []
-    total_chunks = 0
-
-    for upload in files:
-        file_bytes = await upload.read()
-        size_bytes = len(file_bytes)
-
-        if size_bytes == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"{upload.filename or 'Uploaded file'} is empty.",
-            )
-
-        if size_bytes > MAX_FILE_SIZE_BYTES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"{upload.filename or 'Uploaded file'} exceeds the 20 MB limit.",
-            )
-
-        try:
-            ingestion_result = await embedding_service.ingest_file(
-                agent,
-                upload.filename or "document",
-                upload.content_type,
-                file_bytes,
-            )
-            chunk_count = ingestion_result.get("chunks", 0)
-            metadata = {
-                key: value
-                for key, value in ingestion_result.items()
-                if key != "embedding_ids"
+    executions = execution_service.get_agent_executions(agent_id, current_user.id)
+    return {
+        "executions": [
+            {
+                "id": str(exec.id),
+                "input": exec.input,
+                "output": exec.output,
+                "status": exec.status.value,
+                "duration_ms": exec.duration_ms,
+                "error_message": exec.error_message,
+                "created_at": exec.created_at
             }
-
-            document = embedding_service.record_document_upload(
-                agent=agent,
-                user_id=current_user.id,
-                filename=upload.filename or "document",
-                content_type=upload.content_type,
-                size_bytes=size_bytes,
-                chunk_count=chunk_count,
-                metadata=metadata,
-            )
-            uploaded_documents.append(document)
-            total_chunks += chunk_count
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.error(
-                "Failed to ingest document",
-                error=str(exc),
-                agent_id=str(agent_id),
-                filename=upload.filename,
-            )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to process {upload.filename or 'uploaded file'}: {str(exc)}",
-            ) from exc
-
-    return KnowledgeDocumentUploadResponse(
-        documents=uploaded_documents,
-        total_chunks=total_chunks,
-    )
+            for exec in executions
+        ]
+    }
 
 
-@router.get(
-    "/{agent_id}/documents",
-    response_model=List[KnowledgeDocumentResponse],
-)
-async def list_agent_documents(
-    agent_id: UUID,
-    current_user: User = Depends(get_current_user),
-    embedding_service: EmbeddingService = Depends(get_embedding_service),
+@router.get("/executions/stats")
+async def get_execution_stats(
+    current_user: User = Depends(get_api_key_user),
+    execution_service: ExecutionService = Depends(get_execution_service)
 ):
-    """List knowledge documents uploaded for the agent."""
-    documents = embedding_service.list_documents(agent_id, current_user.id)
-    return documents
+    """Get execution statistics"""
+    stats = execution_service.get_execution_stats(current_user.id)
+    return stats

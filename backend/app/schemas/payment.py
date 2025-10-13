@@ -1,8 +1,9 @@
-from pydantic import BaseModel
-from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
+from typing import Optional, List
 from uuid import UUID
+
+from pydantic import BaseModel
 
 
 class PaymentPlan(BaseModel):
@@ -39,6 +40,8 @@ class PaymentHistoryResponse(BaseModel):
     gross_amount: Decimal
     plan_code: str
     transaction_status: str
+    payment_type: Optional[str] = None
+    transaction_time: Optional[datetime] = None
     created_at: datetime
 
 

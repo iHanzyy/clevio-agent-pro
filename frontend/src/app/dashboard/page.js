@@ -19,16 +19,19 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    // Wait for auth to finish loading
-    if (!authLoading) {
-      if (!user) {
-        console.log("⚠️ No user, redirecting to login");
-        router.push("/login");
-      } else {
-        console.log("✅ User authenticated, loading dashboard");
-        loadDashboardData();
-      }
+    if (authLoading) {
+      return;
     }
+    if (!user) {
+      router.push("/login");
+      return;
+    }
+    if (!user.subscription?.is_active) {
+      router.push("/payment");
+      return;
+    }
+    loadDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
   const loadDashboardData = async () => {
@@ -36,12 +39,7 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
 
-      console.log("📊 Loading dashboard data...");
-      console.log("🔑 API Service has token:", !!apiService.token);
-
       const agentsData = await apiService.getAgents();
-
-      console.log("✅ Agents loaded:", agentsData.length);
 
       setAgents(agentsData);
 
@@ -57,7 +55,6 @@ export default function Dashboard() {
         messagesThisWeek: 0,
       });
     } catch (error) {
-      console.error("❌ Failed to load dashboard:", error);
       setError(error.message || "Failed to load dashboard data");
 
       // If unauthorized, redirect to login
@@ -65,7 +62,6 @@ export default function Dashboard() {
         error.message?.includes("Invalid API key") ||
         error.message?.includes("Unauthorized")
       ) {
-        console.log("⚠️ Unauthorized, redirecting to login");
         router.push("/login");
       }
     } finally {

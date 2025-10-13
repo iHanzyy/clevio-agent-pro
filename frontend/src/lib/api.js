@@ -107,10 +107,9 @@ class ApiService {
     });
   }
 
-  async loginForPayment(email, password) {
-    return this.request("/auth/login-for-payment", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
+  async getCurrentUser() {
+    return this.request("/auth/me", {
+      auth: true,
     });
   }
 
@@ -127,21 +126,6 @@ class ApiService {
     });
   }
 
-  async confirmPayment(payload) {
-    return this.request("/payment/confirm", {
-      method: "POST",
-      body: JSON.stringify(payload),
-      auth: true,
-    });
-  }
-
-  async completeMockPayment(orderId) {
-    return this.request(`/payment/mock-complete/${orderId}`, {
-      method: "POST",
-      auth: true,
-    });
-  }
-
   async getPaymentHistory() {
     return this.request("/payment/history", {
       auth: true,
@@ -152,10 +136,6 @@ class ApiService {
     return this.request("/payment/status", {
       auth: true,
     });
-  }
-
-  async getPaymentConfig() {
-    return this.request("/payment/config");
   }
 
   // Agent endpoints
@@ -238,28 +218,6 @@ class ApiService {
     }
 
     return response.json();
-  }
-
-  // WhatsApp endpoints
-  async createWhatsAppSession(agentId) {
-    return this.request("/whatsapp/sessions", {
-      method: "POST",
-      auth: true,
-      body: JSON.stringify({ agent_id: agentId }),
-    });
-  }
-
-  async getWhatsAppStatus(sessionId) {
-    return this.request(`/whatsapp/sessions/${sessionId}`, {
-      auth: true,
-    });
-  }
-
-  async stopWhatsAppSession(sessionId) {
-    return this.request(`/whatsapp/sessions/${sessionId}`, {
-      method: "DELETE",
-      auth: true,
-    });
   }
 
   // Tools endpoints
