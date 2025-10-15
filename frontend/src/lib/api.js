@@ -1,54 +1,173 @@
-const API_BASE_URL = "http://127.0.0.1:8000/api/v1";
+// const DEFAULT_API_BASE_URL = "https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1";
+const DEFAULT_API_BASE_URL = "/api/proxy";
+const SESSION_TOKEN_KEY = "auth_session_token";
+const API_KEY_STORAGE_KEY = "auth_api_key_token";
+
+const normalizeBaseUrl = (url) => {
+  if (!url) return DEFAULT_API_BASE_URL;
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+};
 
 class ApiService {
   constructor() {
-    this.baseUrl = API_BASE_URL;
-    this.token = null;
+    const envBase =
+      typeof process !== "undefined"
+        ? process.env.NEXT_PUBLIC_API_BASE_URL
+        : null;
+
+    this.baseUrl = normalizeBaseUrl(
+      envBase && envBase.trim() ? envBase.trim() : DEFAULT_API_BASE_URL
+    );
+    this.sessionToken = null;
+    this.apiKeyToken = null;
     this.initialized = false;
 
-    // Load token from sessionStorage on initialization
     if (typeof window !== "undefined") {
-      const savedToken = sessionStorage.getItem("auth_token");
-      if (savedToken) {
-        this.token = savedToken;
+      const savedSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
+      const legacyToken = sessionStorage.getItem("auth_token");
+      const savedApiKey =
+        sessionStorage.getItem(API_KEY_STORAGE_KEY) || legacyToken;
+
+      if (savedSession) {
+        this.sessionToken = savedSession;
         this.initialized = true;
-        console.log("🔑 Token loaded from sessionStorage on init"); // Debug
+        console.log("🔑 Session token loaded from storage");
+      }
+
+      if (savedApiKey) {
+        this.apiKeyToken = savedApiKey;
+        this.initialized = true;
+        console.log("🆔 API key loaded from storage");
       }
     }
   }
 
-  setToken(token) {
-    console.log("🔑 Setting token:", token ? "***" + token.slice(-10) : "null"); // Debug
-    this.token = token;
+  setBaseUrl(url) {
+    this.baseUrl = normalizeBaseUrl(url);
+    console.log("🌐 API base URL set to:", this.baseUrl);
+  }
+
+  setSessionToken(token) {
+    console.log(
+      "🔑 Setting session token:",
+      token ? "***" + token.slice(-10) : "null"
+    );
+    this.sessionToken = token || null;
     this.initialized = true;
+
     if (typeof window !== "undefined") {
       if (token) {
-        sessionStorage.setItem("auth_token", token);
+        sessionStorage.setItem(SESSION_TOKEN_KEY, token);
       } else {
-        sessionStorage.removeItem("auth_token");
+        sessionStorage.removeItem(SESSION_TOKEN_KEY);
       }
     }
   }
 
-  clearToken() {
-    console.log("🗑️ Clearing token"); // Debug
-    this.token = null;
-    this.initialized = false;
+  setApiKey(token) {
+    console.log(
+      "🆔 Setting API key:",
+      token ? "***" + token.slice(-10) : "null"
+    );
+    this.apiKeyToken = token || null;
+    this.initialized = true;
+
     if (typeof window !== "undefined") {
+      if (token) {
+        sessionStorage.setItem(API_KEY_STORAGE_KEY, token);
+      } else {
+        sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+      }
+      // Drop legacy storage key if present
       sessionStorage.removeItem("auth_token");
     }
   }
 
-  getHeaders(includeAuth = false) {
-    const headers = {
-      "Content-Type": "application/json",
-    };
+  /**
+   * Legacy compatibility: treat setToken as setting the API key.
+   */
+  setToken(token) {
+    this.setApiKey(token);
+  }
 
-    if (includeAuth && this.token) {
-      headers["Authorization"] = `Bearer ${this.token}`;
-      console.log("📤 Request with auth header"); // Debug
-    } else if (includeAuth && !this.token) {
-      console.warn("⚠️ Auth requested but no token available"); // Debug
+  clearSessionToken() {
+    console.log("🗑️ Clearing session token");
+    this.sessionToken = null;
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    }
+  }
+
+  clearApiKey() {
+    console.log("🗑️ Clearing API key");
+    this.apiKeyToken = null;
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(API_KEY_STORAGE_KEY);
+      sessionStorage.removeItem("auth_token");
+    }
+  }
+
+  clearToken() {
+    this.clearApiKey();
+  }
+
+  clearAllTokens() {
+    this.clearSessionToken();
+    this.clearApiKey();
+    this.initialized = false;
+  }
+
+  hasSessionToken() {
+    return Boolean(this.sessionToken);
+  }
+
+  hasApiKey() {
+    return Boolean(this.apiKeyToken);
+  }
+
+  getAuthToken({ primary = "apiKey", fallback = null } = {}) {
+    if (primary === "apiKey" && this.apiKeyToken) return this.apiKeyToken;
+    if (primary === "session" && this.sessionToken) return this.sessionToken;
+    if (primary === "auto") {
+      return this.apiKeyToken || this.sessionToken || null;
+    }
+
+    if (fallback) {
+      if (fallback === "apiKey" && this.apiKeyToken) return this.apiKeyToken;
+      if (fallback === "session" && this.sessionToken) return this.sessionToken;
+      if (fallback === "auto") {
+        return this.apiKeyToken || this.sessionToken || null;
+      }
+    }
+
+    return null;
+  }
+
+  getHeaders({ authType = null, includeContentType = false, fallback } = {}) {
+    const headers = {};
+
+    if (includeContentType) {
+      headers["Content-Type"] = "application/json";
+    }
+
+    const token = this.getAuthToken({ primary: authType, fallback });
+    if (authType && !token) {
+      console.warn(
+        "⚠️ Auth requested but no token available for",
+        authType,
+        " (fallback:",
+        fallback,
+        ")"
+      );
+    }
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+      console.log(
+        "📤 Request with auth header (type:",
+        authType || "auto",
+        ")"
+      );
     }
 
     return headers;
@@ -56,113 +175,231 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
+    const {
+      authType,
+      authFallback,
+      auth = false,
+      includeAuth,
+      skipContentType,
+      ...fetchOptions
+    } = options;
 
-    // Add more detailed logging
-    console.log(`🌐 API Request: ${options.method || "GET"} ${endpoint}`, {
-      hasToken: !!this.token,
-      includeAuth: options.auth || options.includeAuth,
+    const shouldIncludeAuth = authType || auth || includeAuth;
+    const resolvedAuthType = authType || (shouldIncludeAuth ? "apiKey" : null);
+    const includeContentType =
+      !skipContentType && fetchOptions.body !== undefined;
+
+    console.log(`🌐 API Request: ${fetchOptions.method || "GET"} ${endpoint}`, {
+      baseUrl: this.baseUrl,
+      hasSessionToken: !!this.sessionToken,
+      hasApiKey: !!this.apiKeyToken,
+      authType: resolvedAuthType,
     });
 
+    const headers = {
+      ...this.getHeaders({
+        authType: resolvedAuthType,
+        includeContentType,
+        fallback: authFallback,
+      }),
+      ...(fetchOptions.headers || {}),
+    };
+
     const config = {
-      ...options,
-      headers: {
-        ...this.getHeaders(options.auth || options.includeAuth),
-        ...options.headers,
-      },
+      ...fetchOptions,
+      headers,
     };
 
     try {
-      const response = await fetch(url, config);
+      console.log("🚀 Fetching:", url);
+      console.log("📋 Config:", config);
 
-      // Log response status
+      const response = await fetch(url, config);
       console.log(`📥 Response: ${response.status} ${response.statusText}`);
 
-      const data = await response.json();
+      let data = null;
+      const contentType = response.headers.get("content-type");
+      const isJson = contentType && contentType.includes("application/json");
+
+      if (response.status !== 204) {
+        if (isJson) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          data = text ? { detail: text } : null;
+        }
+      }
 
       if (!response.ok) {
-        throw new Error(
-          data.detail || `HTTP error! status: ${response.status}`
-        );
+        let message = `HTTP error! status: ${response.status}`;
+        const detail = data?.detail;
+
+        if (typeof detail === "string") {
+          message = detail;
+        } else if (Array.isArray(detail)) {
+          message = detail
+            .map((item) => item?.msg || item?.detail || JSON.stringify(item))
+            .join(", ");
+        } else if (detail && typeof detail === "object") {
+          message = JSON.stringify(detail);
+        }
+
+        throw new Error(message);
       }
 
       return data;
     } catch (error) {
       console.error("❌ API Request failed:", error);
+
+      // More specific error messages
+      if (error.message === "Failed to fetch") {
+        throw new Error(
+          "Cannot connect to server. Please check:\n" +
+            "1. DevTunnel is running\n" +
+            "2. Backend server is active on port 8000\n" +
+            "3. Check browser console for CORS errors"
+        );
+      }
+
       throw error;
     }
   }
 
   // Auth endpoints
-  async register(email, password) {
-    return this.request("/auth/register", {
+  async register(identifier, password, extraParams = {}) {
+    const params = new URLSearchParams({
+      ...extraParams,
+      email: identifier,
+      password,
+    });
+    return this.request(`/auth/register?${params.toString()}`, {
       method: "POST",
-      body: JSON.stringify({ email, password }),
     });
   }
 
-  async login(email, password) {
-    return this.request("/auth/login", {
+  async login(identifier, password) {
+    const params = new URLSearchParams({ email: identifier, password });
+    return this.request(`/auth/login?${params.toString()}`, {
       method: "POST",
-      body: JSON.stringify({ email, password }),
     });
   }
 
-  async getCurrentUser() {
-    return this.request("/auth/me", {
-      auth: true,
-    });
-  }
-
-  // Payment endpoints
-  async getPaymentPlans() {
-    return this.request("/payment/plans");
-  }
-
-  async createPayment(planCode) {
-    return this.request("/payment/create", {
+  async generateApiKey(username, password, planCode = "PRO_M") {
+    return this.request("/auth/api-key", {
       method: "POST",
-      body: JSON.stringify({ plan_code: planCode }),
-      auth: true,
+      skipContentType: false,
+      authType: "session",
+      body: JSON.stringify({
+        username,
+        password,
+        plan_code: planCode,
+      }),
     });
   }
 
-  async getPaymentHistory() {
-    return this.request("/payment/history", {
-      auth: true,
+  async updateApiKey(username, password, accessToken, planCode) {
+    return this.request("/auth/api-key/update", {
+      method: "POST",
+      body: JSON.stringify({
+        username,
+        password,
+        access_token: accessToken,
+        plan_code: planCode,
+      }),
+      authType: "session",
     });
   }
 
-  async getSubscriptionStatus() {
-    return this.request("/payment/status", {
-      auth: true,
+  async getInformationN8N(orderId) {
+    const payload = orderId ? { order_id: orderId } : {};
+
+    const response = await fetch("/api/v1/payment/status", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     });
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+      throw new Error(
+        detail?.error ||
+          detail?.detail ||
+          `Failed to fetch payment status (${response.status})`
+      );
+    }
+
+    return response.json();
   }
 
-  // Agent endpoints
+  async notifyPaymentWebhook(payload) {
+    const response = await fetch(
+      "https://n8n-new.chiefaiofficer.id/webhook/pembayaranMidtrans",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      let detail = "Failed to trigger payment webhook";
+      try {
+        const data = await response.json();
+        if (data && typeof data.detail === "string") {
+          detail = data.detail;
+        }
+      } catch (err) {
+        detail = await response.text();
+      }
+      throw new Error(detail);
+    }
+
+    try {
+      return await response.json();
+    } catch (err) {
+      return null;
+    }
+  }
+
+  authHeader({ primary = "apiKey", fallback = "session" } = {}) {
+    const token = this.getAuthToken({ primary, fallback });
+    if (!token) {
+      console.warn("⚠️ Attempting to use auth header without available token");
+      return {};
+    }
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  // Agent endpoints (require API key)
   async getAgents() {
     return this.request("/agents/", {
-      auth: true,
+      authType: "apiKey",
+      authFallback: "session",
     });
   }
 
   async createAgent(payload) {
     return this.request("/agents/", {
       method: "POST",
-      auth: true,
+      authType: "apiKey",
       body: JSON.stringify(payload),
     });
   }
 
   async getAgent(agentId) {
     return this.request(`/agents/${agentId}`, {
-      auth: true,
+      authType: "apiKey",
     });
   }
 
   async updateAgent(agentId, data) {
     return this.request(`/agents/${agentId}`, {
       method: "PUT",
-      auth: true,
+      authType: "apiKey",
       body: JSON.stringify(data),
     });
   }
@@ -170,7 +407,7 @@ class ApiService {
   async deleteAgent(agentId) {
     return this.request(`/agents/${agentId}`, {
       method: "DELETE",
-      auth: true,
+      authType: "apiKey",
     });
   }
 
@@ -182,14 +419,14 @@ class ApiService {
 
     return this.request(`/agents/${agentId}/execute`, {
       method: "POST",
-      auth: true,
+      authType: "apiKey",
       body: JSON.stringify(payload),
     });
   }
 
   async getAgentDocuments(agentId) {
     return this.request(`/agents/${agentId}/documents`, {
-      auth: true,
+      authType: "apiKey",
     });
   }
 
@@ -199,13 +436,13 @@ class ApiService {
       formData.append("files", file);
     });
 
+    const headers = this.authHeader();
+
     const response = await fetch(
       `${this.baseUrl}/agents/${agentId}/documents`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
+        headers,
         body: formData,
       }
     );
@@ -223,7 +460,7 @@ class ApiService {
   // Tools endpoints
   async getTools() {
     return this.request("/tools/", {
-      auth: true,
+      authType: "apiKey",
     });
   }
 
@@ -232,19 +469,19 @@ class ApiService {
     const formData = new FormData();
     formData.append("file", file);
 
+    const headers = this.authHeader();
+
     const response = await fetch(
       `${this.baseUrl}/agents/${agentId}/documents`,
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
+        headers,
         body: formData,
       }
     );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({}));
       throw new Error(error.detail || "Upload failed");
     }
 

@@ -37,34 +37,47 @@ export function AuthProvider({ children }) {
 
   const checkAuth = async () => {
     try {
-      if (!apiService.token) {
+      const hasSession = apiService.hasSessionToken();
+      const hasApiKey = apiService.hasApiKey();
+
+      if (!hasSession && !hasApiKey) {
         persistUser(null);
         setLoading(false);
         return;
       }
 
-      const [profile, subscription] = await Promise.all([
-        apiService.getCurrentUser().catch(() => null),
-        apiService.getSubscriptionStatus().catch(() => null),
-      ]);
-
-      if (!profile || !subscription) {
+      const profile = await apiService.getCurrentUser().catch((err) => {
+        console.warn("Unable to load profile", err);
+        return null;
+      });
+      if (!profile) {
         throw new Error("Unable to refresh session");
       }
 
+      let subscription = null;
+      try {
+        subscription = await apiService.getSubscriptionStatus();
+      } catch (statusError) {
+        console.warn("Payment status unavailable", statusError);
+      }
+
+      const isActive =
+        subscription?.is_active ?? profile?.is_active ?? false;
+
       persistUser((prev) => ({
         email: profile.email,
-        is_active: subscription.is_active,
+        is_active: isActive,
         subscription: {
-          is_active: subscription.is_active,
-          plan_code: subscription.plan_code ?? null,
-          expires_at: subscription.expires_at ?? null,
-          days_remaining: subscription.days_remaining ?? null,
+          is_active: isActive,
+          plan_code: subscription?.plan_code ?? null,
+          expires_at: subscription?.expires_at ?? null,
+          days_remaining: subscription?.days_remaining ?? null,
         },
         user_id: profile.id ?? prev?.user_id ?? null,
       }));
     } catch (error) {
-      apiService.clearToken();
+      console.warn("Auth check failed", error);
+      apiService.clearAllTokens();
       persistUser(null);
     } finally {
       setLoading(false);
@@ -75,22 +88,70 @@ export function AuthProvider({ children }) {
     try {
       const response = await apiService.login(email, password);
 
-      if (response.access_token) {
-        apiService.setToken(response.access_token);
-        const isActive = Boolean(response.is_active);
+      if (response?.access_token) {
+        apiService.setSessionToken(response.access_token);
+
+        let profile = null;
+        try {
+          profile = await apiService.getCurrentUser();
+        } catch (profileError) {
+          console.warn("Unable to fetch profile after login", profileError);
+        }
+
+        let subscription = null;
+        try {
+          subscription = await apiService.getSubscriptionStatus();
+        } catch (subscriptionError) {
+          console.warn(
+            "Unable to fetch subscription after login",
+            subscriptionError
+          );
+        }
+
+        const isSubscriptionActive =
+          subscription?.is_active ?? profile?.is_active ?? response?.is_active;
+
+        if (isSubscriptionActive) {
+          const planCode =
+            subscription?.plan_code || response?.plan_code || "PRO_M";
+          try {
+            const apiKeyResponse = await apiService.generateApiKey(
+              email,
+              password,
+              planCode
+            );
+            if (apiKeyResponse?.access_token) {
+              apiService.setApiKey(apiKeyResponse.access_token);
+            }
+          } catch (apiKeyError) {
+            console.warn("Unable to generate API key", apiKeyError);
+          }
+        }
+
+        const isActive = profile?.is_active ?? true;
         const nextUser = {
-          email: response.email,
-          user_id: response.user_id,
-          is_active: isActive,
+          email: profile?.email || email,
+          user_id: profile?.id || response.user_id,
+          is_active: isSubscriptionActive ?? isActive,
           subscription: {
-            is_active: isActive,
-            plan_code: response.plan_code || null,
-            expires_at: response.expires_at || null,
-            days_remaining: response.days_remaining ?? null,
+            is_active: isSubscriptionActive ?? isActive,
+            plan_code:
+              subscription?.plan_code ||
+              response?.plan_code ||
+              profile?.subscription_plan ||
+              null,
+            expires_at:
+              subscription?.expires_at || response?.expires_at || null,
+            days_remaining:
+              subscription?.days_remaining || response?.days_remaining || null,
           },
         };
         persistUser(nextUser);
-        return { success: true, redirect: isActive ? undefined : "payment" };
+
+        return {
+          success: true,
+          is_active: isActive,
+        };
       }
 
       return { success: false, error: "Invalid credentials" };
@@ -100,7 +161,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    apiService.clearToken();
+    apiService.clearAllTokens();
     persistUser(null);
   };
 

@@ -188,10 +188,10 @@ export default function DashboardLayout({ children }) {
           <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <Image
-                src="/clevioLogoLight.png"
-                alt="Clevio Innovator Pro"
-                width={100}
-                height={100}
+                src="/clevioAIAssistantsLogo.png"
+                alt="Clevio AI Assistants"
+                width={200}
+                height={200}
                 className="mb-0 ml-10"
               />
             </Link>

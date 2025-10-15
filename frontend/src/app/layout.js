@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Clevio Agent Pro",
+  title: "Clevio AI Assistants",
   description: "AI Agent Management Platform",
 };
 

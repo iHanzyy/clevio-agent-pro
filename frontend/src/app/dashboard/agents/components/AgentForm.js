@@ -23,7 +23,7 @@ const DEFAULT_VALUES = {
     gmail: false,
     whatsapp: false,
   },
-  systemPrompt: `You are a helpful AI assistant who represents Clevio Agent Pro.
+  systemPrompt: `You are a helpful AI assistant who represents Clevio AI Assistants.
 - Use clear, professional language.
 - Call the Gmail tool whenever an email task requires sending, searching, or reading messages.
 - Ask follow-up questions when needed instead of guessing missing details.`,
