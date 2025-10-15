@@ -61,6 +61,17 @@ export function AuthProvider({ children }) {
         console.warn("Payment status unavailable", statusError);
       }
 
+      if (!apiService.hasApiKey()) {
+        try {
+          await apiService.ensureApiKey();
+          if (!apiService.hasApiKey()) {
+            console.warn("No API key after ensureApiKey during checkAuth");
+          }
+        } catch (ensureErr) {
+          console.warn("Unable to ensure API key during checkAuth", ensureErr);
+        }
+      }
+
       const isActive =
         subscription?.is_active ?? profile?.is_active ?? false;
 
@@ -121,10 +132,38 @@ export function AuthProvider({ children }) {
               planCode
             );
             if (apiKeyResponse?.access_token) {
+              console.log("✅ Generated API key after login", apiKeyResponse);
               apiService.setApiKey(apiKeyResponse.access_token);
+              persistUser((prev) => ({
+                ...(prev || {}),
+                subscription: {
+                  ...(prev?.subscription || {}),
+                  plan_code: apiKeyResponse.plan_code || planCode,
+                  is_active: true,
+                },
+                is_active: true,
+              }));
+            } else {
+              console.warn(
+                "API key endpoint returned without access_token",
+                apiKeyResponse
+              );
             }
           } catch (apiKeyError) {
             console.warn("Unable to generate API key", apiKeyError);
+          }
+        } else {
+          console.warn("Subscription inactive; skipping API key generation");
+        }
+
+        if (!apiService.hasApiKey()) {
+          try {
+            await apiService.ensureApiKey();
+            if (!apiService.hasApiKey()) {
+              console.warn("No API key available after ensureApiKey");
+            }
+          } catch (ensureErr) {
+            console.warn("Unable to ensure API key", ensureErr);
           }
         }
 

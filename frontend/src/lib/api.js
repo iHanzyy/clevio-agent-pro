@@ -1,4 +1,3 @@
-// const DEFAULT_API_BASE_URL = "https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1";
 const DEFAULT_API_BASE_URL = "/api/proxy";
 const SESSION_TOKEN_KEY = "auth_session_token";
 const API_KEY_STORAGE_KEY = "auth_api_key_token";
@@ -141,6 +140,26 @@ class ApiService {
     }
 
     return null;
+  }
+
+  async ensureApiKey() {
+    if (this.apiKeyToken) {
+      return;
+    }
+
+    try {
+      const latest = await this.getInformationN8N();
+      const accessToken =
+        latest?.access_token ||
+        latest?.data?.access_token ||
+        latest?.payload?.access_token ||
+        null;
+      if (accessToken) {
+        this.setApiKey(accessToken);
+      }
+    } catch (err) {
+      console.warn("Unable to ensure API key from payment status", err);
+    }
   }
 
   getHeaders({ authType = null, includeContentType = false, fallback } = {}) {
@@ -297,6 +316,12 @@ class ApiService {
     });
   }
 
+  async getSubscriptionStatus() {
+    return this.request("/payment/status", {
+      authType: "session",
+    });
+  }
+
   async updateApiKey(username, password, accessToken, planCode) {
     return this.request("/auth/api-key/update", {
       method: "POST",
@@ -376,6 +401,7 @@ class ApiService {
 
   // Agent endpoints (require API key)
   async getAgents() {
+    await this.ensureApiKey();
     return this.request("/agents/", {
       authType: "apiKey",
       authFallback: "session",
@@ -383,6 +409,7 @@ class ApiService {
   }
 
   async createAgent(payload) {
+    await this.ensureApiKey();
     return this.request("/agents/", {
       method: "POST",
       authType: "apiKey",
@@ -391,12 +418,14 @@ class ApiService {
   }
 
   async getAgent(agentId) {
+    await this.ensureApiKey();
     return this.request(`/agents/${agentId}`, {
       authType: "apiKey",
     });
   }
 
   async updateAgent(agentId, data) {
+    await this.ensureApiKey();
     return this.request(`/agents/${agentId}`, {
       method: "PUT",
       authType: "apiKey",
@@ -405,6 +434,7 @@ class ApiService {
   }
 
   async deleteAgent(agentId) {
+    await this.ensureApiKey();
     return this.request(`/agents/${agentId}`, {
       method: "DELETE",
       authType: "apiKey",
@@ -412,6 +442,7 @@ class ApiService {
   }
 
   async executeAgent(agentId, input, parameters = {}, sessionId = null) {
+    await this.ensureApiKey();
     const payload = { input, parameters };
     if (sessionId) {
       payload.session_id = sessionId;

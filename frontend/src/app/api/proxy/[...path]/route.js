@@ -1,7 +1,10 @@
-export async function GET(request, { params }) {
-  const { path } = params;
+export async function GET(request, context) {
+  const resolvedParams = await context.params;
+  const pathSegments = Array.isArray(resolvedParams?.path)
+    ? resolvedParams.path
+    : [];
   const url = new URL(request.url);
-  const backendUrl = `https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1/${path.join(
+  const backendUrl = `https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1/${pathSegments.join(
     "/"
   )}${url.search}`;
 
@@ -20,10 +23,13 @@ export async function GET(request, { params }) {
   }
 }
 
-export async function POST(request, { params }) {
-  const { path } = params;
+export async function POST(request, context) {
+  const resolvedParams = await context.params;
+  const pathSegments = Array.isArray(resolvedParams?.path)
+    ? resolvedParams.path
+    : [];
   const url = new URL(request.url);
-  const backendUrl = `https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1/${path.join(
+  const backendUrl = `https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1/${pathSegments.join(
     "/"
   )}${url.search}`;
 

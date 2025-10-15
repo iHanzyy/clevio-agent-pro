@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { apiService } from "@/lib/api";
@@ -18,8 +18,6 @@ export default function Payment() {
   const [successMessage, setSuccessMessage] = useState("");
   const [orderId, setOrderId] = useState("");
   const [pendingRegistration, setPendingRegistration] = useState(null);
-  const [redirectInfo, setRedirectInfo] = useState(null);
-  const [hasOpenedRedirect, setHasOpenedRedirect] = useState(false);
   const [statusState, setStatusState] = useState({
     state: "idle",
     message: "",
@@ -30,7 +28,34 @@ export default function Payment() {
   const searchStatus = searchParams?.get("status");
   const searchOrderId = searchParams?.get("order_id");
   const { user, loading: authLoading, updateSubscription } = useAuth();
-  const successTimeoutRef = useRef(null);
+  const finalizeSuccess = useCallback(() => {
+    try {
+      updateSubscription?.();
+    } catch (err) {
+      console.warn("Failed to refresh subscription after settlement", err);
+    }
+    void apiService.ensureApiKey()
+      .then(() => {
+        if (!apiService.hasApiKey()) {
+          console.warn("API key still unavailable after settlement");
+        }
+      })
+      .catch((err) => {
+        console.warn("Unable to ensure API key after settlement", err);
+      });
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("pending_order_id");
+      sessionStorage.removeItem("pending_registration");
+    }
+    setOrderId("");
+    setPendingRegistration(null);
+    setStatusError("");
+    setStatusState({
+      state: "success",
+      message: "Payment successful! Taking you to your dashboard.",
+    });
+    router.replace("/dashboard");
+  }, [router, updateSubscription]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -48,11 +73,7 @@ export default function Payment() {
   }, []);
 
   const fetchTransactionStatus = useCallback(async () => {
-    if (!orderId) {
-      return { transaction: null, raw: null };
-    }
-
-    try {
+  try {
       const response = await apiService.getInformationN8N(orderId);
 
       if (!response) {
@@ -96,6 +117,18 @@ export default function Payment() {
         normalized.transaction_status = response.transaction_status;
       }
 
+      console.log("[payment] n8n status payload", {
+        orderId,
+        raw: response,
+        normalized,
+      });
+
+      if (response?.access_token) {
+        apiService.setApiKey(response.access_token);
+      } else if (normalized?.access_token) {
+        apiService.setApiKey(normalized.access_token);
+      }
+
       return { transaction: normalized, raw: response };
     } catch (error) {
       console.warn("Unable to fetch payment status from n8n", error);
@@ -114,6 +147,15 @@ export default function Payment() {
     try {
       const { transaction, raw } = await fetchTransactionStatus();
 
+      const derivedOrderId =
+        transaction?.order_id || raw?.order_id || raw?.orderId || null;
+      if (!orderId && derivedOrderId) {
+        setOrderId(derivedOrderId);
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("pending_order_id", derivedOrderId);
+        }
+      }
+
       const transactionStatus = transaction?.transaction_status
         ? String(transaction.transaction_status).toLowerCase()
         : raw?.transaction_status
@@ -121,23 +163,8 @@ export default function Payment() {
         : null;
 
       if (transactionStatus === "settlement" || transactionStatus === "capture") {
-        const subscription = await updateSubscription();
-        if (subscription?.is_active) {
-          if (typeof window !== "undefined") {
-            sessionStorage.removeItem("pending_order_id");
-            sessionStorage.removeItem("pending_registration");
-          }
-          setOrderId("");
-          setPendingRegistration(null);
-          setRedirectInfo(null);
-          setHasOpenedRedirect(false);
-          setStatusError("");
-          setStatusState({
-            state: "success",
-            message: "Payment successful! Taking you to your dashboard.",
-          });
-          return;
-        }
+        finalizeSuccess();
+        return;
       }
 
       if (transactionStatus && transactionStatus !== "settlement" && transactionStatus !== "capture") {
@@ -152,28 +179,11 @@ export default function Payment() {
         return;
       }
 
-      const subscription = await updateSubscription();
-      if (subscription?.is_active) {
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem("pending_order_id");
-          sessionStorage.removeItem("pending_registration");
-        }
-        setOrderId("");
-        setPendingRegistration(null);
-        setRedirectInfo(null);
-        setHasOpenedRedirect(false);
-        setStatusError("");
-        setStatusState({
-          state: "success",
-          message: "Payment successful! Taking you to your dashboard.",
-        });
-      } else {
-        if (!silent) {
-          setStatusState({ state: "idle", message: "" });
-          setStatusError(
-            "We have not received a settlement confirmation yet. We'll keep watching this page for updates."
-          );
-        }
+      if (!silent) {
+        setStatusState({ state: "idle", message: "" });
+        setStatusError(
+          "We have not received a settlement confirmation yet. We'll keep watching this page for updates."
+        );
       }
     } catch (_err) {
       if (!silent) {
@@ -183,17 +193,14 @@ export default function Payment() {
         );
       }
     }
-  }, [updateSubscription, fetchTransactionStatus]);
+  }, [fetchTransactionStatus, orderId, finalizeSuccess]);
 
   useEffect(() => {
     if (authLoading) {
       return;
     }
     if (user?.subscription?.is_active) {
-      setStatusState({
-        state: "success",
-        message: "Payment successful! Taking you to your dashboard.",
-      });
+      finalizeSuccess();
       return;
     }
 
@@ -201,6 +208,8 @@ export default function Payment() {
       const storedOrderId = sessionStorage.getItem("pending_order_id");
       if (storedOrderId && !orderId) {
         setOrderId(storedOrderId);
+      } else if (searchOrderId && !orderId) {
+        setOrderId(searchOrderId);
       }
     }
 
@@ -214,40 +223,8 @@ export default function Payment() {
     searchStatus,
     searchOrderId,
     orderId,
+    finalizeSuccess,
   ]);
-
-  useEffect(() => {
-    if (!redirectInfo?.url || hasOpenedRedirect) {
-      return;
-    }
-    const newWindow = window.open(
-      redirectInfo.url,
-      "_blank",
-      "noopener,noreferrer"
-    );
-    if (!newWindow) {
-      setStatusError(
-        "Your browser blocked the payment page. Use the button below to open it manually."
-      );
-    }
-    setHasOpenedRedirect(true);
-  }, [redirectInfo, hasOpenedRedirect]);
-
-  useEffect(() => {
-    if (statusState.state === "success") {
-      if (successTimeoutRef.current) {
-        clearTimeout(successTimeoutRef.current);
-      }
-      successTimeoutRef.current = setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
-    }
-    return () => {
-      if (successTimeoutRef.current) {
-        clearTimeout(successTimeoutRef.current);
-      }
-    };
-  }, [statusState, router]);
 
   useEffect(() => {
     if (!orderId) {
@@ -295,6 +272,10 @@ export default function Payment() {
       const webhookResponse =
         await apiService.notifyPaymentWebhook(webhookPayload);
 
+      if (webhookResponse?.access_token) {
+        apiService.setApiKey(webhookResponse.access_token);
+      }
+
       const paymentMessage =
         webhookResponse?.message ||
         `Payment request submitted for ${planDetails?.name || selectedPlan}.`;
@@ -305,12 +286,17 @@ export default function Payment() {
       });
 
       const generatedOrderId =
-        webhookResponse?.order_id || webhookResponse?.data?.order_id || orderId;
+        webhookResponse?.order_id || webhookResponse?.data?.order_id || null;
+      const redirectStatus =
+        webhookResponse?.transaction_status ||
+        webhookResponse?.status ||
+        null;
       if (generatedOrderId) {
+        sessionStorage.setItem("pending_order_id", generatedOrderId);
         setOrderId(generatedOrderId);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("pending_order_id", generatedOrderId);
-        }
+      } else {
+        setOrderId("");
+        sessionStorage.removeItem("pending_order_id");
       }
 
       const paymentRedirect =
@@ -319,20 +305,21 @@ export default function Payment() {
         webhookResponse?.data?.redirect_url ||
         "";
       if (paymentRedirect) {
-        setHasOpenedRedirect(false);
-        setRedirectInfo({
-          url: paymentRedirect,
-          orderId: generatedOrderId,
-          message:
-            webhookResponse?.message ||
-            "Hang tight while we open the Midtrans payment page.",
+        setStatusState({
+          state: "checking",
+          message: "Redirecting you to the Midtrans payment page...",
         });
+        setTimeout(() => {
+          window.location.href = paymentRedirect;
+        }, 150);
+        return;
       } else if (
-        webhookResponse?.status === "completed" ||
-        webhookResponse?.transaction_status === "settlement"
+        redirectStatus === "settlement" ||
+        redirectStatus === "capture" ||
+        webhookResponse?.status === "completed"
       ) {
-        await updateSubscription();
-        router.push("/dashboard");
+        finalizeSuccess();
+        return;
       } else {
         setStatusError(
           "We generated your payment request. Please check your email for instructions."
@@ -354,41 +341,6 @@ export default function Payment() {
       currency: "IDR",
       minimumFractionDigits: 0,
     }).format(Number.isNaN(numericPrice) ? 0 : numericPrice);
-  };
-
-  const renderRedirectOverlay = () => {
-    if (!redirectInfo?.url) {
-      return null;
-    }
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <span className="h-6 w-6 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
-          </div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            Complete Your Payment
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {redirectInfo.message ||
-              "We opened the Midtrans payment page in a new tab. If it didn't appear, use the button below."}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              window.open(redirectInfo.url, "_blank", "noopener,noreferrer");
-              setHasOpenedRedirect(true);
-            }}
-            className="mt-5 inline-flex w-full items-center justify-center rounded-lg bg-green-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
-          >
-            Go to Payment
-          </button>
-          <p className="mt-2 text-xs text-gray-400">
-            Order ID: {redirectInfo.orderId}
-          </p>
-        </div>
-      </div>
-    );
   };
 
   const renderStatusOverlay = () => {
@@ -430,7 +382,6 @@ export default function Payment() {
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
       {renderStatusOverlay()}
-      {renderRedirectOverlay()}
       <div className="max-w-screen-xl m-0 sm:m-10 bg-white shadow sm:rounded-lg flex justify-center flex-1">
         <div className="w-full p-6 sm:p-12">
           <div className="text-center mb-8">
@@ -543,5 +494,5 @@ export default function Payment() {
         </div>
       </div>
     </div>
-  );
+        );
 }

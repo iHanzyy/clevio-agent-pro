@@ -7,15 +7,22 @@ const ensureStore = () => {
   return globalThis.__paymentStatusStore;
 };
 
-const statusStore = ensureStore();
-
-const isTransactionPayload = (payload) => {
-  if (!payload || typeof payload !== "object") return false;
-  if (payload.transaction_status) return true;
-  if (payload.status_code || payload.status_message) return true;
-  if (payload.settlement_time || payload.payment_type) return true;
-  return false;
+const ensureLatestRef = () => {
+  if (!globalThis.__latestPaymentStatus) {
+    globalThis.__latestPaymentStatus = null;
+  }
+  return {
+    get value() {
+      return globalThis.__latestPaymentStatus;
+    },
+    set value(next) {
+      globalThis.__latestPaymentStatus = next;
+    },
+  };
 };
+
+const statusStore = ensureStore();
+const latestRef = ensureLatestRef();
 
 export async function POST(request) {
   try {
@@ -34,31 +41,98 @@ export async function POST(request) {
       body.orderId ||
       null;
 
-    if (isTransactionPayload(body)) {
-      if (orderId) {
-        statusStore.set(orderId, {
-          ...body,
-          received_at: new Date().toISOString(),
-        });
-      }
+    const isTransactionPayload = !!(
+      body?.transaction_status ||
+      body?.status_code ||
+      body?.status_message ||
+      body?.settlement_time ||
+      body?.payment_type
+    );
+
+    const existing = orderId ? statusStore.get(orderId) || {} : {};
+    const baseRecord = {
+      ...existing,
+      ...(typeof body === "object" ? body : {}),
+      transaction_status:
+        typeof body === "object" && body.transaction_status !== undefined
+          ? body.transaction_status
+          : existing.transaction_status !== undefined
+          ? existing.transaction_status
+          : null,
+      received_at: new Date().toISOString(),
+      source: body?.source || existing.source || "n8n",
+    };
+
+    if (body?.success && body?.stored && orderId) {
+      console.log("[payment-status] received success payload", body);
+      const merged = {
+        ...baseRecord,
+        transaction_status: baseRecord.transaction_status || "settlement",
+      };
+      statusStore.set(orderId, merged);
+      latestRef.value = {
+        order_id: orderId,
+        payload: merged,
+        transaction_status: merged.transaction_status || "settlement",
+        stored_at: new Date().toISOString(),
+      };
       return NextResponse.json({
         success: true,
-        stored: Boolean(orderId),
-        order_id: orderId ?? null,
+        stored: true,
+        order_id: orderId,
+      });
+    }
+
+    if (isTransactionPayload && orderId) {
+      console.log("[payment-status] received transaction payload", body);
+      statusStore.set(orderId, baseRecord);
+      latestRef.value = {
+        order_id: orderId,
+        payload: baseRecord,
+        transaction_status: baseRecord.transaction_status ?? null,
+        stored_at: new Date().toISOString(),
+      };
+      return NextResponse.json({
+        success: true,
+        stored: true,
+        order_id: orderId,
+      });
+    }
+
+    if (orderId) {
+      console.log("[payment-status] received generic payload", body);
+      statusStore.set(orderId, baseRecord);
+      latestRef.value = {
+        order_id: orderId,
+        payload: baseRecord,
+        transaction_status: baseRecord.transaction_status ?? null,
+        stored_at: new Date().toISOString(),
+      };
+      return NextResponse.json({
+        success: true,
+        stored: true,
+        order_id: orderId,
       });
     }
 
     if (!orderId) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "order_id is required to look up payment status",
-        },
-        { status: 400 },
-      );
+      const latest = latestRef.value;
+      console.log("[payment-status] lookup latest", latest);
+      return NextResponse.json({
+        success: true,
+        order_id: latest?.order_id ?? null,
+        transaction_status: latest?.transaction_status ?? null,
+        data: latest?.payload ?? null,
+      });
     }
 
-    const stored = statusStore.get(orderId) || null;
+    const stored =
+      statusStore.get(orderId) ||
+      (latestRef.value && latestRef.value.order_id === orderId
+        ? latestRef.value.payload
+        : null);
+
+    console.log("[payment-status] lookup", orderId, stored);
 
     return NextResponse.json({
       success: true,
@@ -82,17 +156,42 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const orderId = searchParams.get("order_id") || searchParams.get("orderId");
 
-  if (!orderId) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Provide order_id query parameter",
-      },
-      { status: 400 },
-    );
+  if (orderId) {
+    const queryPayload = Object.fromEntries(searchParams.entries());
+    const existing = statusStore.get(orderId) || {};
+    const merged = {
+      ...existing,
+      ...queryPayload,
+      transaction_status:
+        queryPayload.transaction_status || existing.transaction_status || null,
+      received_at: new Date().toISOString(),
+      source: queryPayload.source || existing.source || "redirect",
+    };
+
+    statusStore.set(orderId, merged);
+    latestRef.value = {
+      order_id: orderId,
+      payload: merged,
+      transaction_status: merged.transaction_status ?? null,
+      stored_at: new Date().toISOString(),
+    };
   }
 
-  const stored = statusStore.get(orderId) || null;
+  if (!orderId) {
+    const latest = latestRef.value;
+    return NextResponse.json({
+      success: true,
+      order_id: latest?.order_id ?? null,
+      transaction_status: latest?.transaction_status ?? null,
+      data: latest?.payload ?? null,
+    });
+  }
+
+  const stored =
+    statusStore.get(orderId) ||
+    (latestRef.value && latestRef.value.order_id === orderId
+      ? latestRef.value.payload
+      : null);
 
   return NextResponse.json({
     success: true,
