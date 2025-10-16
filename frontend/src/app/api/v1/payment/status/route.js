@@ -36,10 +36,17 @@ export async function POST(request) {
       );
     }
 
-    const orderId =
-      body.order_id ||
-      body.orderId ||
-      null;
+    const orderId = body.order_id || body.orderId || null;
+
+    if (!orderId) {
+      console.warn("[payment-status] payload missing order_id", body);
+      return NextResponse.json({
+        success: true,
+        order_id: null,
+        transaction_status: null,
+        data: null,
+      });
+    }
 
     const isTransactionPayload = !!(
       body?.transaction_status ||
@@ -49,7 +56,7 @@ export async function POST(request) {
       body?.payment_type
     );
 
-    const existing = orderId ? statusStore.get(orderId) || {} : {};
+    const existing = statusStore.get(orderId) || {};
     const baseRecord = {
       ...existing,
       ...(typeof body === "object" ? body : {}),
@@ -80,6 +87,8 @@ export async function POST(request) {
         success: true,
         stored: true,
         order_id: orderId,
+        transaction_status: merged.transaction_status ?? null,
+        data: merged,
       });
     }
 
@@ -96,49 +105,25 @@ export async function POST(request) {
         success: true,
         stored: true,
         order_id: orderId,
-      });
-    }
-
-    if (orderId) {
-      console.log("[payment-status] received generic payload", body);
-      statusStore.set(orderId, baseRecord);
-      latestRef.value = {
-        order_id: orderId,
-        payload: baseRecord,
         transaction_status: baseRecord.transaction_status ?? null,
-        stored_at: new Date().toISOString(),
-      };
-      return NextResponse.json({
-        success: true,
-        stored: true,
-        order_id: orderId,
+        data: baseRecord,
       });
     }
 
-    if (!orderId) {
-      const latest = latestRef.value;
-      console.log("[payment-status] lookup latest", latest);
-      return NextResponse.json({
-        success: true,
-        order_id: latest?.order_id ?? null,
-        transaction_status: latest?.transaction_status ?? null,
-        data: latest?.payload ?? null,
-      });
-    }
-
-    const stored =
-      statusStore.get(orderId) ||
-      (latestRef.value && latestRef.value.order_id === orderId
-        ? latestRef.value.payload
-        : null);
-
-    console.log("[payment-status] lookup", orderId, stored);
-
+    console.log("[payment-status] received generic payload", body);
+    statusStore.set(orderId, baseRecord);
+    latestRef.value = {
+      order_id: orderId,
+      payload: baseRecord,
+      transaction_status: baseRecord.transaction_status ?? null,
+      stored_at: new Date().toISOString(),
+    };
     return NextResponse.json({
       success: true,
       order_id: orderId,
-      transaction_status: stored?.transaction_status ?? null,
-      data: stored,
+      stored: true,
+      transaction_status: baseRecord.transaction_status ?? null,
+      data: baseRecord,
     });
   } catch (error) {
     return NextResponse.json(
@@ -178,12 +163,11 @@ export async function GET(request) {
   }
 
   if (!orderId) {
-    const latest = latestRef.value;
     return NextResponse.json({
       success: true,
-      order_id: latest?.order_id ?? null,
-      transaction_status: latest?.transaction_status ?? null,
-      data: latest?.payload ?? null,
+      order_id: null,
+      transaction_status: null,
+      data: null,
     });
   }
 

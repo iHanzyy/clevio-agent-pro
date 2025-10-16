@@ -1,5 +1,11 @@
 "use client";
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 import { apiService } from "@/lib/api";
 
 const STORAGE_KEY = "auth_user";
@@ -17,7 +23,7 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
-  const persistUser = (updater) => {
+  const persistUser = useCallback((updater) => {
     setUser((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       if (typeof window !== "undefined") {
@@ -29,13 +35,37 @@ export function AuthProvider({ children }) {
       }
       return next;
     });
-  };
-
-  useEffect(() => {
-    checkAuth();
   }, []);
 
-  const checkAuth = async () => {
+  const applySubscription = useCallback(
+    (details = {}) => {
+      persistUser((prev) => {
+        const nextSubscription = {
+          ...(prev?.subscription || {}),
+          ...details,
+          is_active:
+            details?.is_active ??
+            prev?.subscription?.is_active ??
+            details?.active ??
+            false,
+        };
+        const isActive =
+          details?.is_active ??
+          nextSubscription.is_active ??
+          prev?.is_active ??
+          false;
+
+        return {
+          ...(prev || {}),
+          is_active: isActive,
+          subscription: nextSubscription,
+        };
+      });
+    },
+    [persistUser]
+  );
+
+  const checkAuth = useCallback(async () => {
     try {
       const hasSession = apiService.hasSessionToken();
       const hasApiKey = apiService.hasApiKey();
@@ -93,7 +123,11 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [persistUser]);
+
+  useEffect(() => {
+    void checkAuth();
+  }, [checkAuth]);
 
   const login = async (email, password) => {
     try {
@@ -207,16 +241,12 @@ export function AuthProvider({ children }) {
   const updateSubscription = async () => {
     try {
       const subscription = await apiService.getSubscriptionStatus();
-      persistUser((prev) => ({
-        ...(prev || {}),
+      applySubscription({
         is_active: subscription?.is_active ?? false,
-        subscription: {
-          is_active: subscription?.is_active ?? false,
-          plan_code: subscription?.plan_code ?? null,
-          expires_at: subscription?.expires_at ?? null,
-          days_remaining: subscription?.days_remaining ?? null,
-        },
-      }));
+        plan_code: subscription?.plan_code ?? null,
+        expires_at: subscription?.expires_at ?? null,
+        days_remaining: subscription?.days_remaining ?? null,
+      });
       return subscription;
     } catch (error) {
       return null;
@@ -231,6 +261,7 @@ export function AuthProvider({ children }) {
     logout,
     checkAuth,
     updateSubscription,
+    applySubscription,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

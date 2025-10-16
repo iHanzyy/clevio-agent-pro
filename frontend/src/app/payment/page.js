@@ -17,6 +17,7 @@ export default function Payment() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [orderId, setOrderId] = useState("");
+  const [storedPlan, setStoredPlan] = useState("");
   const [pendingRegistration, setPendingRegistration] = useState(null);
   const [statusState, setStatusState] = useState({
     state: "idle",
@@ -27,35 +28,90 @@ export default function Payment() {
   const searchParams = useSearchParams();
   const searchStatus = searchParams?.get("status");
   const searchOrderId = searchParams?.get("order_id");
-  const { user, loading: authLoading, updateSubscription } = useAuth();
-  const finalizeSuccess = useCallback(() => {
-    try {
-      updateSubscription?.();
-    } catch (err) {
-      console.warn("Failed to refresh subscription after settlement", err);
+  const { user, loading: authLoading, updateSubscription, applySubscription } =
+    useAuth();
+
+  const extractPlanFromOrderId = (value) => {
+    if (!value || typeof value !== "string") {
+      return null;
     }
-    void apiService.ensureApiKey()
-      .then(() => {
-        if (!apiService.hasApiKey()) {
-          console.warn("API key still unavailable after settlement");
+    const segments = value.split("-");
+    return segments[segments.length - 1] || null;
+  };
+
+  const resolvePendingPlan = useCallback(
+    (candidateOrderId) => {
+      if (storedPlan) return storedPlan;
+      if (selectedPlan) return selectedPlan;
+      if (typeof window !== "undefined") {
+        const pendingPlanCode = sessionStorage.getItem("pending_plan_code");
+        if (pendingPlanCode) {
+          setStoredPlan(pendingPlanCode);
+          return pendingPlanCode;
         }
-      })
-      .catch((err) => {
-        console.warn("Unable to ensure API key after settlement", err);
+      }
+      return extractPlanFromOrderId(candidateOrderId);
+    },
+    [selectedPlan, storedPlan]
+  );
+
+  const finalizeSuccess = useCallback(
+    (latestOrderId, overrides = {}) => {
+      const sessionOrderId =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("pending_order_id")
+          : null;
+      const effectiveOrderId = latestOrderId || sessionOrderId || null;
+      const planCodeOverride =
+        overrides.planCode || resolvePendingPlan(effectiveOrderId);
+
+      void (async () => {
+        try {
+          const subscription = await updateSubscription?.();
+          if (!subscription && planCodeOverride) {
+            applySubscription?.({
+              is_active: true,
+              plan_code: planCodeOverride,
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to refresh subscription after settlement", err);
+          if (planCodeOverride) {
+            applySubscription?.({
+              is_active: true,
+              plan_code: planCodeOverride,
+            });
+          }
+        }
+      })();
+
+      void apiService
+        .ensureApiKey(effectiveOrderId)
+        .then(() => {
+          if (!apiService.hasApiKey()) {
+            console.warn("API key still unavailable after settlement");
+          }
+        })
+        .catch((err) => {
+          console.warn("Unable to ensure API key after settlement", err);
+        });
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("pending_order_id");
+        sessionStorage.removeItem("pending_registration");
+        sessionStorage.removeItem("pending_plan_code");
+      }
+      setOrderId("");
+      setStoredPlan("");
+      setPendingRegistration(null);
+      setStatusError("");
+      setStatusState({
+        state: "success",
+        message: "Payment successful! Taking you to your dashboard.",
       });
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("pending_order_id");
-      sessionStorage.removeItem("pending_registration");
-    }
-    setOrderId("");
-    setPendingRegistration(null);
-    setStatusError("");
-    setStatusState({
-      state: "success",
-      message: "Payment successful! Taking you to your dashboard.",
-    });
-    router.replace("/dashboard");
-  }, [router, updateSubscription]);
+      router.replace("/dashboard");
+    },
+    [applySubscription, resolvePendingPlan, router, updateSubscription]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -66,11 +122,18 @@ export default function Payment() {
       if (stored) {
         setPendingRegistration(JSON.parse(stored));
       }
+      const pendingPlanCode = sessionStorage.getItem("pending_plan_code");
+      if (pendingPlanCode) {
+        setStoredPlan(pendingPlanCode);
+      }
+      if (!searchOrderId) {
+        sessionStorage.removeItem("pending_order_id");
+      }
     } catch (err) {
       console.warn("Failed to load pending registration", err);
       setPendingRegistration(null);
     }
-  }, []);
+  }, [searchOrderId]);
 
   const fetchTransactionStatus = useCallback(async () => {
   try {
@@ -163,7 +226,7 @@ export default function Payment() {
         : null;
 
       if (transactionStatus === "settlement" || transactionStatus === "capture") {
-        finalizeSuccess();
+        finalizeSuccess(derivedOrderId ?? orderId);
         return;
       }
 
@@ -200,7 +263,14 @@ export default function Payment() {
       return;
     }
     if (user?.subscription?.is_active) {
-      finalizeSuccess();
+      const cachedOrder =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("pending_order_id")
+          : null;
+      const activeOrderId = orderId || cachedOrder || null;
+      finalizeSuccess(activeOrderId, {
+        planCode: resolvePendingPlan(activeOrderId),
+      });
       return;
     }
 
@@ -224,6 +294,7 @@ export default function Payment() {
     searchOrderId,
     orderId,
     finalizeSuccess,
+    resolvePendingPlan,
   ]);
 
   useEffect(() => {
@@ -268,6 +339,11 @@ export default function Payment() {
         plan_code: selectedPlan,
         harga: planDetails?.price || "0",
       };
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("pending_plan_code", selectedPlan);
+      }
+      setStoredPlan(selectedPlan);
 
       const webhookResponse =
         await apiService.notifyPaymentWebhook(webhookPayload);
@@ -318,7 +394,7 @@ export default function Payment() {
         redirectStatus === "capture" ||
         webhookResponse?.status === "completed"
       ) {
-        finalizeSuccess();
+        finalizeSuccess(generatedOrderId, { planCode: selectedPlan });
         return;
       } else {
         setStatusError(

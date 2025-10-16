@@ -32,14 +32,6 @@ const DEFAULT_VALUES = {
   maxTokens: 1000,
 };
 
-export function getToolOptions() {
-  return TOOL_OPTIONS;
-}
-
-export function getDefaultAgentValues() {
-  return DEFAULT_VALUES;
-}
-
 function mapInitialValues(input) {
   if (!input) {
     return {

@@ -142,13 +142,22 @@ class ApiService {
     return null;
   }
 
-  async ensureApiKey() {
+  async ensureApiKey(orderId = null) {
     if (this.apiKeyToken) {
       return;
     }
 
+    let effectiveOrderId = orderId;
+    if (!effectiveOrderId && typeof window !== "undefined") {
+      effectiveOrderId = sessionStorage.getItem("pending_order_id");
+    }
+
+    if (!effectiveOrderId) {
+      return;
+    }
+
     try {
-      const latest = await this.getInformationN8N();
+      const latest = await this.getInformationN8N(effectiveOrderId);
       const accessToken =
         latest?.access_token ||
         latest?.data?.access_token ||
@@ -322,6 +331,13 @@ class ApiService {
     });
   }
 
+  async getCurrentUser() {
+    return this.request("/auth/me", {
+      authType: "session",
+      authFallback: "apiKey",
+    });
+  }
+
   async updateApiKey(username, password, accessToken, planCode) {
     return this.request("/auth/api-key/update", {
       method: "POST",
@@ -336,7 +352,12 @@ class ApiService {
   }
 
   async getInformationN8N(orderId) {
-    const payload = orderId ? { order_id: orderId } : {};
+    if (!orderId) {
+      console.warn("getInformationN8N invoked without orderId");
+      return null;
+    }
+
+    const payload = { order_id: orderId };
 
     const response = await fetch("/api/v1/payment/status", {
       method: "POST",
@@ -493,30 +514,6 @@ class ApiService {
     return this.request("/tools/", {
       authType: "apiKey",
     });
-  }
-
-  // File upload for agents
-  async uploadDocument(agentId, file) {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const headers = this.authHeader();
-
-    const response = await fetch(
-      `${this.baseUrl}/agents/${agentId}/documents`,
-      {
-        method: "POST",
-        headers,
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Upload failed");
-    }
-
-    return response.json();
   }
 }
 

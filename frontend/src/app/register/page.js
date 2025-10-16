@@ -124,6 +124,7 @@ export default function Register() {
       setPassword("");
       setConfirmPassword("");
       if (typeof window !== "undefined") {
+        sessionStorage.removeItem("pending_order_id");
         sessionStorage.setItem(
           "pending_registration",
           JSON.stringify({
