@@ -2,6 +2,7 @@ const DEFAULT_API_BASE_URL = "/api/proxy";
 const SESSION_TOKEN_KEY = "auth_session_token";
 const API_KEY_STORAGE_KEY = "auth_api_key_token";
 const LAST_ORDER_ID_KEY = "payment_last_order_id";
+const LAST_PLAN_CODE_KEY = "auth_plan_code";
 
 const normalizeBaseUrl = (url) => {
   if (!url) return DEFAULT_API_BASE_URL;
@@ -22,6 +23,7 @@ class ApiService {
     this.apiKeyToken = null;
     this.initialized = false;
     this.lastOrderId = null;
+    this.lastPlanCode = null;
 
     if (typeof window !== "undefined") {
       const savedSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
@@ -29,6 +31,7 @@ class ApiService {
       const savedApiKey =
         sessionStorage.getItem(API_KEY_STORAGE_KEY) || legacyToken;
       const savedOrderId = sessionStorage.getItem(LAST_ORDER_ID_KEY);
+      const savedPlanCode = sessionStorage.getItem(LAST_PLAN_CODE_KEY);
 
       if (savedSession) {
         this.sessionToken = savedSession;
@@ -44,6 +47,10 @@ class ApiService {
 
       if (savedOrderId) {
         this.lastOrderId = savedOrderId;
+      }
+
+      if (savedPlanCode) {
+        this.lastPlanCode = savedPlanCode;
       }
     }
   }
@@ -138,6 +145,21 @@ class ApiService {
     this.setLastOrderId(null);
   }
 
+  setPlanCode(planCode) {
+    this.lastPlanCode = planCode || null;
+    if (typeof window !== "undefined") {
+      if (planCode) {
+        sessionStorage.setItem(LAST_PLAN_CODE_KEY, planCode);
+      } else {
+        sessionStorage.removeItem(LAST_PLAN_CODE_KEY);
+      }
+    }
+  }
+
+  getPlanCode() {
+    return this.lastPlanCode;
+  }
+
   hasSessionToken() {
     return Boolean(this.sessionToken);
   }
@@ -164,39 +186,21 @@ class ApiService {
     return null;
   }
 
-  async ensureApiKey(orderId = null) {
+  async ensureApiKey({ planCode = null } = {}) {
     if (this.apiKeyToken) {
       return;
     }
 
-    let effectiveOrderId = orderId || this.lastOrderId || null;
-    if (!effectiveOrderId && typeof window !== "undefined") {
-      effectiveOrderId =
-        sessionStorage.getItem("pending_order_id") ||
-        sessionStorage.getItem(LAST_ORDER_ID_KEY) ||
-        null;
-    }
-
-    if (effectiveOrderId) {
-      this.setLastOrderId(effectiveOrderId);
-    }
-
-    if (!effectiveOrderId) {
+    const desiredPlan = planCode || this.lastPlanCode;
+    if (!desiredPlan) {
+      console.warn("No plan code available to ensure API key");
       return;
     }
 
     try {
-      const latest = await this.getInformationN8N(effectiveOrderId);
-      const accessToken =
-        latest?.access_token ||
-        latest?.data?.access_token ||
-        latest?.payload?.access_token ||
-        null;
-      if (accessToken) {
-        this.setApiKey(accessToken);
-      }
+      await this.generateApiKey(desiredPlan);
     } catch (err) {
-      console.warn("Unable to ensure API key from payment status", err);
+      console.warn("Unable to ensure API key", err);
     }
   }
 
@@ -341,23 +345,64 @@ class ApiService {
     });
   }
 
-  async generateApiKey(username, password, planCode = "PRO_M") {
-    return this.request("/auth/api-key", {
+  async generateApiKey(planCode = null) {
+    const desiredPlan = planCode || this.lastPlanCode || "PRO_M";
+
+    const response = await this.request("/auth/api-keys", {
       method: "POST",
       skipContentType: false,
       authType: "session",
       body: JSON.stringify({
-        username,
-        password,
-        plan_code: planCode,
+        plan_code: desiredPlan,
       }),
     });
+
+    if (response?.plan_code) {
+      this.setPlanCode(response.plan_code);
+    } else if (desiredPlan) {
+      this.setPlanCode(desiredPlan);
+    }
+
+    if (response?.access_token) {
+      this.setApiKey(response.access_token);
+    }
+
+    return response;
   }
 
   async getSubscriptionStatus() {
-    return this.request("/payment/status", {
+    const profile = await this.request("/auth/me", {
       authType: "session",
     });
+
+    if (!profile || typeof profile !== "object") {
+      return null;
+    }
+
+    const subscription =
+      profile.subscription && typeof profile.subscription === "object"
+        ? profile.subscription
+        : null;
+
+    const planCode =
+      subscription?.plan_code ||
+      profile.subscription_plan ||
+      profile.plan_code ||
+      null;
+
+    const isActive =
+      subscription?.is_active ??
+      profile.subscription_active ??
+      profile.is_active ??
+      false;
+
+    return {
+      is_active: Boolean(isActive),
+      plan_code: planCode,
+      expires_at: subscription?.expires_at || profile.subscription_expires_at || null,
+      days_remaining:
+        subscription?.days_remaining || profile.subscription_days_remaining || null,
+    };
   }
 
   async getCurrentUser() {

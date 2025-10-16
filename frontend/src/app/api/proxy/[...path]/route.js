@@ -1,54 +1,80 @@
-export async function GET(request, context) {
+const DEFAULT_BACKEND_BASE = "https://new-langchain.chiefaiofficer.id";
+
+export const dynamic = "force-dynamic";
+
+const backendBase =
+  process.env.BACKEND_BASE_URL?.replace(/\/$/, "") || DEFAULT_BACKEND_BASE;
+
+async function forward(request, context, method) {
   const resolvedParams = await context.params;
   const pathSegments = Array.isArray(resolvedParams?.path)
     ? resolvedParams.path
     : [];
-  const url = new URL(request.url);
-  const backendUrl = `https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1/${pathSegments.join(
-    "/"
-  )}${url.search}`;
 
-  try {
-    const response = await fetch(backendUrl, {
-      method: "GET",
-      headers: {
-        Authorization: request.headers.get("Authorization") || "",
-      },
-    });
+  const incomingUrl = new URL(request.url);
+  const targetUrl = `${backendBase}/api/v1/${pathSegments.join("/")}${
+    incomingUrl.search
+  }`;
 
-    const data = await response.json();
-    return Response.json(data, { status: response.status });
-  } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+  const headers = new Headers();
+
+  request.headers.forEach((value, key) => {
+    if (key.toLowerCase() === "host") return;
+    headers.set(key, value);
+  });
+
+  if (!headers.has("content-type") && method !== "GET" && method !== "HEAD") {
+    headers.set("content-type", "application/json");
   }
+
+  const init = {
+    method,
+    headers,
+  };
+
+  if (method !== "GET" && method !== "HEAD") {
+    const buffer = Buffer.from(await request.arrayBuffer());
+    init.body = buffer;
+  }
+
+  const response = await fetch(targetUrl, init);
+
+  const responseHeaders = new Headers();
+  response.headers.forEach((value, key) => {
+    if (key.toLowerCase() === "content-length") return;
+    responseHeaders.set(key, value);
+  });
+
+  return new Response(response.body, {
+    status: response.status,
+    headers: responseHeaders,
+  });
+}
+
+export async function GET(request, context) {
+  return forward(request, context, "GET");
 }
 
 export async function POST(request, context) {
-  const resolvedParams = await context.params;
-  const pathSegments = Array.isArray(resolvedParams?.path)
-    ? resolvedParams.path
-    : [];
-  const url = new URL(request.url);
-  const backendUrl = `https://lfzlwlbz-8000.asse.devtunnels.ms/api/v1/${pathSegments.join(
-    "/"
-  )}${url.search}`;
+  return forward(request, context, "POST");
+}
 
-  try {
-    const body = await request.text();
+export async function PUT(request, context) {
+  return forward(request, context, "PUT");
+}
 
-    const response = await fetch(backendUrl, {
-      method: "POST",
-      headers: {
-        Authorization: request.headers.get("Authorization") || "",
-        "Content-Type":
-          request.headers.get("Content-Type") || "application/json",
-      },
-      body: body || undefined,
-    });
+export async function PATCH(request, context) {
+  return forward(request, context, "PATCH");
+}
 
-    const data = await response.json();
-    return Response.json(data, { status: response.status });
-  } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
+export async function DELETE(request, context) {
+  return forward(request, context, "DELETE");
+}
+
+export async function OPTIONS(request, context) {
+  return forward(request, context, "OPTIONS");
+}
+
+export async function HEAD(request, context) {
+  return forward(request, context, "HEAD");
 }

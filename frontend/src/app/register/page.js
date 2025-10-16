@@ -124,6 +124,10 @@ export default function Register() {
       setPassword("");
       setConfirmPassword("");
       if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          "pending_credentials",
+          JSON.stringify({ email, password })
+        );
         apiService.clearLastOrderId();
         sessionStorage.removeItem("pending_order_id");
         sessionStorage.setItem(
