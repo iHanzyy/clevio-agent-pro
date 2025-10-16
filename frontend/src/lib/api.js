@@ -1,6 +1,7 @@
 const DEFAULT_API_BASE_URL = "/api/proxy";
 const SESSION_TOKEN_KEY = "auth_session_token";
 const API_KEY_STORAGE_KEY = "auth_api_key_token";
+const LAST_ORDER_ID_KEY = "payment_last_order_id";
 
 const normalizeBaseUrl = (url) => {
   if (!url) return DEFAULT_API_BASE_URL;
@@ -20,12 +21,14 @@ class ApiService {
     this.sessionToken = null;
     this.apiKeyToken = null;
     this.initialized = false;
+    this.lastOrderId = null;
 
     if (typeof window !== "undefined") {
       const savedSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
       const legacyToken = sessionStorage.getItem("auth_token");
       const savedApiKey =
         sessionStorage.getItem(API_KEY_STORAGE_KEY) || legacyToken;
+      const savedOrderId = sessionStorage.getItem(LAST_ORDER_ID_KEY);
 
       if (savedSession) {
         this.sessionToken = savedSession;
@@ -37,6 +40,10 @@ class ApiService {
         this.apiKeyToken = savedApiKey;
         this.initialized = true;
         console.log("🆔 API key loaded from storage");
+      }
+
+      if (savedOrderId) {
+        this.lastOrderId = savedOrderId;
       }
     }
   }
@@ -116,6 +123,21 @@ class ApiService {
     this.initialized = false;
   }
 
+  setLastOrderId(orderId) {
+    this.lastOrderId = orderId || null;
+    if (typeof window !== "undefined") {
+      if (orderId) {
+        sessionStorage.setItem(LAST_ORDER_ID_KEY, orderId);
+      } else {
+        sessionStorage.removeItem(LAST_ORDER_ID_KEY);
+      }
+    }
+  }
+
+  clearLastOrderId() {
+    this.setLastOrderId(null);
+  }
+
   hasSessionToken() {
     return Boolean(this.sessionToken);
   }
@@ -147,9 +169,16 @@ class ApiService {
       return;
     }
 
-    let effectiveOrderId = orderId;
+    let effectiveOrderId = orderId || this.lastOrderId || null;
     if (!effectiveOrderId && typeof window !== "undefined") {
-      effectiveOrderId = sessionStorage.getItem("pending_order_id");
+      effectiveOrderId =
+        sessionStorage.getItem("pending_order_id") ||
+        sessionStorage.getItem(LAST_ORDER_ID_KEY) ||
+        null;
+    }
+
+    if (effectiveOrderId) {
+      this.setLastOrderId(effectiveOrderId);
     }
 
     if (!effectiveOrderId) {
@@ -356,6 +385,8 @@ class ApiService {
       console.warn("getInformationN8N invoked without orderId");
       return null;
     }
+
+    this.setLastOrderId(orderId);
 
     const payload = { order_id: orderId };
 

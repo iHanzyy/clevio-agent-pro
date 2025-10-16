@@ -217,6 +217,7 @@ export default function Payment() {
         if (typeof window !== "undefined") {
           sessionStorage.setItem("pending_order_id", derivedOrderId);
         }
+        apiService.setLastOrderId(derivedOrderId);
       }
 
       const transactionStatus = transaction?.transaction_status
@@ -278,8 +279,10 @@ export default function Payment() {
       const storedOrderId = sessionStorage.getItem("pending_order_id");
       if (storedOrderId && !orderId) {
         setOrderId(storedOrderId);
+        apiService.setLastOrderId(storedOrderId);
       } else if (searchOrderId && !orderId) {
         setOrderId(searchOrderId);
+        apiService.setLastOrderId(searchOrderId);
       }
     }
 
@@ -370,9 +373,11 @@ export default function Payment() {
       if (generatedOrderId) {
         sessionStorage.setItem("pending_order_id", generatedOrderId);
         setOrderId(generatedOrderId);
+        apiService.setLastOrderId(generatedOrderId);
       } else {
         setOrderId("");
         sessionStorage.removeItem("pending_order_id");
+        apiService.clearLastOrderId();
       }
 
       const paymentRedirect =

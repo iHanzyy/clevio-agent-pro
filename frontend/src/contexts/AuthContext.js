@@ -235,6 +235,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     apiService.clearAllTokens();
+    apiService.clearLastOrderId();
     persistUser(null);
   };
 

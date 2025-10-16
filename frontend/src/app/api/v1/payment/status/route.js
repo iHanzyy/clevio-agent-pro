@@ -83,13 +83,16 @@ export async function POST(request) {
         transaction_status: merged.transaction_status || "settlement",
         stored_at: new Date().toISOString(),
       };
-      return NextResponse.json({
-        success: true,
-        stored: true,
-        order_id: orderId,
-        transaction_status: merged.transaction_status ?? null,
-        data: merged,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          stored: true,
+          order_id: orderId,
+          transaction_status: merged.transaction_status ?? null,
+          data: merged,
+        },
+        { status: 200 },
+      );
     }
 
     if (isTransactionPayload && orderId) {
@@ -101,13 +104,16 @@ export async function POST(request) {
         transaction_status: baseRecord.transaction_status ?? null,
         stored_at: new Date().toISOString(),
       };
-      return NextResponse.json({
-        success: true,
-        stored: true,
-        order_id: orderId,
-        transaction_status: baseRecord.transaction_status ?? null,
-        data: baseRecord,
-      });
+      return NextResponse.json(
+        {
+          success: true,
+          stored: true,
+          order_id: orderId,
+          transaction_status: baseRecord.transaction_status ?? null,
+          data: baseRecord,
+        },
+        { status: 200 },
+      );
     }
 
     console.log("[payment-status] received generic payload", body);
@@ -118,13 +124,16 @@ export async function POST(request) {
       transaction_status: baseRecord.transaction_status ?? null,
       stored_at: new Date().toISOString(),
     };
-    return NextResponse.json({
-      success: true,
-      order_id: orderId,
-      stored: true,
-      transaction_status: baseRecord.transaction_status ?? null,
-      data: baseRecord,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        order_id: orderId,
+        stored: true,
+        transaction_status: baseRecord.transaction_status ?? null,
+        data: baseRecord,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     return NextResponse.json(
       {
