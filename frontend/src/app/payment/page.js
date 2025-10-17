@@ -161,10 +161,23 @@ export default function Payment() {
 
         if (!apiService.hasApiKey() && planCodeOverride) {
           try {
-            const apiKeyResponse =
-              await apiService.generateApiKey(planCodeOverride);
-            if (apiKeyResponse?.access_token) {
-              apiService.setApiKey(apiKeyResponse.access_token);
+            const username =
+              credentials?.email ??
+              pendingRegistration?.email ??
+              user?.email ??
+              null;
+
+            if (!username && !credentials?.password) {
+              console.warn(
+                "Skipping API key generation; missing username/password context",
+              );
+            } else {
+              await apiService.generateApiKey({
+                planCode: planCodeOverride,
+                username,
+                password: credentials?.password ?? null,
+                useSessionAuth: !credentials?.password,
+              });
             }
           } catch (err) {
             console.warn("Auto API key generation failed", err);
@@ -207,6 +220,7 @@ export default function Payment() {
       applySubscription,
       login,
       pendingCredentials,
+      pendingRegistration,
       resolvePendingPlan,
       router,
       updateSubscription,

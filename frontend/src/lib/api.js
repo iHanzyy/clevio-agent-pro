@@ -358,12 +358,68 @@ class ApiService {
     });
   }
 
-  async generateApiKey(planCode = null) {
-    console.warn(
-      "generateApiKey() called but backend-managed keys are expected. Skipping.",
-      { planCode },
-    );
-    return null;
+  async generateApiKey(input = null) {
+    const options =
+      input && typeof input === "object" && !Array.isArray(input)
+        ? input
+        : { planCode: input };
+
+    const {
+      planCode = null,
+      username = null,
+      password = null,
+      accessToken = null,
+      useSessionAuth = false,
+    } = options;
+
+    const payload = {};
+
+    if (username) {
+      payload.username = username;
+    }
+    if (password) {
+      payload.password = password;
+    }
+    if (planCode) {
+      payload.plan_code = planCode;
+    }
+    if (accessToken) {
+      payload.access_token = accessToken;
+    }
+
+    if (!username && !useSessionAuth) {
+      console.warn(
+        "generateApiKey() invoked without username; backend may require credentials.",
+        { planCode },
+      );
+    }
+
+    const requestConfig = {
+      method: "POST",
+      body: JSON.stringify(payload),
+    };
+
+    if (useSessionAuth && this.hasSessionToken()) {
+      requestConfig.authType = "session";
+    }
+
+    const response = await this.request("/auth/api-key", requestConfig);
+
+    const resolvedApiKey =
+      response?.access_token ??
+      response?.api_key ??
+      response?.accessToken ??
+      response?.token ??
+      response?.data?.access_token ??
+      response?.data?.api_key ??
+      response?.data?.accessToken ??
+      null;
+
+    if (resolvedApiKey) {
+      this.setApiKey(resolvedApiKey);
+    }
+
+    return response;
   }
 
   async getSubscriptionStatus() {

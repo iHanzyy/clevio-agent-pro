@@ -12,7 +12,13 @@ async function forward(request, context, method) {
     : [];
 
   const incomingUrl = new URL(request.url);
-  const targetUrl = `${backendBase}/api/v1/${pathSegments.join("/")}${incomingUrl.search}`;
+  const hasTrailingSlash =
+    incomingUrl.pathname.length > 1 && incomingUrl.pathname.endsWith("/");
+
+  const pathSuffix = pathSegments.length ? `/${pathSegments.join("/")}` : "";
+  const targetUrlBase = `${backendBase}/api/v1${pathSuffix}`;
+  const targetUrl =
+    `${targetUrlBase}${hasTrailingSlash ? "/" : ""}${incomingUrl.search}`;
 
   const headers = new Headers();
 

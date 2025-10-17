@@ -111,6 +111,8 @@ export function AuthProvider({ children }) {
         apiService.setApiKey(subscription.api_key);
       }
 
+      let inferredPlanCode = resolvedPlanCode;
+
       persistUser((prev) => {
         const nextSubscription = subscription
           ? {
@@ -154,6 +156,14 @@ export function AuthProvider({ children }) {
           nextSubscription?.is_active ??
           false;
 
+        inferredPlanCode =
+          nextSubscription?.plan_code ??
+          resolvedPlanCode ??
+          subscription?.plan_code ??
+          prev?.subscription?.plan_code ??
+          inferredPlanCode ??
+          null;
+
         return {
           email: profile.email,
           is_active: nextIsActive,
@@ -161,6 +171,25 @@ export function AuthProvider({ children }) {
           user_id: profile.id ?? prev?.user_id ?? null,
         };
       });
+
+      if (!apiService.hasApiKey()) {
+        const fallbackPlanCode =
+          inferredPlanCode || apiService.getPlanCode?.() || null;
+        if (fallbackPlanCode) {
+          try {
+            await apiService.generateApiKey({
+              planCode: fallbackPlanCode,
+              username: profile?.email ?? null,
+              useSessionAuth: true,
+            });
+          } catch (apiKeyError) {
+            console.warn(
+              "Unable to auto-generate API key during auth refresh",
+              apiKeyError,
+            );
+          }
+        }
+      }
     } catch (error) {
       console.warn("Auth check failed", error);
       apiService.clearAllTokens();
@@ -178,8 +207,17 @@ export function AuthProvider({ children }) {
     try {
       const response = await apiService.login(email, password);
 
-      if (response?.access_token) {
-        apiService.setSessionToken(response.access_token);
+      const sessionToken =
+        response?.access_token ??
+        response?.accessToken ??
+        response?.token ??
+        response?.jwt ??
+        response?.data?.access_token ??
+        response?.data?.token ??
+        null;
+
+      if (sessionToken) {
+        apiService.setSessionToken(sessionToken);
 
         let profile = null;
         try {
@@ -266,6 +304,31 @@ export function AuthProvider({ children }) {
           expires_at: nextUser.subscription.expires_at,
           days_remaining: nextUser.subscription.days_remaining,
         });
+
+        if (!apiService.hasApiKey()) {
+          const fallbackPlanCode =
+            nextUser.subscription.plan_code ||
+            subscription?.plan_code ||
+            resolvedPlanCode ||
+            apiService.getPlanCode?.() ||
+            null;
+
+          if (fallbackPlanCode) {
+            try {
+              await apiService.generateApiKey({
+                planCode: fallbackPlanCode,
+                username: nextUser.email,
+                password,
+                useSessionAuth: true,
+              });
+            } catch (apiKeyError) {
+              console.warn(
+                "Unable to auto-generate API key after login",
+                apiKeyError,
+              );
+            }
+          }
+        }
 
         return {
           success: true,
