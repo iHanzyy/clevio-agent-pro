@@ -3,10 +3,75 @@ const SESSION_TOKEN_KEY = "auth_session_token";
 const API_KEY_STORAGE_KEY = "auth_api_key_token";
 const LAST_ORDER_ID_KEY = "payment_last_order_id";
 const LAST_PLAN_CODE_KEY = "auth_plan_code";
+const joinBaseAndEndpoint = (base, endpoint) => {
+  if (!base) return endpoint || "";
+  if (!endpoint) return base;
 
-const normalizeBaseUrl = (url) => {
-  if (!url) return DEFAULT_API_BASE_URL;
-  return url.endsWith("/") ? url.slice(0, -1) : url;
+  const hasTrailingSlash = base.endsWith("/");
+  const hasLeadingSlash = endpoint.startsWith("/");
+
+  if (hasTrailingSlash && hasLeadingSlash) {
+    return `${base}${endpoint.slice(1)}`;
+  }
+
+  if (!hasTrailingSlash && !hasLeadingSlash) {
+    return `${base}/${endpoint}`;
+  }
+
+  return `${base}${endpoint}`;
+};
+
+const normalizeEndpoint = (endpoint) => {
+  if (!endpoint) return "/";
+  const trimmed = endpoint.trim();
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith("/")) {
+    return trimmed;
+  }
+
+  return `/${trimmed}`;
+};
+
+const pickApiKeyFromCollection = (input) => {
+  if (!input) return null;
+
+  const lists = [];
+  if (Array.isArray(input)) {
+    lists.push(input);
+  }
+  if (Array.isArray(input?.api_keys)) {
+    lists.push(input.api_keys);
+  }
+  if (Array.isArray(input?.items)) {
+    lists.push(input.items);
+  }
+  if (Array.isArray(input?.data)) {
+    lists.push(input.data);
+  }
+
+  for (const list of lists) {
+    if (!Array.isArray(list) || list.length === 0) continue;
+    const active =
+      list.find((item) => item?.is_active ?? item?.isActive ?? false) ||
+      list[0];
+    if (!active) continue;
+    const candidate =
+      active.access_token ||
+      active.api_key ||
+      active.token ||
+      active.accessToken ||
+      active.apiKey ||
+      null;
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  return null;
 };
 
 class ApiService {
@@ -16,9 +81,8 @@ class ApiService {
         ? process.env.NEXT_PUBLIC_API_BASE_URL
         : null;
 
-    this.baseUrl = normalizeBaseUrl(
-      envBase && envBase.trim() ? envBase.trim() : DEFAULT_API_BASE_URL,
-    );
+    this.baseUrl =
+      envBase && envBase.trim() ? envBase.trim() : DEFAULT_API_BASE_URL;
     this.sessionToken = null;
     this.apiKeyToken = null;
     this.initialized = false;
@@ -57,7 +121,7 @@ class ApiService {
   }
 
   setBaseUrl(url) {
-    this.baseUrl = normalizeBaseUrl(url);
+    this.baseUrl = url && url.trim() ? url.trim() : DEFAULT_API_BASE_URL;
     console.log("🌐 API base URL set to:", this.baseUrl);
   }
 
@@ -79,6 +143,10 @@ class ApiService {
   }
 
   setApiKey(token) {
+    if (token && token === this.sessionToken) {
+      console.warn("⚠️ Ignoring API key that matches session token");
+      return;
+    }
     console.log(
       "🆔 Setting API key:",
       token ? "***" + token.slice(-10) : "null",
@@ -193,10 +261,75 @@ class ApiService {
       return;
     }
 
-    console.warn("ensureApiKey() skipped; API keys are managed by backend", {
-      planCode,
-      lastPlanCode: this.lastPlanCode,
-    });
+    const sessionToken =
+      typeof this.getAuthToken === "function"
+        ? this.getAuthToken({ primary: "session" })
+        : null;
+
+    const planCandidates = new Set();
+    if (planCode) planCandidates.add(planCode);
+    if (typeof this.getPlanCode === "function") {
+      const inferred = this.getPlanCode();
+      if (inferred) planCandidates.add(inferred);
+    }
+    if (this.lastPlanCode) planCandidates.add(this.lastPlanCode);
+
+    try {
+      const subscription = await this.getSubscriptionStatus();
+      if (subscription) {
+        if (subscription.plan_code) {
+          planCandidates.add(subscription.plan_code);
+          this.setPlanCode(subscription.plan_code);
+        }
+        if (subscription.api_key && subscription.api_key !== sessionToken) {
+          this.setApiKey(subscription.api_key);
+          return;
+        }
+      }
+      const availableKeys = await this.listApiKeys();
+      const activeKey =
+        availableKeys.find((item) => item?.is_active ?? item?.isActive) ||
+        availableKeys[0];
+      const resolvedKey =
+        activeKey?.access_token ||
+        activeKey?.token ||
+        activeKey?.api_key ||
+        activeKey?.accessToken ||
+        activeKey?.apiKey ||
+        activeKey?.key ||
+        null;
+      if (resolvedKey && resolvedKey !== sessionToken) {
+        this.setApiKey(resolvedKey);
+        return;
+      }
+    } catch (error) {
+      console.warn("Unable to refresh subscription before API key request", {
+        error,
+      });
+    }
+
+    if (this.apiKeyToken) {
+      return;
+    }
+
+    const resolvedPlanCode = Array.from(planCandidates).find(Boolean) || null;
+
+    if (!resolvedPlanCode) {
+      console.warn("No plan code available to auto-generate API key");
+      return;
+    }
+
+    try {
+      await this.generateApiKey({
+        planCode: resolvedPlanCode,
+        useSessionAuth: true,
+      });
+    } catch (error) {
+      console.warn("Unable to auto-generate API key", {
+        planCode: resolvedPlanCode,
+        error,
+      });
+    }
   }
 
   getHeaders({ authType = null, includeContentType = false, fallback } = {}) {
@@ -219,6 +352,9 @@ class ApiService {
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
+      if (authType === "apiKey") {
+        headers["X-API-Key"] = token;
+      }
       console.log("📤 Request with auth header", {
         type: authType || "auto",
         tokenPreview: token ? `***${token.slice(-8)}` : "",
@@ -231,13 +367,15 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
-    const url = `${this.baseUrl}${endpoint}`;
+    const normalizedEndpoint = normalizeEndpoint(endpoint);
+    const url = joinBaseAndEndpoint(this.baseUrl, normalizedEndpoint);
     const {
       authType,
       authFallback,
       auth = false,
       includeAuth,
       skipContentType,
+      suppressErrorLog = false,
       ...fetchOptions
     } = options;
 
@@ -313,13 +451,15 @@ class ApiService {
 
       return data;
     } catch (error) {
-      console.error("❌ API request failed", {
-        endpoint,
-        baseUrl: this.baseUrl,
-        method: fetchOptions.method || "GET",
-        error,
-      });
-      console.error("❌ API Request failed:", error);
+      if (!suppressErrorLog) {
+        console.error("❌ API request failed", {
+          endpoint,
+          baseUrl: this.baseUrl,
+          method: fetchOptions.method || "GET",
+          error,
+        });
+        console.error("❌ API Request failed:", error);
+      }
 
       // More specific error messages
       if (error.message === "Failed to fetch") {
@@ -403,7 +543,27 @@ class ApiService {
       requestConfig.authType = "session";
     }
 
-    const response = await this.request("/auth/api-key", requestConfig);
+    let response;
+    const requestWithSuppressedLogs = {
+      ...requestConfig,
+      suppressErrorLog: true,
+    };
+
+    try {
+      response = await this.request("/auth/api-keys", requestWithSuppressedLogs);
+    } catch (error) {
+      const message = String(error?.message || "");
+      const shouldRetry =
+        message.includes("404") ||
+        message.includes("405") ||
+        /not found/i.test(message) ||
+        /method not allowed/i.test(message);
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      response = await this.request("/auth/api-key", requestWithSuppressedLogs);
+    }
 
     const resolvedApiKey =
       response?.access_token ??
@@ -413,6 +573,8 @@ class ApiService {
       response?.data?.access_token ??
       response?.data?.api_key ??
       response?.data?.accessToken ??
+      response?.apiKey ??
+      response?.data?.apiKey ??
       null;
 
     if (resolvedApiKey) {
@@ -431,37 +593,86 @@ class ApiService {
       return null;
     }
 
-    const subscription =
+    const rawSubscription =
       profile.subscription && typeof profile.subscription === "object"
         ? profile.subscription
-        : null;
+        : {};
+
+    const planCandidates = [
+      rawSubscription.plan_code,
+      rawSubscription.planCode,
+      rawSubscription.plan?.code,
+      rawSubscription.plan?.plan_code,
+      profile.subscription_plan,
+      profile.subscriptionPlan,
+      profile.plan_code,
+      profile.planCode,
+      profile.plan?.code,
+      profile.plan?.plan_code,
+    ];
 
     const planCode =
-      subscription?.plan_code ||
-      profile.subscription_plan ||
-      profile.plan_code ||
-      null;
+      planCandidates.find(
+        (value) => typeof value === "string" && value.trim().length > 0,
+      ) || null;
 
     const isActive =
-      subscription?.is_active ??
+      rawSubscription.is_active ??
+      rawSubscription.isActive ??
       profile.subscription_active ??
+      profile.subscriptionActive ??
       profile.is_active ??
+      profile.isActive ??
       false;
+
+    let apiKey =
+      rawSubscription.api_key ||
+      rawSubscription.apiKey ||
+      profile.api_key ||
+      profile.apiKey ||
+      profile.api_access_token ||
+      profile.apiAccessToken ||
+      null;
+
+    if (!apiKey) {
+      const apiKeyCollections = [
+        rawSubscription.api_keys,
+        rawSubscription.items,
+        rawSubscription.data,
+        profile.api_keys,
+        profile.items,
+        profile.data,
+      ];
+
+      for (const collection of apiKeyCollections) {
+        const candidate = pickApiKeyFromCollection(collection);
+        if (candidate) {
+          apiKey = candidate;
+          break;
+        }
+      }
+    }
+
+    const expiresAt =
+      rawSubscription.expires_at ||
+      rawSubscription.expiresAt ||
+      profile.subscription_expires_at ||
+      profile.subscriptionExpiresAt ||
+      null;
+
+    const daysRemaining =
+      rawSubscription.days_remaining ||
+      rawSubscription.daysRemaining ||
+      profile.subscription_days_remaining ||
+      profile.subscriptionDaysRemaining ||
+      null;
 
     return {
       is_active: Boolean(isActive),
       plan_code: planCode,
-      expires_at:
-        subscription?.expires_at || profile.subscription_expires_at || null,
-      days_remaining:
-        subscription?.days_remaining ||
-        profile.subscription_days_remaining ||
-        null,
-      api_key:
-        subscription?.api_key ||
-        profile.api_key ||
-        profile.api_access_token ||
-        null,
+      expires_at: expiresAt,
+      days_remaining: daysRemaining,
+      api_key: apiKey,
     };
   }
 
@@ -473,16 +684,98 @@ class ApiService {
   }
 
   async updateApiKey(username, password, accessToken, planCode) {
-    return this.request("/auth/api-key/update", {
-      method: "POST",
-      body: JSON.stringify({
-        username,
-        password,
-        access_token: accessToken,
-        plan_code: planCode,
-      }),
-      authType: "session",
+    const payload = JSON.stringify({
+      username,
+      password,
+      access_token: accessToken,
+      plan_code: planCode,
     });
+
+    try {
+      return await this.request("/auth/api-key/update", {
+        method: "POST",
+        body: payload,
+        authType: "session",
+        suppressErrorLog: true,
+      });
+    } catch (error) {
+      const message = String(error?.message || "");
+      const shouldRetry =
+        message.includes("404") ||
+        message.includes("405") ||
+        /not found/i.test(message) ||
+        /method not allowed/i.test(message);
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      return this.request("/auth/api-keys/update", {
+        method: "POST",
+        body: payload,
+        authType: "session",
+        suppressErrorLog: true,
+      });
+    }
+  }
+
+  async listApiKeys() {
+    const candidateEndpoints = ["/auth/api-keys", "/auth/api-key"];
+    const sessionToken =
+      typeof this.getAuthToken === "function"
+        ? this.getAuthToken({ primary: "session" })
+        : null;
+
+    for (const endpoint of candidateEndpoints) {
+      try {
+        const response = await this.request(endpoint, {
+          authType: "session",
+          suppressErrorLog: true,
+        });
+
+        if (Array.isArray(response)) {
+          return response;
+        }
+        if (Array.isArray(response?.items)) {
+          return response.items;
+        }
+        if (Array.isArray(response?.data)) {
+          return response.data;
+        }
+        if (Array.isArray(response?.results)) {
+          return response.results;
+        }
+        if (response && typeof response === "object") {
+          const candidateToken =
+            response.access_token ||
+            response.api_key ||
+            response.token ||
+            response.accessToken ||
+            response.apiKey ||
+            null;
+          if (candidateToken && candidateToken !== sessionToken) {
+            return [response];
+          }
+        }
+      } catch (error) {
+        const message = String(error?.message || "");
+        const methodNotAllowed =
+          message.includes("405") || /method not allowed/i.test(message);
+        const notFound =
+          message.includes("404") || /not found/i.test(message);
+
+        if (methodNotAllowed || notFound) {
+          console.info(
+            `API endpoint ${endpoint} does not support listing keys; falling back`,
+          );
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    return [];
   }
 
   async getInformationN8N(orderId, orderSuffix = null) {
@@ -569,7 +862,7 @@ class ApiService {
   // Agent endpoints (require API key)
   async getAgents() {
     await this.ensureApiKey();
-    return this.request("/agents", {
+    return this.request("/agents/", {
       authType: "apiKey",
       authFallback: "session",
     });
@@ -582,7 +875,7 @@ class ApiService {
     });
 
     await this.ensureApiKey();
-    return this.request("/agents", {
+    return this.request("/agents/", {
       method: "POST",
       authType: "apiKey",
       body: JSON.stringify(payload),
@@ -641,7 +934,12 @@ class ApiService {
 
     const headers = this.authHeader();
 
-    const response = await fetch(`${this.baseUrl}/agents/${agentId}/documents`, {
+    const url = joinBaseAndEndpoint(
+      this.baseUrl,
+      normalizeEndpoint(`/agents/${agentId}/documents`),
+    );
+
+    const response = await fetch(url, {
       method: "POST",
       headers,
       body: formData,
@@ -659,7 +957,7 @@ class ApiService {
 
   // Tools endpoints
   async getTools() {
-    return this.request("/tools/", {
+    return this.request("/tools", {
       authType: "apiKey",
     });
   }

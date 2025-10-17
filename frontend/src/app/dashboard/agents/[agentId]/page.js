@@ -132,6 +132,12 @@ export default function AgentDetailPage() {
     }
     if (
       Array.isArray(agent?.allowed_tools) &&
+      agent.allowed_tools.includes("calendar")
+    ) {
+      labels.push("Calendar");
+    }
+    if (
+      Array.isArray(agent?.allowed_tools) &&
       agent.allowed_tools.includes("whatsapp")
     ) {
       labels.push("WhatsApp");
@@ -455,7 +461,9 @@ export default function AgentDetailPage() {
               LLM Model
             </p>
             <p className="text-sm text-gray-900 dark:text-gray-100">
-              {agent.config?.llm_model || "Default"}
+              {agent.config?.model ||
+                agent.config?.llm_model ||
+                "Default"}
             </p>
           </div>
           <div>
@@ -476,6 +484,22 @@ export default function AgentDetailPage() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+              Memory Type
+            </p>
+            <p className="text-sm text-gray-900 dark:text-gray-100">
+              {agent.config?.memory_type ?? "buffer"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+              Reasoning Strategy
+            </p>
+            <p className="text-sm text-gray-900 dark:text-gray-100">
+              {agent.config?.reasoning_strategy ?? "react"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
               Capabilities
             </p>
             <p className="text-sm text-gray-900 dark:text-gray-100">
@@ -483,13 +507,13 @@ export default function AgentDetailPage() {
             </p>
           </div>
         </div>
-        {agent.config?.system_prompt && (
+        {(agent.config?.system_message || agent.config?.system_prompt) && (
           <div>
             <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
               System Prompt
             </p>
             <pre className="whitespace-pre-wrap text-sm leading-relaxed text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-              {agent.config.system_prompt}
+              {agent.config.system_message || agent.config.system_prompt}
             </pre>
           </div>
         )}

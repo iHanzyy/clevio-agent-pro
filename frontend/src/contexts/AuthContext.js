@@ -11,6 +11,101 @@ import { apiService } from "@/lib/api";
 const STORAGE_KEY = "auth_user";
 const AuthContext = createContext();
 
+const isNonEmptyString = (value) =>
+  typeof value === "string" && value.trim().length > 0;
+
+const pickApiKeyFromCollection = (input) => {
+  if (!input) return null;
+
+  const lists = [];
+  if (Array.isArray(input)) {
+    lists.push(input);
+  }
+  if (Array.isArray(input?.api_keys)) {
+    lists.push(input.api_keys);
+  }
+  if (Array.isArray(input?.items)) {
+    lists.push(input.items);
+  }
+  if (Array.isArray(input?.data)) {
+    lists.push(input.data);
+  }
+
+  for (const list of lists) {
+    if (!Array.isArray(list) || list.length === 0) continue;
+    const active =
+      list.find((item) => item?.is_active ?? item?.isActive ?? false) ||
+      list[0];
+    if (!active) continue;
+    const candidate =
+      active.access_token ||
+      active.api_key ||
+      active.token ||
+      active.accessToken ||
+      active.apiKey ||
+      null;
+    if (isNonEmptyString(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+};
+
+const resolvePlanCode = (...inputs) => {
+  for (const input of inputs) {
+    if (!input) continue;
+    if (isNonEmptyString(input)) {
+      return input.trim();
+    }
+    if (typeof input === "object") {
+      const candidates = [
+        input.plan_code,
+        input.planCode,
+        input.plan?.code,
+        input.plan?.plan_code,
+        input.subscription_plan,
+        input.subscriptionPlan,
+        input.plan?.slug,
+      ];
+      const matched = candidates.find(isNonEmptyString);
+      if (matched) {
+        return matched.trim();
+      }
+    }
+  }
+  return null;
+};
+
+const resolveApiKey = (...inputs) => {
+  for (const input of inputs) {
+    if (!input) continue;
+    if (isNonEmptyString(input)) {
+      return input.trim();
+    }
+    if (typeof input === "object") {
+      const directCandidates = [
+        input.api_key,
+        input.apiKey,
+        input.api_access_token,
+        input.apiAccessToken,
+        input.access_token,
+        input.accessToken,
+        input.token,
+      ];
+      const direct = directCandidates.find(isNonEmptyString);
+      if (direct) {
+        return direct.trim();
+      }
+      const fromCollections = pickApiKeyFromCollection(input);
+      if (fromCollections) {
+        return fromCollections.trim();
+      }
+    }
+  }
+  return null;
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -39,11 +134,21 @@ export function AuthProvider({ children }) {
 
   const applySubscription = useCallback(
     (details = {}) => {
-      if (details?.plan_code) {
-        apiService.setPlanCode(details.plan_code);
+      const resolvedPlanCode = resolvePlanCode(
+        details,
+        details?.plan,
+        details?.subscription,
+      );
+      if (resolvedPlanCode) {
+        apiService.setPlanCode(resolvedPlanCode);
       }
-      if (details?.api_key) {
-        apiService.setApiKey(details.api_key);
+      const resolvedApiKey = resolveApiKey(
+        details,
+        details?.subscription,
+        details?.api_keys,
+      );
+      if (resolvedApiKey) {
+        apiService.setApiKey(resolvedApiKey);
       }
       persistUser((prev) => {
         const nextSubscription = {
@@ -51,12 +156,20 @@ export function AuthProvider({ children }) {
           ...details,
           is_active:
             details?.is_active ??
+            details?.isActive ??
             prev?.subscription?.is_active ??
             details?.active ??
             false,
         };
+        if (resolvedPlanCode && !nextSubscription.plan_code) {
+          nextSubscription.plan_code = resolvedPlanCode;
+        }
+        if (resolvedApiKey && !nextSubscription.api_key) {
+          nextSubscription.api_key = resolvedApiKey;
+        }
         const isActive =
           details?.is_active ??
+          details?.isActive ??
           nextSubscription.is_active ??
           prev?.is_active ??
           false;
@@ -75,6 +188,8 @@ export function AuthProvider({ children }) {
     try {
       const hasSession = apiService.hasSessionToken();
       const hasApiKey = apiService.hasApiKey();
+      const currentSessionToken =
+        apiService.getAuthToken?.({ primary: "session" }) || null;
 
       if (!hasSession && !hasApiKey) {
         persistUser(null);
@@ -97,69 +212,116 @@ export function AuthProvider({ children }) {
         console.warn("Payment status unavailable", statusError);
       }
 
-      const resolvedPlanCode =
-        subscription?.plan_code || apiService.getPlanCode?.() || null;
+      const planCodeFromSources =
+        resolvePlanCode(
+          subscription,
+          subscription?.plan,
+          subscription?.subscription,
+          profile,
+        ) || apiService.getPlanCode?.() || null;
 
-      if (resolvedPlanCode) {
-        apiService.setPlanCode(resolvedPlanCode);
-        if (subscription && !subscription.plan_code) {
-          subscription.plan_code = resolvedPlanCode;
+      if (planCodeFromSources) {
+        apiService.setPlanCode(planCodeFromSources);
+      }
+
+      const subscriptionApiKey = resolveApiKey(
+        subscription,
+        subscription?.api_keys,
+        subscription?.subscription,
+        profile,
+      );
+      if (subscriptionApiKey && subscriptionApiKey !== currentSessionToken) {
+        apiService.setApiKey(subscriptionApiKey);
+      } else if (!apiService.hasApiKey()) {
+        try {
+          const existingKeys = await apiService.listApiKeys();
+          const activeKey =
+            existingKeys.find(
+              (item) => item?.is_active ?? item?.isActive ?? false,
+            ) || existingKeys[0];
+          const resolvedKey =
+            activeKey?.access_token ||
+            activeKey?.api_key ||
+            activeKey?.token ||
+            activeKey?.accessToken ||
+            activeKey?.apiKey ||
+            null;
+          if (resolvedKey && resolvedKey !== currentSessionToken) {
+            apiService.setApiKey(resolvedKey);
+          }
+        } catch (apiKeyListError) {
+          console.warn("Unable to load API keys during auth refresh", {
+            error: apiKeyListError,
+          });
         }
       }
 
-      if (subscription?.api_key) {
-        apiService.setApiKey(subscription.api_key);
-      }
-
-      let inferredPlanCode = resolvedPlanCode;
+      let inferredPlanCode = planCodeFromSources;
+      const fallbackApiKey =
+        subscriptionApiKey ||
+        resolveApiKey(profile, subscription?.api_keys) ||
+        null;
 
       persistUser((prev) => {
-        const nextSubscription = subscription
-          ? {
-              ...(prev?.subscription || {}),
-              is_active:
-                subscription?.is_active ??
-                prev?.subscription?.is_active ??
-                profile?.is_active ??
-                false,
-              plan_code:
-                subscription?.plan_code ??
-                prev?.subscription?.plan_code ??
-                resolvedPlanCode ??
-                null,
-              api_key:
-                subscription?.api_key ?? prev?.subscription?.api_key ?? null,
-              expires_at:
-                subscription?.expires_at ??
-                prev?.subscription?.expires_at ??
-                null,
-              days_remaining:
-                subscription?.days_remaining ??
-                prev?.subscription?.days_remaining ??
-                null,
-            }
-          : prev?.subscription || {
-              is_active: profile?.is_active ?? prev?.is_active ?? false,
-              plan_code:
-                prev?.subscription?.plan_code ??
-                resolvedPlanCode ??
-                null,
-              api_key: prev?.subscription?.api_key ?? null,
-              expires_at: prev?.subscription?.expires_at ?? null,
-              days_remaining: prev?.subscription?.days_remaining ?? null,
-            };
+        const mergedSubscription = {
+          ...(prev?.subscription || {}),
+          ...(subscription || {}),
+        };
+
+        const subscriptionPlanCode =
+          resolvePlanCode(
+            mergedSubscription,
+            mergedSubscription.plan,
+            planCodeFromSources,
+          ) || planCodeFromSources || mergedSubscription.plan_code || null;
+
+        if (subscriptionPlanCode) {
+          mergedSubscription.plan_code = subscriptionPlanCode;
+        }
+
+        const subscriptionApiKeyForState =
+          resolveApiKey(
+            mergedSubscription,
+            mergedSubscription.api_keys,
+            fallbackApiKey,
+          ) || fallbackApiKey || mergedSubscription.api_key || null;
+
+        if (subscriptionApiKeyForState) {
+          mergedSubscription.api_key = subscriptionApiKeyForState;
+        }
+
+        mergedSubscription.is_active =
+          mergedSubscription.is_active ??
+          mergedSubscription.isActive ??
+          subscription?.is_active ??
+          subscription?.isActive ??
+          profile?.is_active ??
+          profile?.isActive ??
+          false;
+
+        mergedSubscription.expires_at =
+          mergedSubscription.expires_at ??
+          mergedSubscription.expiresAt ??
+          subscription?.expires_at ??
+          subscription?.expiresAt ??
+          null;
+
+        mergedSubscription.days_remaining =
+          mergedSubscription.days_remaining ??
+          mergedSubscription.daysRemaining ??
+          subscription?.days_remaining ??
+          subscription?.daysRemaining ??
+          null;
 
         const nextIsActive =
-          subscription?.is_active ??
+          mergedSubscription.is_active ??
           profile?.is_active ??
           prev?.is_active ??
-          nextSubscription?.is_active ??
           false;
 
         inferredPlanCode =
-          nextSubscription?.plan_code ??
-          resolvedPlanCode ??
-          subscription?.plan_code ??
+          mergedSubscription.plan_code ??
+          planCodeFromSources ??
           prev?.subscription?.plan_code ??
           inferredPlanCode ??
           null;
@@ -167,7 +329,7 @@ export function AuthProvider({ children }) {
         return {
           email: profile.email,
           is_active: nextIsActive,
-          subscription: nextSubscription,
+          subscription: mergedSubscription,
           user_id: profile.id ?? prev?.user_id ?? null,
         };
       });
@@ -246,35 +408,64 @@ export function AuthProvider({ children }) {
         }
 
         const isSubscriptionActive =
-          subscription?.is_active ?? profile?.is_active ?? response?.is_active;
+          subscription?.is_active ??
+          subscription?.isActive ??
+          profile?.is_active ??
+          profile?.isActive ??
+          response?.is_active ??
+          response?.isActive;
 
-        const resolvedPlanCode =
-          subscription?.plan_code ||
-          response?.plan_code ||
-          profile?.subscription_plan ||
-          apiService.getPlanCode?.() ||
-          null;
+        const planCodeFromSources =
+          resolvePlanCode(
+            subscription,
+            subscription?.plan,
+            subscription?.subscription,
+            response,
+            response?.plan,
+            response?.subscription,
+            profile,
+          ) || apiService.getPlanCode?.() || null;
 
-        if (resolvedPlanCode) {
-          apiService.setPlanCode(resolvedPlanCode);
+        if (planCodeFromSources) {
+          apiService.setPlanCode(planCodeFromSources);
           if (subscription && !subscription.plan_code) {
-            subscription.plan_code = resolvedPlanCode;
+            subscription.plan_code = planCodeFromSources;
           }
         }
 
-        const inheritedApiKey =
-          subscription?.api_key ||
-          response?.api_key ||
-          response?.api_access_token ||
-          profile?.api_key ||
-          null;
+        const inheritedApiKey = resolveApiKey(
+          subscription,
+          subscription?.api_keys,
+          subscription?.subscription,
+          response,
+          response?.api_keys,
+          response?.subscription,
+          profile,
+        );
 
-        if (inheritedApiKey) {
+        if (inheritedApiKey && inheritedApiKey !== sessionToken) {
           apiService.setApiKey(inheritedApiKey);
         } else if (!apiService.hasApiKey()) {
-          console.warn(
-            "No API key supplied during login; relying on existing stored key",
-          );
+          console.warn("No API key supplied during login; checking vault");
+          try {
+            const existingKeys = await apiService.listApiKeys();
+            const activeKey =
+              existingKeys.find(
+                (item) => item?.is_active ?? item?.isActive ?? false,
+              ) || existingKeys[0];
+            const resolvedKey =
+              activeKey?.access_token ||
+              activeKey?.api_key ||
+              activeKey?.token ||
+              activeKey?.accessToken ||
+              activeKey?.apiKey ||
+              null;
+            if (resolvedKey && resolvedKey !== sessionToken) {
+              apiService.setApiKey(resolvedKey);
+            }
+          } catch (apiKeyListError) {
+            console.warn("Unable to load existing API keys", apiKeyListError);
+          }
         }
 
         const isActive = profile?.is_active ?? true;
@@ -285,15 +476,27 @@ export function AuthProvider({ children }) {
           subscription: {
             is_active: isSubscriptionActive ?? isActive,
             plan_code:
+              planCodeFromSources ||
               subscription?.plan_code ||
+              subscription?.planCode ||
               response?.plan_code ||
+              response?.planCode ||
               profile?.subscription_plan ||
-              resolvedPlanCode ||
+              profile?.subscriptionPlan ||
               null,
             expires_at:
-              subscription?.expires_at || response?.expires_at || null,
+              subscription?.expires_at ||
+              subscription?.expiresAt ||
+              response?.expires_at ||
+              response?.expiresAt ||
+              null,
             days_remaining:
-              subscription?.days_remaining || response?.days_remaining || null,
+              subscription?.days_remaining ||
+              subscription?.daysRemaining ||
+              response?.days_remaining ||
+              response?.daysRemaining ||
+              null,
+            api_key: inheritedApiKey || null,
           },
         };
         persistUser(nextUser);
@@ -303,32 +506,57 @@ export function AuthProvider({ children }) {
           plan_code: nextUser.subscription.plan_code,
           expires_at: nextUser.subscription.expires_at,
           days_remaining: nextUser.subscription.days_remaining,
+          api_key: nextUser.subscription.api_key,
         });
 
-        if (!apiService.hasApiKey()) {
-          const fallbackPlanCode =
-            nextUser.subscription.plan_code ||
-            subscription?.plan_code ||
-            resolvedPlanCode ||
-            apiService.getPlanCode?.() ||
-            null;
+      if (!apiService.hasApiKey()) {
+        const fallbackPlanCode =
+          nextUser.subscription.plan_code ||
+          subscription?.plan_code ||
+          subscription?.planCode ||
+          planCodeFromSources ||
+          apiService.getPlanCode?.() ||
+          null;
 
-          if (fallbackPlanCode) {
-            try {
-              await apiService.generateApiKey({
-                planCode: fallbackPlanCode,
-                username: nextUser.email,
-                password,
-                useSessionAuth: true,
-              });
-            } catch (apiKeyError) {
-              console.warn(
-                "Unable to auto-generate API key after login",
-                apiKeyError,
-              );
+        if (fallbackPlanCode) {
+          try {
+            await apiService.generateApiKey({
+              planCode: fallbackPlanCode,
+              username: nextUser.email,
+              password,
+              useSessionAuth: true,
+            });
+          } catch (apiKeyError) {
+            console.warn(
+              "Unable to auto-generate API key after login",
+              apiKeyError,
+            );
+          }
+        } else if (!apiService.hasApiKey()) {
+          try {
+            const existingKeys = await apiService.listApiKeys();
+            const activeKey =
+              existingKeys.find(
+                (item) => item?.is_active ?? item?.isActive ?? false,
+              ) || existingKeys[0];
+            const resolvedKey =
+              activeKey?.access_token ||
+              activeKey?.api_key ||
+              activeKey?.token ||
+              activeKey?.accessToken ||
+              activeKey?.apiKey ||
+              null;
+            if (resolvedKey) {
+              apiService.setApiKey(resolvedKey);
             }
+          } catch (apiKeyListError) {
+            console.warn(
+              "Unable to recover API key from list after login",
+              apiKeyListError,
+            );
           }
         }
+      }
 
         return {
           success: true,

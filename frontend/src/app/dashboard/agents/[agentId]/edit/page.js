@@ -19,12 +19,18 @@ const mapAgentToInitialValues = (agent) => {
       gmail:
         (Array.isArray(agent.tools) && agent.tools.includes("gmail")) ||
         allowedList.includes("gmail"),
+      calendar:
+        (Array.isArray(agent.tools) && agent.tools.includes("calendar")) ||
+        allowedList.includes("calendar"),
       whatsapp: allowedList.includes("whatsapp"),
     },
-    systemPrompt: agent.config?.system_prompt ?? "",
-    model: agent.config?.llm_model ?? "gpt-4o-mini",
+    systemPrompt:
+      agent.config?.system_message ?? agent.config?.system_prompt ?? "",
+    model: agent.config?.model ?? agent.config?.llm_model ?? "gpt-4o-mini",
     temperature: agent.config?.temperature ?? 0.7,
     maxTokens: agent.config?.max_tokens ?? 1000,
+    memoryType: agent.config?.memory_type ?? "buffer",
+    reasoningStrategy: agent.config?.reasoning_strategy ?? "react",
     allowedTools: allowedList,
   };
 };

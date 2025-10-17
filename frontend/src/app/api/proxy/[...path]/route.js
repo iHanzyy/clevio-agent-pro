@@ -3,22 +3,56 @@ const DEFAULT_BACKEND_BASE = "https://new-langchain.chiefaiofficer.id";
 export const dynamic = "force-dynamic";
 
 const backendBase =
-  process.env.BACKEND_BASE_URL?.replace(/\/$/, "") || DEFAULT_BACKEND_BASE;
+  process.env.BACKEND_BASE_URL && process.env.BACKEND_BASE_URL.length > 0
+    ? process.env.BACKEND_BASE_URL
+    : DEFAULT_BACKEND_BASE;
+
+let backendOrigin = backendBase;
+try {
+  backendOrigin = new URL(backendBase).origin;
+} catch (error) {
+  console.warn(
+    "⚠️ Invalid BACKEND_BASE_URL; using raw value for Origin header",
+    error,
+  );
+}
 
 async function forward(request, context, method) {
   const resolvedParams = await context.params;
   const pathSegments = Array.isArray(resolvedParams?.path)
     ? resolvedParams.path
     : [];
+  const lastSegment = pathSegments.length
+    ? pathSegments[pathSegments.length - 1] || ""
+    : "";
 
   const incomingUrl = new URL(request.url);
-  const pathSuffix = pathSegments.length ? `/${pathSegments.join("/")}` : "";
+  let pathSuffix = pathSegments.length ? `/${pathSegments.join("/")}` : "";
+  if (pathSegments.length && pathSegments[pathSegments.length - 1] === "") {
+    pathSuffix = pathSuffix.replace(/\/+$/, "/");
+  }
+
   const incomingHasTrailingSlash =
     incomingUrl.pathname.length > 1 && incomingUrl.pathname.endsWith("/");
-  const targetUrlBase = `${backendBase}/api/v1${pathSuffix}${
-    incomingHasTrailingSlash ? "/" : ""
+  const needsTrailingSlashForPost = method === "POST" && lastSegment === "agents";
+
+  let apiPath = `/api/v1${pathSuffix}${
+    needsTrailingSlashForPost || incomingHasTrailingSlash ? "/" : ""
   }`;
-  const targetUrl = `${targetUrlBase}${incomingUrl.search}`;
+
+  if (incomingUrl.search) {
+    apiPath += incomingUrl.search;
+  }
+  const targetUrl = new URL(apiPath, backendBase).toString();
+  console.log(
+    "[proxy] forwarding",
+    {
+      incoming: request.method + " " + incomingUrl.pathname,
+      target: targetUrl,
+      pathSegments,
+      hasTrailing: incomingHasTrailingSlash,
+    },
+  );
 
   const headers = new Headers();
 
@@ -27,7 +61,7 @@ async function forward(request, context, method) {
     if (["host", "content-length", "connection"].includes(lower)) return;
     headers.set(key, value);
   });
-  headers.set("Origin", backendBase);
+  headers.set("Origin", backendOrigin);
 
   if (!headers.has("content-type") && method !== "GET" && method !== "HEAD") {
     headers.set("content-type", "application/json");

@@ -1,8 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
-import { apiService } from "@/lib/api";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const TOOL_OPTIONS = [
   {
@@ -12,10 +10,10 @@ const TOOL_OPTIONS = [
       "Read, search, and send email through the connected Gmail account.",
   },
   {
-    id: "whatsapp",
-    label: "WhatsApp",
+    id: "calendar",
+    label: "Google Calendar",
     description:
-      "Enable WhatsApp messaging workflows for this agent (requires session setup).",
+      "Access and manage calendar events through the connected Google account.",
   },
 ];
 
@@ -23,15 +21,17 @@ const DEFAULT_VALUES = {
   name: "",
   tools: {
     gmail: false,
-    whatsapp: false,
+    calendar: false,
   },
-  systemPrompt: `You are a helpful AI assistant who represents Clevio AI Assistants.
+  systemPrompt: `You are a helpful research aide. Remember the users.
 - Use clear, professional language.
-- Call the Gmail tool whenever an email task requires sending, searching, or reading messages.
+- Reference available tools when they can help.
 - Ask follow-up questions when needed instead of guessing missing details.`,
   model: "gpt-4o-mini",
   temperature: 0.7,
   maxTokens: 1000,
+  memoryType: "buffer",
+  reasoningStrategy: "react",
 };
 
 function mapInitialValues(input) {
@@ -52,19 +52,38 @@ function mapInitialValues(input) {
     name: input.name ?? DEFAULT_VALUES.name,
     tools: {
       gmail: Boolean(input.tools?.gmail) || allowedList.includes("gmail"),
-      whatsapp:
-        Boolean(input.tools?.whatsapp) || allowedList.includes("whatsapp"),
+      calendar:
+        Boolean(input.tools?.calendar) || allowedList.includes("calendar"),
     },
-    systemPrompt: input.systemPrompt ?? DEFAULT_VALUES.systemPrompt,
-    model: input.model ?? DEFAULT_VALUES.model,
+    systemPrompt:
+      input.systemPrompt ??
+      input.config?.system_prompt ??
+      DEFAULT_VALUES.systemPrompt,
+    model:
+      input.model ??
+      input.config?.model ??
+      input.config?.llm_model ??
+      DEFAULT_VALUES.model,
     temperature:
       typeof input.temperature === "number"
         ? input.temperature
-        : DEFAULT_VALUES.temperature,
+        : typeof input.config?.temperature === "number"
+          ? input.config.temperature
+          : DEFAULT_VALUES.temperature,
     maxTokens:
       typeof input.maxTokens === "number"
         ? input.maxTokens
-        : DEFAULT_VALUES.maxTokens,
+        : typeof input.config?.max_tokens === "number"
+          ? input.config.max_tokens
+          : DEFAULT_VALUES.maxTokens,
+    memoryType:
+      input.memoryType ??
+      input.config?.memory_type ??
+      DEFAULT_VALUES.memoryType,
+    reasoningStrategy:
+      input.reasoningStrategy ??
+      input.config?.reasoning_strategy ??
+      DEFAULT_VALUES.reasoningStrategy,
   };
 }
 
@@ -77,10 +96,7 @@ export default function AgentForm({
   const [values, setValues] = useState(() => mapInitialValues(initialValues));
   const [formErrors, setFormErrors] = useState({});
   const [serverError, setServerError] = useState("");
-  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
-  const [whatsAppError, setWhatsAppError] = useState("");
-  const [whatsAppQr, setWhatsAppQr] = useState(null);
-  const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
+  const lockedToolsRef = useRef([]);
 
   const submitLabel = useMemo(() => {
     if (mode === "edit") return "Save Changes";
@@ -92,13 +108,15 @@ export default function AgentForm({
   }, [initialValues]);
 
   useEffect(() => {
-    if (!values.tools.whatsapp) {
-      setShowWhatsAppQr(false);
-      setWhatsAppQr(null);
-      setWhatsAppError("");
-      setWhatsAppLoading(false);
-    }
-  }, [values.tools.whatsapp]);
+    const allowedList = Array.isArray(initialValues?.allowed_tools)
+      ? initialValues.allowed_tools
+      : Array.isArray(initialValues?.allowedTools)
+        ? initialValues.allowedTools
+        : [];
+    lockedToolsRef.current = allowedList.filter(
+      (tool) => !["gmail", "calendar"].includes(tool),
+    );
+  }, [initialValues]);
 
   const toggleTool = (toolId) => {
     setValues((prev) => ({
@@ -126,15 +144,12 @@ export default function AgentForm({
 
   const buildPayload = () => {
     const selectedTools = [];
-    const allowedTools = [];
 
     if (values.tools.gmail) {
       selectedTools.push("gmail");
-      allowedTools.push("gmail");
     }
-    if (values.tools.whatsapp) {
-      selectedTools.push("whatsapp");
-      allowedTools.push("whatsapp");
+    if (values.tools.calendar) {
+      selectedTools.push("calendar");
     }
 
     const payload = {
@@ -143,28 +158,32 @@ export default function AgentForm({
         llm_model: values.model,
         temperature: values.temperature,
         max_tokens: values.maxTokens,
-        memory_type: "buffer",
-        reasoning_strategy: "react",
+        memory_type: values.memoryType || DEFAULT_VALUES.memoryType,
+        reasoning_strategy:
+          values.reasoningStrategy || DEFAULT_VALUES.reasoningStrategy,
         system_prompt: values.systemPrompt.trim(),
       },
     };
 
-    if (allowedTools.length) {
-      payload.allowed_tools = Array.from(new Set(allowedTools));
-    }
+    const mergedAllowed = new Set([
+      ...lockedToolsRef.current,
+      ...selectedTools,
+    ]);
+
+    payload.allowed_tools = Array.from(mergedAllowed);
 
     if (selectedTools.length) {
-      payload.tools = selectedTools;
+      payload.tools = Array.from(new Set(selectedTools));
     }
 
     const mcpServerUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL?.trim() || "";
-    if (mcpServerUrl) {
-      payload.mcp_servers = {
-        default: {
-          url: mcpServerUrl,
-        },
-      };
-    }
+    payload.mcp_servers = mcpServerUrl
+      ? {
+          default: {
+            url: mcpServerUrl,
+          },
+        }
+      : {};
 
     return payload;
   };
@@ -255,99 +274,6 @@ export default function AgentForm({
             </div>
             {formErrors.tools && (
               <p className="mt-2 text-sm text-red-600">{formErrors.tools}</p>
-            )}
-            {mode === "edit" && values.tools.whatsapp && (
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setWhatsAppError("");
-                    setWhatsAppLoading(true);
-                    setShowWhatsAppQr(true);
-                    try {
-                      const response = await apiService.getWhatsAppQrCode();
-                      const resolvedQr =
-                        response?.qr_image ??
-                        response?.qr_code ??
-                        response?.qr ??
-                        response?.image ??
-                        response?.data?.qr_image ??
-                        response?.data?.qr_code ??
-                        null;
-
-                      if (!resolvedQr) {
-                        throw new Error(
-                          "QR code unavailable. Please try again in a moment.",
-                        );
-                      }
-                      setWhatsAppQr(resolvedQr);
-                    } catch (error) {
-                      setWhatsAppError(
-                        error?.message ||
-                          "Unable to load WhatsApp QR code right now.",
-                      );
-                      setWhatsAppQr(null);
-                    } finally {
-                      setWhatsAppLoading(false);
-                    }
-                  }}
-                  className="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition disabled:opacity-60"
-                  disabled={whatsAppLoading}
-                >
-                  {whatsAppLoading ? "Preparing QR..." : "Scan WhatsApp QR"}
-                </button>
-                {showWhatsAppQr && (
-                  <div className="rounded-lg border border-dashed border-green-400 bg-green-50/60 dark:bg-green-900/20 p-4">
-                    {whatsAppLoading && (
-                      <p className="text-sm text-gray-700 dark:text-gray-200">
-                        Generating WhatsApp QR code…
-                      </p>
-                    )}
-                    {!whatsAppLoading && whatsAppQr && (
-                      <div className="text-center space-y-3">
-                        <p className="text-sm text-gray-700 dark:text-gray-200">
-                          Scan this QR code in WhatsApp &gt; Linked Devices to
-                          link your automation session.
-                        </p>
-                        <div className="mx-auto inline-flex rounded-md border border-gray-200 bg-white p-2">
-                          <Image
-                            src={whatsAppQr}
-                            alt="WhatsApp QR Code"
-                            width={216}
-                            height={216}
-                            unoptimized
-                            className="h-auto w-[216px]"
-                          />
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-300">
-                          QR codes expire quickly. Refresh if the scan times out.
-                        </p>
-                      </div>
-                    )}
-                    {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
-                      <p className="text-sm text-gray-700 dark:text-gray-200">
-                        QR code is not available yet. Please try again shortly.
-                      </p>
-                    )}
-                    {whatsAppError && (
-                      <p className="text-sm text-red-600">{whatsAppError}</p>
-                    )}
-                    {!whatsAppLoading && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowWhatsAppQr(false);
-                          setWhatsAppQr(null);
-                          setWhatsAppError("");
-                        }}
-                        className="mt-3 inline-flex items-center px-3 py-1.5 rounded-md bg-gray-200 hover:bg-gray-300 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition"
-                      >
-                        Close QR Preview
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
             )}
           </div>
         </div>
