@@ -1,6 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { apiService } from "@/lib/api";
 
 const TOOL_OPTIONS = [
   {
@@ -75,6 +77,10 @@ export default function AgentForm({
   const [values, setValues] = useState(() => mapInitialValues(initialValues));
   const [formErrors, setFormErrors] = useState({});
   const [serverError, setServerError] = useState("");
+  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+  const [whatsAppError, setWhatsAppError] = useState("");
+  const [whatsAppQr, setWhatsAppQr] = useState(null);
+  const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
 
   const submitLabel = useMemo(() => {
     if (mode === "edit") return "Save Changes";
@@ -84,6 +90,15 @@ export default function AgentForm({
   useEffect(() => {
     setValues(mapInitialValues(initialValues));
   }, [initialValues]);
+
+  useEffect(() => {
+    if (!values.tools.whatsapp) {
+      setShowWhatsAppQr(false);
+      setWhatsAppQr(null);
+      setWhatsAppError("");
+      setWhatsAppLoading(false);
+    }
+  }, [values.tools.whatsapp]);
 
   const toggleTool = (toolId) => {
     setValues((prev) => ({
@@ -105,9 +120,6 @@ export default function AgentForm({
     }
     if (!Object.values(values.tools).some(Boolean)) {
       errors.tools = "Select at least one capability for your agent.";
-    }
-    if (values.maxTokens < 100) {
-      errors.maxTokens = "Max tokens must be at least 100.";
     }
     return errors;
   };
@@ -244,6 +256,99 @@ export default function AgentForm({
             {formErrors.tools && (
               <p className="mt-2 text-sm text-red-600">{formErrors.tools}</p>
             )}
+            {values.tools.whatsapp && (
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setWhatsAppError("");
+                    setWhatsAppLoading(true);
+                    setShowWhatsAppQr(true);
+                    try {
+                      const response = await apiService.getWhatsAppQrCode();
+                      const resolvedQr =
+                        response?.qr_image ??
+                        response?.qr_code ??
+                        response?.qr ??
+                        response?.image ??
+                        response?.data?.qr_image ??
+                        response?.data?.qr_code ??
+                        null;
+
+                      if (!resolvedQr) {
+                        throw new Error(
+                          "QR code unavailable. Please try again in a moment.",
+                        );
+                      }
+                      setWhatsAppQr(resolvedQr);
+                    } catch (error) {
+                      setWhatsAppError(
+                        error?.message ||
+                          "Unable to load WhatsApp QR code right now.",
+                      );
+                      setWhatsAppQr(null);
+                    } finally {
+                      setWhatsAppLoading(false);
+                    }
+                  }}
+                  className="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition disabled:opacity-60"
+                  disabled={whatsAppLoading}
+                >
+                  {whatsAppLoading ? "Preparing QR..." : "Scan WhatsApp QR"}
+                </button>
+                {showWhatsAppQr && (
+                  <div className="rounded-lg border border-dashed border-green-400 bg-green-50/60 dark:bg-green-900/20 p-4">
+                    {whatsAppLoading && (
+                      <p className="text-sm text-gray-700 dark:text-gray-200">
+                        Generating WhatsApp QR code…
+                      </p>
+                    )}
+                    {!whatsAppLoading && whatsAppQr && (
+                      <div className="text-center space-y-3">
+                        <p className="text-sm text-gray-700 dark:text-gray-200">
+                          Scan this QR code in WhatsApp &gt; Linked Devices to
+                          link your automation session.
+                        </p>
+                        <div className="mx-auto inline-flex rounded-md border border-gray-200 bg-white p-2">
+                          <Image
+                            src={whatsAppQr}
+                            alt="WhatsApp QR Code"
+                            width={216}
+                            height={216}
+                            unoptimized
+                            className="h-auto w-[216px]"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-300">
+                          QR codes expire quickly. Refresh if the scan times out.
+                        </p>
+                      </div>
+                    )}
+                    {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
+                      <p className="text-sm text-gray-700 dark:text-gray-200">
+                        QR code is not available yet. Please try again shortly.
+                      </p>
+                    )}
+                    {whatsAppError && (
+                      <p className="text-sm text-red-600">{whatsAppError}</p>
+                    )}
+                    {!whatsAppLoading && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowWhatsAppQr(false);
+                          setWhatsAppQr(null);
+                          setWhatsAppError("");
+                        }}
+                        className="mt-3 inline-flex items-center px-3 py-1.5 rounded-md bg-gray-200 hover:bg-gray-300 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition"
+                      >
+                        Close QR Preview
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -273,89 +378,7 @@ export default function AgentForm({
         )}
       </section>
 
-      <section>
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          LLM Configuration
-        </h2>
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Model
-            </label>
-            <select
-              value={values.model}
-              onChange={(event) =>
-                setValues((prev) => ({ ...prev, model: event.target.value }))
-              }
-              className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="gpt-4o-mini">GPT-4o Mini (recommended)</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini-128k">GPT-4o Mini 128k</option>
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Temperature
-              </label>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {values.temperature.toFixed(1)}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.1}
-              value={values.temperature}
-              onChange={(event) =>
-                setValues((prev) => ({
-                  ...prev,
-                  temperature: Number(event.target.value),
-                }))
-              }
-              className="w-full"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Lower values produce focused responses; higher values make the
-              agent more creative.
-            </p>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                Max Tokens
-              </label>
-              <span className="text-sm text-gray-500 dark:text-gray-400">
-                {values.maxTokens}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={100}
-              max={4000}
-              step={100}
-              value={values.maxTokens}
-              onChange={(event) =>
-                setValues((prev) => ({
-                  ...prev,
-                  maxTokens: Number(event.target.value),
-                }))
-              }
-              className="w-full"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Controls the maximum length of the agent&apos;s responses.
-            </p>
-            {formErrors.maxTokens && (
-              <p className="text-sm text-red-600">{formErrors.maxTokens}</p>
-            )}
-          </div>
-        </div>
-      </section>
+      {/* LLM configuration is intentionally fixed to platform defaults. */}
 
       <div className="flex items-center justify-end space-x-3">
         <button

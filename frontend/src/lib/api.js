@@ -656,6 +656,13 @@ class ApiService {
       authType: "apiKey",
     });
   }
+
+  async getWhatsAppQrCode() {
+    return this.request("/integrations/whatsapp/qr", {
+      authType: "apiKey",
+      authFallback: "session",
+    });
+  }
 }
 
 export const apiService = new ApiService();
