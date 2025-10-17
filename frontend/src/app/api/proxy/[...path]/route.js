@@ -12,16 +12,16 @@ async function forward(request, context, method) {
     : [];
 
   const incomingUrl = new URL(request.url);
-  const targetUrl = `${backendBase}/api/v1/${pathSegments.join("/")}${
-    incomingUrl.search
-  }`;
+  const targetUrl = `${backendBase}/api/v1/${pathSegments.join("/")}${incomingUrl.search}`;
 
   const headers = new Headers();
 
   request.headers.forEach((value, key) => {
-    if (key.toLowerCase() === "host") return;
+    const lower = key.toLowerCase();
+    if (["host", "content-length", "connection"].includes(lower)) return;
     headers.set(key, value);
   });
+  headers.set("Origin", backendBase);
 
   if (!headers.has("content-type") && method !== "GET" && method !== "HEAD") {
     headers.set("content-type", "application/json");

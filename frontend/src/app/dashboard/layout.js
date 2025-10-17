@@ -4,6 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Image from "next/image";
 import Link from "next/link";
+import { apiService } from "@/lib/api";
 
 export default function DashboardLayout({ children }) {
   const { user, loading, logout } = useAuth();
@@ -37,7 +38,7 @@ export default function DashboardLayout({ children }) {
       setDarkMode(storedPreference === "true");
     } else if (window.matchMedia) {
       const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
+        "(prefers-color-scheme: dark)",
       ).matches;
       setDarkMode(prefersDark);
     }
@@ -74,14 +75,14 @@ export default function DashboardLayout({ children }) {
   };
 
   const formattedPlan = useMemo(() => {
-    const code = subscription?.plan_code;
-    if (!code) return "No Plan";
-
+    const code =
+      subscription?.plan_code || apiService.getPlanCode?.() || "NO_PLAN";
     const labelMap = {
       PRO_M: "Pro Monthly",
       PRO_Y: "Pro Yearly",
       BASIC: "Basic",
       FREE: "Free",
+      NO_PLAN: "No Plan",
     };
 
     return labelMap[code] || code;

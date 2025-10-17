@@ -219,11 +219,12 @@ class ApiService {
 
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
-      console.log(
-        "📤 Request with auth header (type:",
-        authType || "auto",
-        ")",
-      );
+      console.log("📤 Request with auth header", {
+        type: authType || "auto",
+        tokenPreview: token ? `***${token.slice(-8)}` : "",
+      });
+    } else {
+      console.warn("🚫 Missing auth token", { authType, fallback });
     }
 
     return headers;
@@ -502,7 +503,7 @@ class ApiService {
   // Agent endpoints (require API key)
   async getAgents() {
     await this.ensureApiKey();
-    return this.request("/agents", {
+    return this.request("/agents/", {
       authType: "apiKey",
       authFallback: "session",
     });
@@ -515,7 +516,7 @@ class ApiService {
     });
 
     await this.ensureApiKey();
-    return this.request("/agents", {
+    return this.request("/agents/", {
       method: "POST",
       authType: "apiKey",
       body: JSON.stringify(payload),
