@@ -45,7 +45,7 @@ export default function Dashboard() {
 
       // Calculate stats
       const activeAgents = agentsData.filter(
-        (agent) => agent.status === "ACTIVE"
+        (agent) => agent.status === "ACTIVE",
       ).length;
 
       setStats({

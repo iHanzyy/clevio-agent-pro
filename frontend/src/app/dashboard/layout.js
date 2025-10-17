@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import Image from "next/image";
@@ -72,6 +72,20 @@ export default function DashboardLayout({ children }) {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  const formattedPlan = useMemo(() => {
+    const code = subscription?.plan_code;
+    if (!code) return "No Plan";
+
+    const labelMap = {
+      PRO_M: "Pro Monthly",
+      PRO_Y: "Pro Yearly",
+      BASIC: "Basic",
+      FREE: "Free",
+    };
+
+    return labelMap[code] || code;
+  }, [subscription?.plan_code]);
 
   if (loading) {
     return (
@@ -235,7 +249,7 @@ export default function DashboardLayout({ children }) {
                       : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
                   }`}
                 >
-                  {subscription.plan_code || "FREE"}
+                  {formattedPlan}
                 </span>
               </div>
               {subscription.days_remaining !== null &&

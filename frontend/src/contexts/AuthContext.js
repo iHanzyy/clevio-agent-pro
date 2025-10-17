@@ -42,6 +42,9 @@ export function AuthProvider({ children }) {
       if (details?.plan_code) {
         apiService.setPlanCode(details.plan_code);
       }
+      if (details?.api_key) {
+        apiService.setApiKey(details.api_key);
+      }
       persistUser((prev) => {
         const nextSubscription = {
           ...(prev?.subscription || {}),
@@ -65,7 +68,7 @@ export function AuthProvider({ children }) {
         };
       });
     },
-    [persistUser]
+    [persistUser],
   );
 
   const checkAuth = useCallback(async () => {
@@ -94,19 +97,18 @@ export function AuthProvider({ children }) {
         console.warn("Payment status unavailable", statusError);
       }
 
-      if (subscription?.plan_code) {
-        apiService.setPlanCode(subscription.plan_code);
+      const resolvedPlanCode =
+        subscription?.plan_code || apiService.getPlanCode?.() || null;
+
+      if (resolvedPlanCode) {
+        apiService.setPlanCode(resolvedPlanCode);
+        if (subscription && !subscription.plan_code) {
+          subscription.plan_code = resolvedPlanCode;
+        }
       }
 
-      if (!apiService.hasApiKey()) {
-        try {
-          await apiService.ensureApiKey({ planCode: subscription?.plan_code });
-          if (!apiService.hasApiKey()) {
-            console.warn("No API key after ensureApiKey during checkAuth");
-          }
-        } catch (ensureErr) {
-          console.warn("Unable to ensure API key during checkAuth", ensureErr);
-        }
+      if (subscription?.api_key) {
+        apiService.setApiKey(subscription.api_key);
       }
 
       persistUser((prev) => {
@@ -119,9 +121,16 @@ export function AuthProvider({ children }) {
                 profile?.is_active ??
                 false,
               plan_code:
-                subscription?.plan_code ?? prev?.subscription?.plan_code ?? null,
+                subscription?.plan_code ??
+                prev?.subscription?.plan_code ??
+                resolvedPlanCode ??
+                null,
+              api_key:
+                subscription?.api_key ?? prev?.subscription?.api_key ?? null,
               expires_at:
-                subscription?.expires_at ?? prev?.subscription?.expires_at ?? null,
+                subscription?.expires_at ??
+                prev?.subscription?.expires_at ??
+                null,
               days_remaining:
                 subscription?.days_remaining ??
                 prev?.subscription?.days_remaining ??
@@ -129,7 +138,11 @@ export function AuthProvider({ children }) {
             }
           : prev?.subscription || {
               is_active: profile?.is_active ?? prev?.is_active ?? false,
-              plan_code: prev?.subscription?.plan_code ?? null,
+              plan_code:
+                prev?.subscription?.plan_code ??
+                resolvedPlanCode ??
+                null,
+              api_key: prev?.subscription?.api_key ?? null,
               expires_at: prev?.subscription?.expires_at ?? null,
               days_remaining: prev?.subscription?.days_remaining ?? null,
             };
@@ -189,7 +202,7 @@ export function AuthProvider({ children }) {
           } catch (subscriptionError) {
             console.warn(
               "Unable to fetch subscription after login",
-              subscriptionError
+              subscriptionError,
             );
           }
         }
@@ -197,53 +210,33 @@ export function AuthProvider({ children }) {
         const isSubscriptionActive =
           subscription?.is_active ?? profile?.is_active ?? response?.is_active;
 
-        if (
-          isSubscriptionActive &&
-          subscription &&
-          subscription.plan_code
-        ) {
-          apiService.setPlanCode(subscription.plan_code);
-          const planCode =
-            subscription?.plan_code || response?.plan_code || "PRO_M";
-          try {
-            const apiKeyResponse = await apiService.generateApiKey(
-              planCode
-            );
-            if (apiKeyResponse?.access_token) {
-              console.log("✅ Generated API key after login", apiKeyResponse);
-              apiService.setApiKey(apiKeyResponse.access_token);
-              subscription = {
-                ...(subscription || {}),
-                plan_code: apiKeyResponse.plan_code || planCode,
-                is_active: true,
-                expires_at: apiKeyResponse?.expires_at || subscription?.expires_at,
-                days_remaining:
-                  apiKeyResponse?.days_remaining ?? subscription?.days_remaining,
-              };
-            } else {
-              console.warn(
-                "API key endpoint returned without access_token",
-                apiKeyResponse
-              );
-            }
-          } catch (apiKeyError) {
-            console.warn("Unable to generate API key", apiKeyError);
+        const resolvedPlanCode =
+          subscription?.plan_code ||
+          response?.plan_code ||
+          profile?.subscription_plan ||
+          apiService.getPlanCode?.() ||
+          null;
+
+        if (resolvedPlanCode) {
+          apiService.setPlanCode(resolvedPlanCode);
+          if (subscription && !subscription.plan_code) {
+            subscription.plan_code = resolvedPlanCode;
           }
-        } else if (isSubscriptionActive) {
-          console.warn(
-            "Subscription appears active but lacks plan_code; skipping API key generation."
-          );
         }
 
-        if (!apiService.hasApiKey()) {
-          try {
-            await apiService.ensureApiKey({ planCode: subscription?.plan_code });
-            if (!apiService.hasApiKey()) {
-              console.warn("No API key available after ensureApiKey");
-            }
-          } catch (ensureErr) {
-            console.warn("Unable to ensure API key", ensureErr);
-          }
+        const inheritedApiKey =
+          subscription?.api_key ||
+          response?.api_key ||
+          response?.api_access_token ||
+          profile?.api_key ||
+          null;
+
+        if (inheritedApiKey) {
+          apiService.setApiKey(inheritedApiKey);
+        } else if (!apiService.hasApiKey()) {
+          console.warn(
+            "No API key supplied during login; relying on existing stored key",
+          );
         }
 
         const isActive = profile?.is_active ?? true;
@@ -257,6 +250,7 @@ export function AuthProvider({ children }) {
               subscription?.plan_code ||
               response?.plan_code ||
               profile?.subscription_plan ||
+              resolvedPlanCode ||
               null,
             expires_at:
               subscription?.expires_at || response?.expires_at || null,

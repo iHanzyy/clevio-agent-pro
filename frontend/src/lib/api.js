@@ -17,7 +17,7 @@ class ApiService {
         : null;
 
     this.baseUrl = normalizeBaseUrl(
-      envBase && envBase.trim() ? envBase.trim() : DEFAULT_API_BASE_URL
+      envBase && envBase.trim() ? envBase.trim() : DEFAULT_API_BASE_URL,
     );
     this.sessionToken = null;
     this.apiKeyToken = null;
@@ -25,6 +25,7 @@ class ApiService {
     this.lastOrderId = null;
     this.lastPlanCode = null;
 
+    console.log("🔑 Checking stored tokens");
     if (typeof window !== "undefined") {
       const savedSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
       const legacyToken = sessionStorage.getItem("auth_token");
@@ -63,7 +64,7 @@ class ApiService {
   setSessionToken(token) {
     console.log(
       "🔑 Setting session token:",
-      token ? "***" + token.slice(-10) : "null"
+      token ? "***" + token.slice(-10) : "null",
     );
     this.sessionToken = token || null;
     this.initialized = true;
@@ -80,7 +81,7 @@ class ApiService {
   setApiKey(token) {
     console.log(
       "🆔 Setting API key:",
-      token ? "***" + token.slice(-10) : "null"
+      token ? "***" + token.slice(-10) : "null",
     );
     this.apiKeyToken = token || null;
     this.initialized = true;
@@ -146,6 +147,7 @@ class ApiService {
   }
 
   setPlanCode(planCode) {
+    console.log("📦 Setting plan code", planCode);
     this.lastPlanCode = planCode || null;
     if (typeof window !== "undefined") {
       if (planCode) {
@@ -191,17 +193,10 @@ class ApiService {
       return;
     }
 
-    const desiredPlan = planCode || this.lastPlanCode;
-    if (!desiredPlan) {
-      console.warn("No plan code available to ensure API key");
-      return;
-    }
-
-    try {
-      await this.generateApiKey(desiredPlan);
-    } catch (err) {
-      console.warn("Unable to ensure API key", err);
-    }
+    console.warn("ensureApiKey() skipped; API keys are managed by backend", {
+      planCode,
+      lastPlanCode: this.lastPlanCode,
+    });
   }
 
   getHeaders({ authType = null, includeContentType = false, fallback } = {}) {
@@ -218,7 +213,7 @@ class ApiService {
         authType,
         " (fallback:",
         fallback,
-        ")"
+        ")",
       );
     }
 
@@ -227,7 +222,7 @@ class ApiService {
       console.log(
         "📤 Request with auth header (type:",
         authType || "auto",
-        ")"
+        ")",
       );
     }
 
@@ -272,6 +267,7 @@ class ApiService {
     };
 
     try {
+      console.log("🧾 Fetch options", { endpoint, options: config });
       console.log("🚀 Fetching:", url);
       console.log("📋 Config:", config);
 
@@ -290,6 +286,12 @@ class ApiService {
           data = text ? { detail: text } : null;
         }
       }
+
+      console.log("📬 API response", {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
 
       if (!response.ok) {
         let message = `HTTP error! status: ${response.status}`;
@@ -310,6 +312,12 @@ class ApiService {
 
       return data;
     } catch (error) {
+      console.error("❌ API request failed", {
+        endpoint,
+        baseUrl: this.baseUrl,
+        method: fetchOptions.method || "GET",
+        error,
+      });
       console.error("❌ API Request failed:", error);
 
       // More specific error messages
@@ -318,7 +326,7 @@ class ApiService {
           "Cannot connect to server. Please check:\n" +
             "1. DevTunnel is running\n" +
             "2. Backend server is active on port 8000\n" +
-            "3. Check browser console for CORS errors"
+            "3. Check browser console for CORS errors",
         );
       }
 
@@ -328,46 +336,33 @@ class ApiService {
 
   // Auth endpoints
   async register(identifier, password, extraParams = {}) {
-    const params = new URLSearchParams({
-      ...extraParams,
-      email: identifier,
-      password,
-    });
-    return this.request(`/auth/register?${params.toString()}`, {
+    const query = new URLSearchParams({ email: identifier, password });
+
+    return this.request(`/auth/register?${query.toString()}`, {
       method: "POST",
+      body: JSON.stringify({
+        email: identifier,
+        password,
+        ...extraParams,
+      }),
     });
   }
 
   async login(identifier, password) {
-    const params = new URLSearchParams({ email: identifier, password });
-    return this.request(`/auth/login?${params.toString()}`, {
+    const query = new URLSearchParams({ email: identifier, password });
+
+    return this.request(`/auth/login?${query.toString()}`, {
       method: "POST",
+      body: JSON.stringify({ email: identifier, password }),
     });
   }
 
   async generateApiKey(planCode = null) {
-    const desiredPlan = planCode || this.lastPlanCode || "PRO_M";
-
-    const response = await this.request("/auth/api-keys", {
-      method: "POST",
-      skipContentType: false,
-      authType: "session",
-      body: JSON.stringify({
-        plan_code: desiredPlan,
-      }),
-    });
-
-    if (response?.plan_code) {
-      this.setPlanCode(response.plan_code);
-    } else if (desiredPlan) {
-      this.setPlanCode(desiredPlan);
-    }
-
-    if (response?.access_token) {
-      this.setApiKey(response.access_token);
-    }
-
-    return response;
+    console.warn(
+      "generateApiKey() called but backend-managed keys are expected. Skipping.",
+      { planCode },
+    );
+    return null;
   }
 
   async getSubscriptionStatus() {
@@ -399,9 +394,17 @@ class ApiService {
     return {
       is_active: Boolean(isActive),
       plan_code: planCode,
-      expires_at: subscription?.expires_at || profile.subscription_expires_at || null,
+      expires_at:
+        subscription?.expires_at || profile.subscription_expires_at || null,
       days_remaining:
-        subscription?.days_remaining || profile.subscription_days_remaining || null,
+        subscription?.days_remaining ||
+        profile.subscription_days_remaining ||
+        null,
+      api_key:
+        subscription?.api_key ||
+        profile.api_key ||
+        profile.api_access_token ||
+        null,
     };
   }
 
@@ -448,7 +451,7 @@ class ApiService {
       throw new Error(
         detail?.error ||
           detail?.detail ||
-          `Failed to fetch payment status (${response.status})`
+          `Failed to fetch payment status (${response.status})`,
       );
     }
 
@@ -464,7 +467,7 @@ class ApiService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-      }
+      },
     );
 
     if (!response.ok) {
@@ -499,15 +502,20 @@ class ApiService {
   // Agent endpoints (require API key)
   async getAgents() {
     await this.ensureApiKey();
-    return this.request("/agents/", {
+    return this.request("/agents", {
       authType: "apiKey",
       authFallback: "session",
     });
   }
 
   async createAgent(payload) {
+    console.log("🔐 Using auth header", {
+      hasApiKey: this.hasApiKey(),
+      planCode: this.getPlanCode?.(),
+    });
+
     await this.ensureApiKey();
-    return this.request("/agents/", {
+    return this.request("/agents", {
       method: "POST",
       authType: "apiKey",
       body: JSON.stringify(payload),
@@ -572,13 +580,13 @@ class ApiService {
         method: "POST",
         headers,
         body: formData,
-      }
+      },
     );
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
       throw new Error(
-        error.detail || error.message || "Failed to upload knowledge documents"
+        error.detail || error.message || "Failed to upload knowledge documents",
       );
     }
 

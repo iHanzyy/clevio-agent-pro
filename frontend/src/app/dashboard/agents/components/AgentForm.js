@@ -43,8 +43,8 @@ function mapInitialValues(input) {
   const allowedList = Array.isArray(input.allowedTools)
     ? input.allowedTools
     : Array.isArray(input.allowed_tools)
-    ? input.allowed_tools
-    : [];
+      ? input.allowed_tools
+      : [];
 
   return {
     name: input.name ?? DEFAULT_VALUES.name,
@@ -113,32 +113,45 @@ export default function AgentForm({
   };
 
   const buildPayload = () => {
-    const tools = [];
+    const selectedTools = [];
     const allowedTools = [];
 
     if (values.tools.gmail) {
-      tools.push("gmail");
+      selectedTools.push("gmail");
       allowedTools.push("gmail");
     }
     if (values.tools.whatsapp) {
+      selectedTools.push("whatsapp");
       allowedTools.push("whatsapp");
     }
 
     const payload = {
       name: values.name.trim(),
-      tools,
       config: {
         llm_model: values.model,
         temperature: values.temperature,
         max_tokens: values.maxTokens,
-        system_prompt: values.systemPrompt.trim(),
         memory_type: "buffer",
         reasoning_strategy: "react",
+        system_prompt: values.systemPrompt.trim(),
       },
     };
 
     if (allowedTools.length) {
       payload.allowed_tools = Array.from(new Set(allowedTools));
+    }
+
+    if (selectedTools.length) {
+      payload.tools = selectedTools;
+    }
+
+    const mcpServerUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL?.trim() || "";
+    if (mcpServerUrl) {
+      payload.mcp_servers = {
+        default: {
+          url: mcpServerUrl,
+        },
+      };
     }
 
     return payload;
@@ -156,12 +169,13 @@ export default function AgentForm({
 
     try {
       const payload = buildPayload();
+      console.log("🚀 Submit agent payload", payload);
       await onSubmit(payload);
     } catch (error) {
       console.error("Agent form submission failed:", error);
       setServerError(
         error?.message ||
-          "Something went wrong. Please retry or contact support."
+          "Something went wrong. Please retry or contact support.",
       );
     }
   };
@@ -255,9 +269,7 @@ export default function AgentForm({
           className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
         {formErrors.systemPrompt && (
-          <p className="mt-2 text-sm text-red-600">
-            {formErrors.systemPrompt}
-          </p>
+          <p className="mt-2 text-sm text-red-600">{formErrors.systemPrompt}</p>
         )}
       </section>
 

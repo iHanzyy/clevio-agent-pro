@@ -26,6 +26,7 @@ export default function Payment() {
     message: "",
   });
   const [statusError, setStatusError] = useState("");
+  const [orderSuffix, setOrderSuffix] = useState(() => Date.now().toString());
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchStatus = searchParams?.get("status");
@@ -59,7 +60,7 @@ export default function Payment() {
       }
       return extractPlanFromOrderId(candidateOrderId);
     },
-    [selectedPlan, storedPlan]
+    [selectedPlan, storedPlan],
   );
 
   const finalizeSuccess = useCallback(
@@ -108,7 +109,7 @@ export default function Payment() {
           try {
             const loginResult = await login?.(
               credentials.email,
-              credentials.password
+              credentials.password,
             );
             if (loginResult?.success) {
               if (typeof window !== "undefined") {
@@ -119,7 +120,7 @@ export default function Payment() {
             }
             console.warn(
               "Auto login after payment failed",
-              loginResult || "unknown response"
+              loginResult || "unknown response",
             );
           } catch (err) {
             console.warn("Auto login threw an error", err);
@@ -139,7 +140,7 @@ export default function Payment() {
               "We activated your payment, but could not log you in automatically.",
           });
           setStatusError(
-            "Payment confirmed. Please sign in with your email and password to finish setup."
+            "Payment confirmed. Please sign in with your email and password to finish setup.",
           );
           return;
         }
@@ -160,9 +161,8 @@ export default function Payment() {
 
         if (!apiService.hasApiKey() && planCodeOverride) {
           try {
-            const apiKeyResponse = await apiService.generateApiKey(
-              planCodeOverride
-            );
+            const apiKeyResponse =
+              await apiService.generateApiKey(planCodeOverride);
             if (apiKeyResponse?.access_token) {
               apiService.setApiKey(apiKeyResponse.access_token);
             }
@@ -185,8 +185,10 @@ export default function Payment() {
           sessionStorage.removeItem("pending_plan_code");
           sessionStorage.removeItem("pending_credentials");
           sessionStorage.removeItem("pending_order_id");
+          sessionStorage.removeItem("pending_order_suffix");
         }
         setOrderId("");
+        setOrderSuffix(Date.now().toString());
         setStoredPlan("");
         setPendingRegistration(null);
         setPendingCredentials(null);
@@ -209,7 +211,7 @@ export default function Payment() {
       router,
       updateSubscription,
       user,
-    ]
+    ],
   );
 
   useEffect(() => {
@@ -225,6 +227,10 @@ export default function Payment() {
       if (pendingPlanCode) {
         setStoredPlan(pendingPlanCode);
         apiService.setPlanCode(pendingPlanCode);
+      }
+      const storedSuffix = sessionStorage.getItem("pending_order_suffix");
+      if (storedSuffix) {
+        setOrderSuffix(storedSuffix);
       }
       const pendingCredsRaw = sessionStorage.getItem("pending_credentials");
       if (pendingCredsRaw) {
@@ -248,7 +254,7 @@ export default function Payment() {
   }, [searchOrderId]);
 
   const fetchTransactionStatus = useCallback(async () => {
-  try {
+    try {
       const response = await apiService.getInformationN8N(orderId);
 
       if (!response) {
@@ -327,74 +333,84 @@ export default function Payment() {
     }
   }, [orderId]);
 
-  const verifyPayment = useCallback(async ({ silent = false } = {}) => {
-    if (!user && !pendingCredentials) {
-      return;
-    }
-    if (!silent) {
-      setStatusError("");
-      setStatusState({
-        state: "checking",
-        message: "Confirming your payment with our system...",
-      });
-    }
-    try {
-      const { transaction, raw } = await fetchTransactionStatus();
-
-      const derivedOrderId =
-        transaction?.order_id || raw?.order_id || raw?.orderId || null;
-      if (!orderId && derivedOrderId) {
-        setOrderId(derivedOrderId);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem("pending_order_id", derivedOrderId);
-        }
-        apiService.setLastOrderId(derivedOrderId);
-      }
-
-      const transactionStatus = transaction?.transaction_status
-        ? String(transaction.transaction_status).toLowerCase()
-        : raw?.transaction_status
-        ? String(raw.transaction_status).toLowerCase()
-        : null;
-
-      if (transactionStatus === "settlement" || transactionStatus === "capture") {
-        await finalizeSuccess(derivedOrderId ?? orderId);
+  const verifyPayment = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!user && !pendingCredentials) {
         return;
       }
+      if (!silent) {
+        setStatusError("");
+        setStatusState({
+          state: "checking",
+          message: "Confirming your payment with our system...",
+        });
+      }
+      try {
+        const { transaction, raw } = await fetchTransactionStatus();
 
-      if (transactionStatus && transactionStatus !== "settlement" && transactionStatus !== "capture") {
+        const derivedOrderId =
+          transaction?.order_id || raw?.order_id || raw?.orderId || null;
+        if (!orderId && derivedOrderId) {
+          setOrderId(derivedOrderId);
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("pending_order_id", derivedOrderId);
+          }
+          apiService.setLastOrderId(derivedOrderId);
+        }
+
+        const transactionStatus = transaction?.transaction_status
+          ? String(transaction.transaction_status).toLowerCase()
+          : raw?.transaction_status
+            ? String(raw.transaction_status).toLowerCase()
+            : null;
+
+        if (
+          transactionStatus === "settlement" ||
+          transactionStatus === "capture"
+        ) {
+          await finalizeSuccess(derivedOrderId ?? orderId);
+          return;
+        }
+
+        if (
+          transactionStatus &&
+          transactionStatus !== "settlement" &&
+          transactionStatus !== "capture"
+        ) {
+          if (!silent) {
+            setStatusState({ state: "idle", message: "" });
+            setStatusError(
+              transactionStatus === "pending"
+                ? "Your payment is still pending on Midtrans. We will keep checking automatically."
+                : `Latest payment status from Midtrans: ${transactionStatus}.`,
+            );
+          }
+          return;
+        }
+
         if (!silent) {
           setStatusState({ state: "idle", message: "" });
           setStatusError(
-            transactionStatus === "pending"
-              ? "Your payment is still pending on Midtrans. We will keep checking automatically."
-              : `Latest payment status from Midtrans: ${transactionStatus}.`
+            "We have not received a settlement confirmation yet. We'll keep watching this page for updates.",
           );
         }
-        return;
+      } catch (_err) {
+        if (!silent) {
+          setStatusState({ state: "idle", message: "" });
+          setStatusError(
+            "We could not confirm your payment right now. Please refresh or try again shortly.",
+          );
+        }
       }
-
-      if (!silent) {
-        setStatusState({ state: "idle", message: "" });
-        setStatusError(
-          "We have not received a settlement confirmation yet. We'll keep watching this page for updates."
-        );
-      }
-    } catch (_err) {
-      if (!silent) {
-        setStatusState({ state: "idle", message: "" });
-        setStatusError(
-          "We could not confirm your payment right now. Please refresh or try again shortly."
-        );
-      }
-    }
-  }, [
-    fetchTransactionStatus,
-    orderId,
-    finalizeSuccess,
-    pendingCredentials,
-    user,
-  ]);
+    },
+    [
+      fetchTransactionStatus,
+      orderId,
+      finalizeSuccess,
+      pendingCredentials,
+      user,
+    ],
+  );
 
   useEffect(() => {
     if (authLoading) {
@@ -467,7 +483,7 @@ export default function Payment() {
     try {
       setStatusError("");
       const planDetails = PLAN_OPTIONS.find(
-        (plan) => plan.code === selectedPlan
+        (plan) => plan.code === selectedPlan,
       );
 
       const activeEmail = user?.email || pendingRegistration?.email || "";
@@ -475,19 +491,24 @@ export default function Payment() {
 
       if (!activeEmail || !activeUserId) {
         throw new Error(
-          "Missing registrant information. Please restart registration or contact support."
+          "Missing registrant information. Please restart registration or contact support.",
         );
       }
+
+      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setOrderSuffix(uniqueSuffix);
 
       const webhookPayload = {
         user_id: activeUserId,
         email: activeEmail,
         plan_code: selectedPlan,
         harga: planDetails?.price || "0",
+        order_suffix: uniqueSuffix,
       };
 
       if (typeof window !== "undefined") {
         sessionStorage.setItem("pending_plan_code", selectedPlan);
+        sessionStorage.setItem("pending_order_suffix", uniqueSuffix);
       }
       setStoredPlan(selectedPlan);
       apiService.setPlanCode(selectedPlan);
@@ -512,9 +533,7 @@ export default function Payment() {
       const generatedOrderId =
         webhookResponse?.order_id || webhookResponse?.data?.order_id || null;
       const redirectStatus =
-        webhookResponse?.transaction_status ||
-        webhookResponse?.status ||
-        null;
+        webhookResponse?.transaction_status || webhookResponse?.status || null;
       if (generatedOrderId) {
         sessionStorage.setItem("pending_order_id", generatedOrderId);
         setOrderId(generatedOrderId);
@@ -557,11 +576,11 @@ export default function Payment() {
         return;
       } else {
         setStatusError(
-          "We generated your payment request. Please check your email for instructions."
+          "We generated your payment request. Please check your email for instructions.",
         );
         console.warn(
           "Payment webhook response did not include a redirect URL",
-          webhookResponse
+          webhookResponse,
         );
       }
     } catch (error) {
@@ -733,5 +752,5 @@ export default function Payment() {
         </div>
       </div>
     </div>
-        );
+  );
 }
