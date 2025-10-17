@@ -485,15 +485,25 @@ class ApiService {
     });
   }
 
-  async getInformationN8N(orderId) {
-    if (!orderId) {
-      console.warn("getInformationN8N invoked without orderId");
+  async getInformationN8N(orderId, orderSuffix = null) {
+    if (!orderId && !orderSuffix) {
+      console.warn(
+        "getInformationN8N invoked without orderId or orderSuffix",
+      );
       return null;
     }
 
-    this.setLastOrderId(orderId);
+    if (orderId) {
+      this.setLastOrderId(orderId);
+    }
 
-    const payload = { order_id: orderId };
+    const payload = {};
+    if (orderId) {
+      payload.order_id = orderId;
+    }
+    if (orderSuffix) {
+      payload.order_suffix = orderSuffix;
+    }
 
     const response = await fetch("/api/v1/payment/status", {
       method: "POST",
@@ -559,7 +569,7 @@ class ApiService {
   // Agent endpoints (require API key)
   async getAgents() {
     await this.ensureApiKey();
-    return this.request("/agents/", {
+    return this.request("/agents", {
       authType: "apiKey",
       authFallback: "session",
     });
@@ -572,7 +582,7 @@ class ApiService {
     });
 
     await this.ensureApiKey();
-    return this.request("/agents/", {
+    return this.request("/agents", {
       method: "POST",
       authType: "apiKey",
       body: JSON.stringify(payload),
@@ -631,14 +641,11 @@ class ApiService {
 
     const headers = this.authHeader();
 
-    const response = await fetch(
-      `${this.baseUrl}/agents/${agentId}/documents`,
-      {
-        method: "POST",
-        headers,
-        body: formData,
-      },
-    );
+    const response = await fetch(`${this.baseUrl}/agents/${agentId}/documents`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));

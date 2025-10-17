@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
@@ -30,6 +31,10 @@ export default function AgentDetailPage() {
   const [selectedKnowledgeFiles, setSelectedKnowledgeFiles] = useState([]);
   const [knowledgeUploading, setKnowledgeUploading] = useState(false);
   const [knowledgeInputKey, setKnowledgeInputKey] = useState(() => Date.now());
+  const [whatsAppLoading, setWhatsAppLoading] = useState(false);
+  const [whatsAppError, setWhatsAppError] = useState("");
+  const [whatsAppQr, setWhatsAppQr] = useState(null);
+  const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
 
   const authUrl = searchParams?.get("authUrl");
   const authState = searchParams?.get("authState");
@@ -101,6 +106,18 @@ export default function AgentDetailPage() {
     }
   }, [agent, user, loadKnowledge]);
 
+  useEffect(() => {
+    if (
+      !Array.isArray(agent?.allowed_tools) ||
+      !agent.allowed_tools.includes("whatsapp")
+    ) {
+      setShowWhatsAppQr(false);
+      setWhatsAppQr(null);
+      setWhatsAppError("");
+      setWhatsAppLoading(false);
+    }
+  }, [agent?.allowed_tools]);
+
   const capabilitySummary = useMemo(() => {
     const labels = [];
     if (authUrl) {
@@ -124,6 +141,35 @@ export default function AgentDetailPage() {
     }
     return labels.join(", ");
   }, [agent, authUrl]);
+
+  const handleWhatsAppQr = async () => {
+    setWhatsAppError("");
+    setWhatsAppLoading(true);
+    setShowWhatsAppQr(true);
+    try {
+      const response = await apiService.getWhatsAppQrCode();
+      const resolvedQr =
+        response?.qr_image ??
+        response?.qr_code ??
+        response?.qr ??
+        response?.image ??
+        response?.data?.qr_image ??
+        response?.data?.qr_code ??
+        null;
+
+      if (!resolvedQr) {
+        throw new Error("QR code unavailable. Please try again soon.");
+      }
+      setWhatsAppQr(resolvedQr);
+    } catch (error) {
+      setWhatsAppError(
+        error?.message || "Unable to load WhatsApp QR code right now.",
+      );
+      setWhatsAppQr(null);
+    } finally {
+      setWhatsAppLoading(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!agent) return;
@@ -447,6 +493,73 @@ export default function AgentDetailPage() {
             </pre>
           </div>
         )}
+        {Array.isArray(agent?.allowed_tools) &&
+          agent.allowed_tools.includes("whatsapp") && (
+            <div className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-3">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                WhatsApp Session
+              </p>
+              <button
+                type="button"
+                onClick={handleWhatsAppQr}
+                disabled={whatsAppLoading}
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition disabled:opacity-60"
+              >
+                {whatsAppLoading ? "Preparing QR..." : "Scan WhatsApp QR"}
+              </button>
+              {showWhatsAppQr && (
+                <div className="rounded-lg border border-dashed border-green-400 bg-green-50/60 dark:bg-green-900/20 p-4 space-y-3">
+                  {whatsAppLoading && (
+                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                      Generating WhatsApp QR code…
+                    </p>
+                  )}
+                  {!whatsAppLoading && whatsAppQr && (
+                    <div className="text-center space-y-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-200">
+                        Scan this QR code in WhatsApp &gt; Linked Devices to link
+                        your automation session.
+                      </p>
+                      <div className="mx-auto inline-flex rounded-md border border-gray-200 bg-white p-2">
+                        <Image
+                          src={whatsAppQr}
+                          alt="WhatsApp QR Code"
+                          width={216}
+                          height={216}
+                          unoptimized
+                          className="h-auto w-[216px]"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-300">
+                        QR codes expire quickly. Refresh if the scan times out.
+                      </p>
+                    </div>
+                  )}
+                  {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
+                    <p className="text-sm text-gray-700 dark:text-gray-200">
+                      QR code is not available yet. Please try again shortly.
+                    </p>
+                  )}
+                  {whatsAppError && (
+                    <p className="text-sm text-red-600">{whatsAppError}</p>
+                  )}
+                  {!whatsAppLoading && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowWhatsAppQr(false);
+                        setWhatsAppQr(null);
+                        setWhatsAppError("");
+                      }}
+                      className="inline-flex items-center px-3 py-1.5 rounded-md bg-gray-200 hover:bg-gray-300 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition"
+                    >
+                      Close QR Preview
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
       </section>
 
       <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">

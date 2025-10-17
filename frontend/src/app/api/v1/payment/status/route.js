@@ -7,6 +7,13 @@ const ensureStore = () => {
   return globalThis.__paymentStatusStore;
 };
 
+const ensureSuffixStore = () => {
+  if (!globalThis.__paymentSuffixStore) {
+    globalThis.__paymentSuffixStore = new Map();
+  }
+  return globalThis.__paymentSuffixStore;
+};
+
 const ensureLatestRef = () => {
   if (!globalThis.__latestPaymentStatus) {
     globalThis.__latestPaymentStatus = null;
@@ -22,6 +29,7 @@ const ensureLatestRef = () => {
 };
 
 const statusStore = ensureStore();
+const suffixStore = ensureSuffixStore();
 const latestRef = ensureLatestRef();
 
 export async function POST(request) {
@@ -36,16 +44,35 @@ export async function POST(request) {
       );
     }
 
-    const orderId = body.order_id || body.orderId || null;
+    let orderId = body.order_id || body.orderId || null;
+    const orderSuffix = body.order_suffix || body.orderSuffix || null;
+
+    if (!orderId && orderSuffix) {
+      const mappedOrderId = suffixStore.get(orderSuffix);
+      if (mappedOrderId) {
+        orderId = mappedOrderId;
+      }
+    }
 
     if (!orderId) {
       console.warn("[payment-status] payload missing order_id", body);
+      if (orderSuffix) {
+        suffixStore.set(orderSuffix, null);
+      }
       return NextResponse.json({
         success: true,
         order_id: null,
         transaction_status: null,
-        data: null,
+        data: {
+          received_at: new Date().toISOString(),
+          order_suffix: orderSuffix ?? null,
+          source: body?.source || "n8n",
+        },
       });
+    }
+
+    if (orderSuffix) {
+      suffixStore.set(orderSuffix, orderId);
     }
 
     const isTransactionPayload = !!(
@@ -68,6 +95,7 @@ export async function POST(request) {
           : null,
       received_at: new Date().toISOString(),
       source: body?.source || existing.source || "n8n",
+      order_suffix: orderSuffix || existing.order_suffix || null,
     };
 
     if (body?.success && body?.stored && orderId) {
@@ -148,7 +176,16 @@ export async function POST(request) {
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-  const orderId = searchParams.get("order_id") || searchParams.get("orderId");
+  let orderId = searchParams.get("order_id") || searchParams.get("orderId");
+  const orderSuffix =
+    searchParams.get("order_suffix") || searchParams.get("orderSuffix") || null;
+
+  if (!orderId && orderSuffix) {
+    const mappedOrderId = suffixStore.get(orderSuffix);
+    if (mappedOrderId) {
+      orderId = mappedOrderId;
+    }
+  }
 
   if (orderId) {
     const queryPayload = Object.fromEntries(searchParams.entries());
@@ -160,6 +197,7 @@ export async function GET(request) {
         queryPayload.transaction_status || existing.transaction_status || null,
       received_at: new Date().toISOString(),
       source: queryPayload.source || existing.source || "redirect",
+      order_suffix: orderSuffix || existing.order_suffix || null,
     };
 
     statusStore.set(orderId, merged);
@@ -176,7 +214,13 @@ export async function GET(request) {
       success: true,
       order_id: null,
       transaction_status: null,
-      data: null,
+      data: orderSuffix
+        ? {
+            order_suffix: orderSuffix,
+            received_at: new Date().toISOString(),
+            source: "redirect",
+          }
+        : null,
     });
   }
 

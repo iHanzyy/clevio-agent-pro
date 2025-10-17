@@ -19,7 +19,6 @@ export default function Payment() {
   const [orderId, setOrderId] = useState("");
   const [storedPlan, setStoredPlan] = useState("");
   const [pendingRegistration, setPendingRegistration] = useState(null);
-  const [pendingCredentials, setPendingCredentials] = useState(null);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [statusState, setStatusState] = useState({
     state: "idle",
@@ -31,13 +30,8 @@ export default function Payment() {
   const searchParams = useSearchParams();
   const searchStatus = searchParams?.get("status");
   const searchOrderId = searchParams?.get("order_id");
-  const {
-    user,
-    loading: authLoading,
-    updateSubscription,
-    applySubscription,
-    login,
-  } = useAuth();
+  const { user, loading: authLoading, updateSubscription, applySubscription } =
+    useAuth();
 
   const extractPlanFromOrderId = (value) => {
     if (!value || typeof value !== "string") {
@@ -70,156 +64,104 @@ export default function Payment() {
       }
       setIsFinalizing(true);
 
-      const sleep = (ms) =>
-        new Promise((resolve) => {
-          setTimeout(resolve, ms);
-        });
-
-      const sessionOrderId =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("pending_order_id")
-          : null;
-      const effectiveOrderId = latestOrderId || sessionOrderId || null;
-      const planCodeOverride =
-        overrides.planCode || resolvePendingPlan(effectiveOrderId);
-
-      if (planCodeOverride) {
-        apiService.setPlanCode(planCodeOverride);
-      }
-
-      const credentials = pendingCredentials;
-
-      const ensureLoggedIn = async () => {
-        if (apiService.hasSessionToken()) {
-          if (pendingCredentials) {
-            setPendingCredentials(null);
-            if (typeof window !== "undefined") {
-              sessionStorage.removeItem("pending_credentials");
-            }
-          }
-          return true;
-        }
-
-        if (!credentials?.email || !credentials?.password) {
-          return Boolean(user);
-        }
-
-        const maxAttempts = 6;
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          try {
-            const loginResult = await login?.(
-              credentials.email,
-              credentials.password,
-            );
-            if (loginResult?.success) {
-              if (typeof window !== "undefined") {
-                sessionStorage.removeItem("pending_credentials");
-              }
-              setPendingCredentials(null);
-              return true;
-            }
-            console.warn(
-              "Auto login after payment failed",
-              loginResult || "unknown response",
-            );
-          } catch (err) {
-            console.warn("Auto login threw an error", err);
-          }
-
-          await sleep(1000 * Math.min(3, attempt + 1));
-        }
-        return false;
-      };
-
       try {
-        const loggedIn = await ensureLoggedIn();
-        if (!loggedIn) {
+        const sessionOrderId =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem("pending_order_id")
+            : null;
+        const effectiveOrderId = latestOrderId || sessionOrderId || null;
+        const planCodeOverride =
+          overrides.planCode || resolvePendingPlan(effectiveOrderId);
+
+        if (planCodeOverride) {
+          apiService.setPlanCode(planCodeOverride);
+        }
+
+        if (user) {
+          try {
+            await updateSubscription?.();
+          } catch (err) {
+            console.warn(
+              "Failed to refresh subscription after settlement",
+              err,
+            );
+          }
+
+          if (planCodeOverride) {
+            applySubscription?.({
+              is_active: true,
+              plan_code: planCodeOverride,
+            });
+          }
+
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("pending_registration");
+            sessionStorage.removeItem("pending_plan_code");
+            sessionStorage.removeItem("pending_order_id");
+            sessionStorage.removeItem("pending_order_suffix");
+          }
+
+          setOrderId("");
+          setOrderSuffix(Date.now().toString());
+          setStoredPlan("");
+          setPendingRegistration(null);
+          setStatusError("");
           setStatusState({
-            state: "idle",
-            message:
-              "We activated your payment, but could not log you in automatically.",
+            state: "success",
+            message: "Payment successful! Taking you to your dashboard.",
           });
-          setStatusError(
-            "Payment confirmed. Please sign in with your email and password to finish setup.",
-          );
+          router.replace("/dashboard");
           return;
         }
 
-        let subscription = null;
-        try {
-          subscription = await updateSubscription?.();
-        } catch (err) {
-          console.warn("Failed to refresh subscription after settlement", err);
-        }
-
-        if (!subscription && planCodeOverride) {
-          applySubscription?.({
-            is_active: true,
-            plan_code: planCodeOverride,
-          });
-        }
-
-        if (!apiService.hasApiKey() && planCodeOverride) {
-          try {
-            const username =
-              credentials?.email ??
-              pendingRegistration?.email ??
-              user?.email ??
-              null;
-
-            if (!username && !credentials?.password) {
-              console.warn(
-                "Skipping API key generation; missing username/password context",
-              );
-            } else {
-              await apiService.generateApiKey({
-                planCode: planCodeOverride,
-                username,
-                password: credentials?.password ?? null,
-                useSessionAuth: !credentials?.password,
-              });
-            }
-          } catch (err) {
-            console.warn("Auto API key generation failed", err);
-          }
-        }
-
-        try {
-          await apiService.ensureApiKey({ planCode: planCodeOverride });
-          if (!apiService.hasApiKey()) {
-            console.warn("API key still unavailable after settlement");
-          }
-        } catch (err) {
-          console.warn("Unable to ensure API key after settlement", err);
-        }
-
+        let loginEmail = pendingRegistration?.email || null;
         if (typeof window !== "undefined") {
+          if (!loginEmail) {
+            try {
+              const storedRegistration =
+                sessionStorage.getItem("pending_registration");
+              if (storedRegistration) {
+                const parsed = JSON.parse(storedRegistration);
+                if (parsed?.email && !loginEmail) {
+                  loginEmail = parsed.email;
+                }
+              }
+            } catch (err) {
+              console.warn(
+                "Unable to read pending registration details before cleanup",
+                err,
+              );
+            }
+          }
+
+          if (loginEmail) {
+            sessionStorage.setItem("payment_last_email", loginEmail);
+          }
+
           sessionStorage.removeItem("pending_registration");
           sessionStorage.removeItem("pending_plan_code");
-          sessionStorage.removeItem("pending_credentials");
           sessionStorage.removeItem("pending_order_id");
           sessionStorage.removeItem("pending_order_suffix");
+          sessionStorage.setItem("payment_settlement_status", "settlement");
         }
+
         setOrderId("");
         setOrderSuffix(Date.now().toString());
         setStoredPlan("");
         setPendingRegistration(null);
-        setPendingCredentials(null);
         setStatusError("");
         setStatusState({
           state: "success",
-          message: "Payment successful! Taking you to your dashboard.",
+          message: "Payment settled! Please log in to continue.",
         });
-        router.replace("/dashboard");
+        router.replace("/login?settlement=1");
       } finally {
         setIsFinalizing(false);
       }
     },
     [
-      isFinalizing,
       applySubscription,
-      login,
-      pendingCredentials,
+      isFinalizing,
       pendingRegistration,
       resolvePendingPlan,
       router,
@@ -246,18 +188,6 @@ export default function Payment() {
       if (storedSuffix) {
         setOrderSuffix(storedSuffix);
       }
-      const pendingCredsRaw = sessionStorage.getItem("pending_credentials");
-      if (pendingCredsRaw) {
-        try {
-          const creds = JSON.parse(pendingCredsRaw);
-          if (creds?.email && creds?.password) {
-            setPendingCredentials(creds);
-          }
-        } catch (err) {
-          console.warn("Failed to parse pending credentials", err);
-          setPendingCredentials(null);
-        }
-      }
       if (!searchOrderId) {
         sessionStorage.removeItem("pending_order_id");
       }
@@ -269,7 +199,10 @@ export default function Payment() {
 
   const fetchTransactionStatus = useCallback(async () => {
     try {
-      const response = await apiService.getInformationN8N(orderId);
+      const response = await apiService.getInformationN8N(
+        orderId,
+        orderSuffix,
+      );
 
       if (!response) {
         return { transaction: null, raw: null };
@@ -345,11 +278,11 @@ export default function Payment() {
       console.warn("Unable to fetch payment status from n8n", error);
       return { transaction: null, raw: null };
     }
-  }, [orderId]);
+  }, [orderId, orderSuffix]);
 
   const verifyPayment = useCallback(
     async ({ silent = false } = {}) => {
-      if (!user && !pendingCredentials) {
+      if (!user && !pendingRegistration) {
         return;
       }
       if (!silent) {
@@ -421,7 +354,7 @@ export default function Payment() {
       fetchTransactionStatus,
       orderId,
       finalizeSuccess,
-      pendingCredentials,
+      pendingRegistration,
       user,
     ],
   );
@@ -512,12 +445,15 @@ export default function Payment() {
       const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       setOrderSuffix(uniqueSuffix);
 
+      const chargeValue = planDetails?.price || "0";
       const webhookPayload = {
         user_id: activeUserId,
         email: activeEmail,
         plan_code: selectedPlan,
-        harga: planDetails?.price || "0",
+        charge: chargeValue,
+        harga: chargeValue,
         order_suffix: uniqueSuffix,
+        source: "frontend",
       };
 
       if (typeof window !== "undefined") {
@@ -539,15 +475,27 @@ export default function Payment() {
         webhookResponse?.message ||
         `Payment request submitted for ${planDetails?.name || selectedPlan}.`;
       setSuccessMessage(paymentMessage);
-      setStatusState({
-        state: "checking",
-        message: "Waiting for payment confirmation...",
-      });
 
       const generatedOrderId =
         webhookResponse?.order_id || webhookResponse?.data?.order_id || null;
-      const redirectStatus =
-        webhookResponse?.transaction_status || webhookResponse?.status || null;
+      const transactionStatusRaw =
+        webhookResponse?.transaction_status ||
+        webhookResponse?.data?.transaction_status ||
+        null;
+      const statusRaw =
+        webhookResponse?.status || webhookResponse?.data?.status || null;
+      const normalizedTransactionStatus =
+        typeof transactionStatusRaw === "string"
+          ? transactionStatusRaw.toLowerCase()
+          : null;
+      const normalizedStatus =
+        typeof statusRaw === "string" ? statusRaw.toLowerCase() : null;
+      const settlementStates = new Set(["settlement", "capture", "completed"]);
+      const isImmediateSettlement =
+        settlementStates.has(normalizedTransactionStatus || "") ||
+        settlementStates.has(normalizedStatus || "") ||
+        (webhookResponse?.success === true &&
+          normalizedTransactionStatus === "settlement");
       if (generatedOrderId) {
         sessionStorage.setItem("pending_order_id", generatedOrderId);
         setOrderId(generatedOrderId);
@@ -581,19 +529,26 @@ export default function Payment() {
           window.location.href = paymentRedirect;
         }
         return;
-      } else if (
-        redirectStatus === "settlement" ||
-        redirectStatus === "capture" ||
-        webhookResponse?.status === "completed"
-      ) {
+      }
+
+      if (isImmediateSettlement) {
         await finalizeSuccess(generatedOrderId, { planCode: selectedPlan });
         return;
+      }
+
+      setStatusState({
+        state: "checking",
+        message: "Waiting for payment confirmation...",
+      });
+
+      if (generatedOrderId) {
+        void verifyPayment({ silent: true });
       } else {
         setStatusError(
           "We generated your payment request. Please check your email for instructions.",
         );
         console.warn(
-          "Payment webhook response did not include a redirect URL",
+          "Payment webhook response did not include a redirect URL or settlement status",
           webhookResponse,
         );
       }

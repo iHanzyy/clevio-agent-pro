@@ -118,16 +118,14 @@ export default function Register() {
         throw new Error("Unable to capture user information for payment.");
       }
 
-      setSuccess("Registration successful! Redirecting you to choose a plan...");
+      setSuccess(
+        "Registration successful! Redirecting you to choose a plan. After settlement, use these credentials to log in."
+      );
       setError("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
       if (typeof window !== "undefined") {
-        sessionStorage.setItem(
-          "pending_credentials",
-          JSON.stringify({ email, password })
-        );
         apiService.clearLastOrderId();
         sessionStorage.removeItem("pending_order_id");
         sessionStorage.setItem(

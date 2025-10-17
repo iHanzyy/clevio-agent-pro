@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "@/contexts/AuthContext";
@@ -86,11 +86,58 @@ const IconEye = ({ hidden }) => (
 export default function Login() {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showResetInfo, setShowResetInfo] = useState(false);
   const router = useRouter();
   const { login } = useAuth();
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasSettlementQuery =
+      searchParams.get("settlement") === "1" ||
+      searchParams.get("settlement") === "true";
+
+    let settlementFlag = false;
+    try {
+      settlementFlag =
+        sessionStorage.getItem("payment_settlement_status") === "settlement";
+    } catch (err) {
+      console.warn("Unable to read settlement status flag", err);
+    }
+
+    if (settlementFlag || hasSettlementQuery) {
+      setInfoMessage(
+        "Payment settled. Please sign in with your registered email and password."
+      );
+    }
+
+    let lastEmail = null;
+    try {
+      lastEmail = sessionStorage.getItem("payment_last_email");
+    } catch (err) {
+      console.warn("Unable to load last email", err);
+    }
+
+    if (lastEmail) {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || lastEmail,
+      }));
+    }
+
+    try {
+      sessionStorage.removeItem("payment_settlement_status");
+      sessionStorage.removeItem("payment_last_email");
+    } catch (err) {
+      console.warn("Unable to clear settlement session flags", err);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -152,6 +199,11 @@ export default function Login() {
             {error && (
               <div className="mt-6 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                 {error}
+              </div>
+            )}
+            {infoMessage && (
+              <div className="mt-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
+                {infoMessage}
               </div>
             )}
 

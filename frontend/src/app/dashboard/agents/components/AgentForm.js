@@ -256,7 +256,7 @@ export default function AgentForm({
             {formErrors.tools && (
               <p className="mt-2 text-sm text-red-600">{formErrors.tools}</p>
             )}
-            {values.tools.whatsapp && (
+            {mode === "edit" && values.tools.whatsapp && (
               <div className="mt-6 space-y-3">
                 <button
                   type="button"

@@ -350,6 +350,9 @@ export function AuthProvider({ children }) {
       sessionStorage.removeItem("pending_plan_code");
       sessionStorage.removeItem("pending_order_id");
       sessionStorage.removeItem("pending_registration");
+      sessionStorage.removeItem("pending_order_suffix");
+      sessionStorage.removeItem("payment_settlement_status");
+      sessionStorage.removeItem("payment_last_email");
     }
     persistUser(null);
   };
