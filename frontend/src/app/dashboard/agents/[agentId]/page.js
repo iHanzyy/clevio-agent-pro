@@ -2,6 +2,15 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+const EMPTY_WHATSAPP_SESSION = {
+  status: "inactive",
+  isActive: false,
+  qrImage: null,
+  qrUrl: null,
+  updatedAt: null,
+  raw: null,
+};
 import Link from "next/link";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { apiService } from "@/lib/api";
@@ -39,13 +48,9 @@ export default function AgentDetailPage() {
   const [whatsAppError, setWhatsAppError] = useState("");
   const [whatsAppQr, setWhatsAppQr] = useState(null);
   const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
-  const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState({
-    status: "unknown",
-    isActive: false,
-    qrImage: null,
-    qrUrl: null,
-    raw: null,
-  });
+  const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
+    EMPTY_WHATSAPP_SESSION,
+  );
   const whatsAppPollRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
 
@@ -58,6 +63,32 @@ export default function AgentDetailPage() {
         ? `agent_knowledge_history_${params.agentId}`
         : null,
     [params?.agentId],
+  );
+
+  const whatsAppStorageKey = useMemo(
+    () => (agent?.id ? `agent_whatsapp_session_${agent.id}` : null),
+    [agent?.id],
+  );
+
+  const persistWhatsAppSession = useCallback(
+    (session) => {
+      if (!whatsAppStorageKey || typeof window === "undefined") {
+        return;
+      }
+      try {
+        if (!session) {
+          sessionStorage.removeItem(whatsAppStorageKey);
+        } else {
+          sessionStorage.setItem(
+            whatsAppStorageKey,
+            JSON.stringify(session),
+          );
+        }
+      } catch (err) {
+        console.warn("Unable to persist WhatsApp session", err);
+      }
+    },
+    [whatsAppStorageKey],
   );
 
   const getApiKeyForWhatsApp = useCallback(async () => {
@@ -114,36 +145,34 @@ export default function AgentDetailPage() {
     setWhatsAppError("");
     try {
       const session = await apiService.getWhatsAppSession(agent.id);
+      let nextSession = session;
       setWhatsAppSessionInfo((previous) => {
-        const prev = previous || {
-          status: "inactive",
-          isActive: false,
-          qrImage: null,
-          qrUrl: null,
-          updatedAt: null,
-          raw: null,
-        };
-
+        const prev = previous || EMPTY_WHATSAPP_SESSION;
         const nextStatus = (session.status || "").toLowerCase();
         const shouldPreserveActive =
           prev.isActive &&
           !session.isActive &&
           !session.qrImage &&
           !session.qrUrl &&
-          (!nextStatus || ["inactive", "not_linked", "not_found", "unknown"].includes(nextStatus));
+          (!nextStatus ||
+            ["inactive", "not_linked", "not_found", "unknown"].includes(
+              nextStatus,
+            ));
 
-        if (shouldPreserveActive) {
-          return {
-            ...prev,
-            updatedAt: session.updatedAt || prev.updatedAt || null,
-            raw: session.raw || prev.raw || null,
-          };
-        }
+        nextSession = shouldPreserveActive
+          ? {
+              ...prev,
+              updatedAt: session.updatedAt || prev.updatedAt || null,
+              raw: session.raw || prev.raw || null,
+            }
+          : session;
 
-        return session;
+        persistWhatsAppSession(nextSession);
+        return nextSession;
       });
 
-      const qrValue = session.qrImage || session.qrUrl || null;
+      const qrValue =
+        nextSession.qrImage || nextSession.qrUrl || session.qrImage || session.qrUrl || null;
       setWhatsAppQr(qrValue);
       setShowWhatsAppQr((prev) => prev && Boolean(qrValue));
     } catch (err) {
@@ -151,18 +180,19 @@ export default function AgentDetailPage() {
         err?.message ||
           "Unable to load WhatsApp session status right now. Please try again.",
       );
-      setWhatsAppSessionInfo((previous) => ({
-        ...previous,
-        status: previous?.status || "active",
-        qrImage: previous?.qrImage ?? null,
-        qrUrl: previous?.qrUrl ?? null,
-        raw: previous?.raw ?? null,
-      }));
+      setWhatsAppSessionInfo((previous) => {
+        const next = {
+          ...(previous || EMPTY_WHATSAPP_SESSION),
+          status: previous?.status || "active",
+        };
+        persistWhatsAppSession(next);
+        return next;
+      });
     } finally {
       whatsAppStatusLoadingRef.current = false;
       setWhatsAppStatusLoading(false);
     }
-  }, [agent?.id]);
+  }, [agent?.id, persistWhatsAppSession]);
 
   const whatsAppStatusValue = useMemo(() => {
     const statusRaw =
@@ -379,8 +409,6 @@ export default function AgentDetailPage() {
   }, [agent, user, loadKnowledge]);
 
   useEffect(() => {
-    setShowWhatsAppQr(false);
-    setWhatsAppQr(null);
     setWhatsAppError("");
     setWhatsAppLoading(false);
     void refreshWhatsAppSession();
@@ -428,6 +456,29 @@ export default function AgentDetailPage() {
     whatsAppSessionInfo.isActive,
     whatsAppStatusValue,
   ]);
+
+  useEffect(() => {
+    if (!whatsAppStorageKey || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const stored = sessionStorage.getItem(whatsAppStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setWhatsAppSessionInfo(parsed);
+        if (parsed.qrImage || parsed.qrUrl) {
+          setWhatsAppQr(parsed.qrImage || parsed.qrUrl || null);
+          setShowWhatsAppQr(Boolean(parsed.qrImage || parsed.qrUrl));
+        }
+      } else {
+        setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
+      }
+    } catch (err) {
+      console.warn("Unable to load stored WhatsApp session", err);
+      setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
+    }
+  }, [whatsAppStorageKey]);
 
   const capabilitySummary = useMemo(() => {
     const labels = [];
@@ -478,7 +529,30 @@ export default function AgentDetailPage() {
         apiKey,
       });
 
-      setWhatsAppSessionInfo(session);
+      setWhatsAppSessionInfo((previous) => {
+        const prev = previous || EMPTY_WHATSAPP_SESSION;
+        const statusValue = (session.status || "").toLowerCase();
+        const shouldPreserveActive =
+          prev.isActive &&
+          !session.isActive &&
+          !session.qrImage &&
+          !session.qrUrl &&
+          (!statusValue ||
+            ["inactive", "not_linked", "not_found", "unknown"].includes(
+              statusValue,
+            ));
+
+        const nextSession = shouldPreserveActive
+          ? {
+              ...prev,
+              updatedAt: session.updatedAt || prev.updatedAt || null,
+              raw: session.raw || prev.raw || null,
+            }
+          : session;
+
+        persistWhatsAppSession(nextSession);
+        return nextSession;
+      });
       const qr =
         session.qrImage ||
         session.qrUrl ||
@@ -506,6 +580,11 @@ export default function AgentDetailPage() {
       setWhatsAppError(
         error?.message || "Unable to initialise WhatsApp session right now.",
       );
+      setWhatsAppSessionInfo((previous) => {
+        const next = previous || EMPTY_WHATSAPP_SESSION;
+        persistWhatsAppSession(next);
+        return next;
+      });
       setWhatsAppQr(null);
       setShowWhatsAppQr(false);
     } finally {

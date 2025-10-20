@@ -84,7 +84,7 @@ flowchart TD
 
 ### Step-by-step
 
-1. **Auto-fetch status** – Every agent card and the detail page call `GET /api/whatsapp-sessions?agentId=...` (proxied through Next.js) as soon as the component mounts.  
+1. **Auto-fetch status** – Every agent card and the detail page call `GET /api/whatsapp-sessions?agentId=...` (proxied through Next.js) as soon as the component mounts. The UI rehydrates the last known status from `sessionStorage` first so an already-linked session doesn’t flash back to “Not linked.”  
 2. **Display state**  
    - `active`/`connected`: show the green “Active” badge; background polling stops.  
    - `awaiting_qr`/`pending`: show the “Scan WhatsApp QR” prompt and start polling every 5 s.  
