@@ -3,6 +3,32 @@ const SESSION_TOKEN_KEY = "auth_session_token";
 const API_KEY_STORAGE_KEY = "auth_api_key_token";
 const LAST_ORDER_ID_KEY = "payment_last_order_id";
 const LAST_PLAN_CODE_KEY = "auth_plan_code";
+const WHATSAPP_SESSIONS_URL = "/api/whatsapp-sessions";
+
+const buildWhatsAppUrl = (agentId = null) => {
+  if (
+    typeof WHATSAPP_SESSIONS_URL === "string" &&
+    (WHATSAPP_SESSIONS_URL.startsWith("http://") ||
+      WHATSAPP_SESSIONS_URL.startsWith("https://"))
+  ) {
+    const url = new URL(WHATSAPP_SESSIONS_URL);
+    if (agentId) {
+      url.searchParams.set("agentId", agentId);
+    }
+    return url.toString();
+  }
+
+  const base =
+    typeof WHATSAPP_SESSIONS_URL === "string" && WHATSAPP_SESSIONS_URL.length > 0
+      ? WHATSAPP_SESSIONS_URL
+      : "/api/whatsapp-sessions";
+
+  if (agentId) {
+    const separator = base.includes("?") ? "&" : "?";
+    return `${base}${separator}agentId=${encodeURIComponent(agentId)}`;
+  }
+  return base;
+};
 const joinBaseAndEndpoint = (base, endpoint) => {
   if (!base) return endpoint || "";
   if (!endpoint) return base;
@@ -236,6 +262,10 @@ class ApiService {
 
   hasApiKey() {
     return Boolean(this.apiKeyToken);
+  }
+
+  getCurrentApiKey() {
+    return this.apiKeyToken;
   }
 
   getAuthToken({ primary = "apiKey", fallback = null } = {}) {
@@ -1113,6 +1143,201 @@ class ApiService {
       items: normalizedResults,
       raw: uploadResults,
     };
+  }
+
+  normalizeWhatsAppSession(data) {
+    if (!data) {
+      return {
+        isActive: false,
+        status: "inactive",
+        qrImage: null,
+        qrUrl: null,
+        sessionId: null,
+        raw: null,
+      };
+    }
+
+    const session = Array.isArray(data) ? data[0] || {} : data;
+    const rawStatus =
+      session.status ||
+      session.session_status ||
+      session.state ||
+      session.sessionState ||
+      "";
+    const normalizedStatus = String(rawStatus || "").toLowerCase();
+    const isActive =
+      session.is_active === true ||
+      session.active === true ||
+      normalizedStatus === "active" ||
+      normalizedStatus === "connected";
+
+    const qrRecord =
+      session.qr ||
+      session.qr_details ||
+      session.qrDetails ||
+      session.qr_code_details ||
+      session.qrCodeDetails ||
+      null;
+
+    const rawQrContent =
+      (qrRecord && (qrRecord.base64 || qrRecord.data || qrRecord.qr || null)) ||
+      session.qr_image ||
+      session.qrImage ||
+      session.qr_code ||
+      session.qrCode ||
+      session.image ||
+      null;
+    const qrContentType =
+      (qrRecord && (qrRecord.contentType || qrRecord.mime_type || qrRecord.mimeType)) ||
+      session.qr_content_type ||
+      session.qrContentType ||
+      session.image_type ||
+      "image/png";
+
+    let qrImage = null;
+    let qrUrl = null;
+
+    if (typeof rawQrContent === "string") {
+      if (
+        rawQrContent.startsWith("http://") ||
+        rawQrContent.startsWith("https://")
+      ) {
+        qrUrl = rawQrContent;
+      } else if (rawQrContent.startsWith("data:")) {
+        qrImage = rawQrContent;
+      } else if (/^[A-Za-z0-9+/=]+$/.test(rawQrContent)) {
+        qrImage = `data:${qrContentType};base64,${rawQrContent}`;
+      }
+    } else if (rawQrContent && typeof rawQrContent === "object") {
+      const nestedBase64 =
+        rawQrContent.base64 ||
+        rawQrContent.data ||
+        rawQrContent.qr ||
+        null;
+      if (typeof nestedBase64 === "string") {
+        qrImage = `data:${qrContentType};base64,${nestedBase64}`;
+      }
+      if (!qrUrl) {
+        const nestedUrl =
+          rawQrContent.url ||
+          rawQrContent.qrUrl ||
+          rawQrContent.redirect ||
+          null;
+        if (typeof nestedUrl === "string") {
+          qrUrl = nestedUrl;
+        }
+      }
+    }
+
+    if (!qrUrl) {
+      const urlCandidate =
+        session.qr_url ||
+        session.qrUrl ||
+        session.deeplink_url ||
+        session.deeplinkUrl ||
+        null;
+      if (typeof urlCandidate === "string") {
+        qrUrl = urlCandidate;
+      }
+    }
+
+    return {
+      isActive,
+      status: isActive ? "active" : normalizedStatus || "inactive",
+      qrImage,
+      qrUrl,
+      sessionId: session.session_id || session.id || null,
+      raw: data,
+    };
+  }
+
+  async getWhatsAppSession(agentId) {
+    if (!agentId) {
+      return this.normalizeWhatsAppSession(null);
+    }
+
+    try {
+      const response = await fetch(buildWhatsAppUrl(agentId), {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (response.status === 404) {
+        return this.normalizeWhatsAppSession(null);
+      }
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(
+          detail || `Failed to fetch WhatsApp session (${response.status})`,
+        );
+      }
+
+      const payload = await response.json().catch(() => ({}));
+      return this.normalizeWhatsAppSession(payload);
+    } catch (error) {
+      console.warn("Unable to load WhatsApp session", { agentId, error });
+      throw error;
+    }
+  }
+
+  async createWhatsAppSession({
+    userId,
+    agentId,
+    agentName,
+    apiKey,
+  } = {}) {
+    if (!userId || !agentId || !apiKey) {
+      throw new Error(
+        "WhatsApp session requires user ID, agent ID, and an API key.",
+      );
+    }
+
+    const payload = {
+      userId,
+      agentId,
+      agentName: agentName || agentId,
+      Apikey: apiKey,
+    };
+
+    const response = await fetch(buildWhatsAppUrl(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      let message = `Failed to start WhatsApp session (${response.status})`;
+      try {
+        const data = await response.json();
+        if (typeof data === "string") {
+          message = data;
+        } else if (data?.detail) {
+          message =
+            typeof data.detail === "string"
+              ? data.detail
+              : JSON.stringify(data.detail);
+        } else if (data?.message) {
+          message =
+            typeof data.message === "string"
+              ? data.message
+              : JSON.stringify(data.message);
+        }
+      } catch (_parseError) {
+        const text = await response.text();
+        if (text) {
+          message = text;
+        }
+      }
+      throw new Error(message);
+    }
+
+    const responsePayload = await response.json().catch(() => ({}));
+    return this.normalizeWhatsAppSession(responsePayload);
   }
 
   // Tools endpoints
