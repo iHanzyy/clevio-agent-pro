@@ -64,6 +64,35 @@ flowchart LR
 
 > **Note:** WhatsApp linking is managed after the agent is created from the agent detail page (Scan WhatsApp QR). It is not selectable during creation.
 
+# WhatsApp Session Flow
+
+```mermaid
+flowchart TD
+    load[Agent detail/dashboard loads] --> status[GET /api/whatsapp-sessions?agentId={id}]
+    status -->|returns active| active[Show \"Active\" badge\nPolling stops]
+    status -->|returns awaiting_qr| awaiting[Display \"Scan WhatsApp QR\" CTA\nBegin 5s polling loop]
+    status -->|returns not_found/inactive| inactive[Show \"Not linked\" state]
+
+    awaiting --> userClick[User clicks \"Scan WhatsApp QR\"] --> create[POST /api/whatsapp-sessions]
+    create --> qr[Response with QR data/base64]
+    qr --> displayQr[Show QR / deeplink to user]
+    userScan[User scans QR in WhatsApp] --> status
+
+    create -->|error| error[Display error toast\nKeep previous status]
+    status -->|transient error| fallback[Keep last known active state\nRetry on next poll]
+```
+
+### Step-by-step
+
+1. **Auto-fetch status** – Every agent card and the detail page call `GET /api/whatsapp-sessions?agentId=...` (proxied through Next.js) as soon as the component mounts.  
+2. **Display state**  
+   - `active`/`connected`: show the green “Active” badge; background polling stops.  
+   - `awaiting_qr`/`pending`: show the “Scan WhatsApp QR” prompt and start polling every 5 s.  
+   - `not_found`/`inactive`: show “Not linked”.  
+   - Network errors keep the previous state so you don’t see an unexpected downgrade.
+3. **Start / re-link** – Clicking “Scan WhatsApp QR” or “Re-link WhatsApp” sends a `POST /api/whatsapp-sessions` with `{ userId, agentId, agentName, Apikey }`. The response includes `qr.base64` or a URL which the UI renders as an image/deeplink.
+4. **Poll until connected** – While the service reports `awaiting_qr`, the frontend keeps polling `GET` every 5 s. Once `active` is returned, the UI promotes the status badge and polling stops automatically.
+5. **Manual refresh** – The “Refresh Status” button triggers another `GET`. To prevent flicker, the UI preserves the last active state if the service briefly responds with `inactive/not_found` without any new metadata.
 # Document Upload Flow
 
 ```mermaid

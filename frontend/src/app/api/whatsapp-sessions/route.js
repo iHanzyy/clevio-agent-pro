@@ -56,6 +56,19 @@ export async function GET(request) {
       },
     });
 
+    if (remoteResponse.status === 404 || remoteResponse.status === 204) {
+      return NextResponse.json(
+        {
+          status: {
+            state: "not_found",
+            updatedAt: new Date().toISOString(),
+          },
+          message: "Session not found",
+        },
+        { status: 200 },
+      );
+    }
+
     return await relayResponse(remoteResponse);
   } catch (error) {
     console.error("Failed to fetch WhatsApp session", error);

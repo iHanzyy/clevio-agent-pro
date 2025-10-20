@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { apiService } from "@/lib/api";
@@ -44,7 +44,10 @@ export default function AgentDetailPage() {
     isActive: false,
     qrImage: null,
     qrUrl: null,
+    raw: null,
   });
+  const whatsAppPollRef = useRef(null);
+  const whatsAppStatusLoadingRef = useRef(false);
 
   const authUrl = searchParams?.get("authUrl");
   const authState = searchParams?.get("authState");
@@ -92,6 +95,10 @@ export default function AgentDetailPage() {
   }, [agent?.config?.api_key, user?.subscription]);
 
   const refreshWhatsAppSession = useCallback(async () => {
+    if (whatsAppStatusLoadingRef.current) {
+      return;
+    }
+
     if (!agent?.id) {
       setWhatsAppSessionInfo({
         status: "inactive",
@@ -102,11 +109,40 @@ export default function AgentDetailPage() {
       return;
     }
 
+    whatsAppStatusLoadingRef.current = true;
     setWhatsAppStatusLoading(true);
     setWhatsAppError("");
     try {
       const session = await apiService.getWhatsAppSession(agent.id);
-      setWhatsAppSessionInfo(session);
+      setWhatsAppSessionInfo((previous) => {
+        const prev = previous || {
+          status: "inactive",
+          isActive: false,
+          qrImage: null,
+          qrUrl: null,
+          updatedAt: null,
+          raw: null,
+        };
+
+        const nextStatus = (session.status || "").toLowerCase();
+        const shouldPreserveActive =
+          prev.isActive &&
+          !session.isActive &&
+          !session.qrImage &&
+          !session.qrUrl &&
+          (!nextStatus || ["inactive", "not_linked", "not_found", "unknown"].includes(nextStatus));
+
+        if (shouldPreserveActive) {
+          return {
+            ...prev,
+            updatedAt: session.updatedAt || prev.updatedAt || null,
+            raw: session.raw || prev.raw || null,
+          };
+        }
+
+        return session;
+      });
+
       const qrValue = session.qrImage || session.qrUrl || null;
       setWhatsAppQr(qrValue);
       setShowWhatsAppQr((prev) => prev && Boolean(qrValue));
@@ -115,23 +151,44 @@ export default function AgentDetailPage() {
         err?.message ||
           "Unable to load WhatsApp session status right now. Please try again.",
       );
-      setWhatsAppSessionInfo({
-        status: "unknown",
-        isActive: false,
-        qrImage: null,
-        qrUrl: null,
-      });
+      setWhatsAppSessionInfo((previous) => ({
+        ...previous,
+        status: previous?.status || "active",
+        qrImage: previous?.qrImage ?? null,
+        qrUrl: previous?.qrUrl ?? null,
+        raw: previous?.raw ?? null,
+      }));
     } finally {
+      whatsAppStatusLoadingRef.current = false;
       setWhatsAppStatusLoading(false);
     }
   }, [agent?.id]);
 
-  const whatsAppStatusLabel = useMemo(() => {
-    const status =
-      whatsAppSessionInfo.status ||
-      (whatsAppSessionInfo.isActive ? "active" : "inactive");
-    return status.charAt(0).toUpperCase() + status.slice(1);
+  const whatsAppStatusValue = useMemo(() => {
+    const statusRaw =
+      (whatsAppSessionInfo.status ||
+        (whatsAppSessionInfo.isActive ? "active" : "inactive")) || "";
+    return statusRaw.toLowerCase();
   }, [whatsAppSessionInfo.status, whatsAppSessionInfo.isActive]);
+
+  const whatsAppStatusLabel = useMemo(() => {
+    switch (whatsAppStatusValue) {
+      case "awaiting_qr":
+      case "waiting_qr":
+      case "pending":
+        return "Awaiting QR";
+      case "connecting":
+      case "connecting_qr":
+        return "Connecting";
+      case "connected":
+      case "active":
+        return "Active";
+      case "not_found":
+      case "inactive":
+      default:
+        return "Not linked";
+    }
+  }, [whatsAppStatusValue]);
 
   const whatsAppStatusClasses = useMemo(() => {
     if (whatsAppSessionInfo.isActive) {
@@ -329,6 +386,49 @@ export default function AgentDetailPage() {
     void refreshWhatsAppSession();
   }, [refreshWhatsAppSession]);
 
+  useEffect(() => {
+    if (!agent?.id) {
+      if (whatsAppPollRef.current) {
+        clearInterval(whatsAppPollRef.current);
+        whatsAppPollRef.current = null;
+      }
+      return undefined;
+    }
+
+    const shouldPoll =
+      !whatsAppSessionInfo.isActive &&
+      Boolean(whatsAppSessionInfo.raw) &&
+      whatsAppStatusValue !== "inactive" &&
+      whatsAppStatusValue !== "not_found";
+
+    if (!shouldPoll) {
+      if (whatsAppPollRef.current) {
+        clearInterval(whatsAppPollRef.current);
+        whatsAppPollRef.current = null;
+      }
+      return undefined;
+    }
+
+    if (!whatsAppPollRef.current) {
+      whatsAppPollRef.current = setInterval(() => {
+        void refreshWhatsAppSession();
+      }, 5000);
+    }
+
+    return () => {
+      if (whatsAppPollRef.current) {
+        clearInterval(whatsAppPollRef.current);
+        whatsAppPollRef.current = null;
+      }
+    };
+  }, [
+    agent?.id,
+    refreshWhatsAppSession,
+    whatsAppSessionInfo.raw,
+    whatsAppSessionInfo.isActive,
+    whatsAppStatusValue,
+  ]);
+
   const capabilitySummary = useMemo(() => {
     const labels = [];
     if (authUrl) {
@@ -399,6 +499,8 @@ export default function AgentDetailPage() {
       if (session.isActive) {
         setShowWhatsAppQr(false);
         setWhatsAppQr(null);
+      } else {
+        void refreshWhatsAppSession();
       }
     } catch (error) {
       setWhatsAppError(

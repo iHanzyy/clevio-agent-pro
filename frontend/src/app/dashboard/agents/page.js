@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ export default function AgentsPage() {
   const [whatsAppLoadingMap, setWhatsAppLoadingMap] = useState({});
   const [whatsAppErrors, setWhatsAppErrors] = useState({});
   const [qrPreview, setQrPreview] = useState(null);
+  const whatsAppPollMapRef = useRef({});
 
   const resolveApiKey = useCallback(async () => {
     let apiKey =
@@ -51,6 +52,48 @@ export default function AgentsPage() {
   const closeQrPreview = useCallback(() => {
     setQrPreview(null);
   }, []);
+
+  const clearAgentPoll = useCallback((agentId) => {
+    const existing = whatsAppPollMapRef.current[agentId];
+    if (existing) {
+      clearInterval(existing);
+      delete whatsAppPollMapRef.current[agentId];
+    }
+  }, []);
+
+  const scheduleAgentPoll = useCallback(
+    (agentId) => {
+      if (!agentId || whatsAppPollMapRef.current[agentId]) {
+        return;
+      }
+
+      whatsAppPollMapRef.current[agentId] = setInterval(async () => {
+        try {
+          const info = await apiService.getWhatsAppSession(agentId);
+          setWhatsAppSessions((prev) => ({
+            ...prev,
+            [agentId]: info,
+          }));
+
+          if (
+            info.isActive ||
+            (typeof info.status === "string" &&
+              ["not_found", "inactive"].includes(info.status.toLowerCase()))
+          ) {
+            clearAgentPoll(agentId);
+          }
+        } catch (err) {
+          setWhatsAppErrors((prev) => ({
+            ...prev,
+            [agentId]:
+              err?.message ||
+              "Unable to refresh WhatsApp status. Please try again.",
+          }));
+        }
+      }, 5000);
+    },
+    [clearAgentPoll],
+  );
 
   const getWhatsAppStatusLabel = useCallback((session) => {
     if (!session) {
@@ -158,10 +201,38 @@ export default function AgentsPage() {
       const nextErrors = {};
       results.forEach(({ agentId, info, error }) => {
         if (info) {
-          nextSessions[agentId] = info;
+          const previous = whatsAppSessions[agentId];
+          const statusValue = (info.status || "").toLowerCase();
+          const shouldPreserveActive =
+            previous?.isActive &&
+            !info.isActive &&
+            !info.qrImage &&
+            !info.qrUrl &&
+            (!statusValue ||
+              ["inactive", "not_linked", "not_found", "unknown"].includes(statusValue));
+
+          nextSessions[agentId] = shouldPreserveActive
+            ? {
+                ...previous,
+                updatedAt: info.updatedAt || previous.updatedAt || null,
+                raw: info.raw || previous.raw || null,
+              }
+            : info;
+          if (
+            info.raw &&
+            !info.isActive &&
+            !(typeof info.status === "string" &&
+              ["inactive", "not_found"].includes(info.status.toLowerCase()))
+          ) {
+            scheduleAgentPoll(agentId);
+          } else {
+            clearAgentPoll(agentId);
+          }
         }
         if (error) {
           nextErrors[agentId] = error;
+        } else {
+          delete nextErrors[agentId];
         }
       });
 
@@ -174,7 +245,13 @@ export default function AgentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [agents]);
+  }, [agents, clearAgentPoll, scheduleAgentPoll, whatsAppSessions]);
+
+  useEffect(() => () => {
+    Object.keys(whatsAppPollMapRef.current).forEach((agentId) => {
+      clearAgentPoll(agentId);
+    });
+  }, [clearAgentPoll]);
 
   const handleWhatsAppActivation = useCallback(
     async (agent) => {
@@ -198,10 +275,30 @@ export default function AgentsPage() {
           apiKey,
         });
 
-        setWhatsAppSessions((prev) => ({
-          ...prev,
-          [agent.id]: session,
-        }));
+        setWhatsAppSessions((prev) => {
+          const previous = prev[agent.id];
+          const statusValue = (session.status || "").toLowerCase();
+          const shouldPreserveActive =
+            previous?.isActive &&
+            !session.isActive &&
+            !session.qrImage &&
+            !session.qrUrl &&
+            (!statusValue ||
+              ["inactive", "not_linked", "not_found", "unknown"].includes(statusValue));
+
+          const nextSession = shouldPreserveActive
+            ? {
+                ...previous,
+                updatedAt: session.updatedAt || previous.updatedAt || null,
+                raw: session.raw || previous.raw || null,
+              }
+            : session;
+
+          return {
+            ...prev,
+            [agent.id]: nextSession,
+          };
+        });
 
         setWhatsAppErrors((prev) => {
           const next = { ...prev };
@@ -211,6 +308,7 @@ export default function AgentsPage() {
 
         const qrValue = session.qrImage || session.qrUrl || null;
         openQrPreview(agent.id, agent.name, qrValue);
+        scheduleAgentPoll(agent.id);
       } catch (err) {
         setWhatsAppErrors((prev) => ({
           ...prev,
@@ -225,7 +323,7 @@ export default function AgentsPage() {
         }));
       }
     },
-    [openQrPreview, resolveApiKey, user?.user_id],
+    [openQrPreview, resolveApiKey, scheduleAgentPoll, user?.user_id],
   );
 
   if (loading || isLoadingAgents) {

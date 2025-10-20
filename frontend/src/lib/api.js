@@ -1158,18 +1158,40 @@ class ApiService {
     }
 
     const session = Array.isArray(data) ? data[0] || {} : data;
-    const rawStatus =
+    let rawStatus =
       session.status ||
       session.session_status ||
       session.state ||
       session.sessionState ||
       "";
+    if (rawStatus && typeof rawStatus === "object") {
+      rawStatus =
+        rawStatus.state ||
+        rawStatus.status ||
+        rawStatus.value ||
+        rawStatus.current ||
+        "";
+    }
     const normalizedStatus = String(rawStatus || "").toLowerCase();
     const isActive =
       session.is_active === true ||
       session.active === true ||
       normalizedStatus === "active" ||
       normalizedStatus === "connected";
+    const statusUpdatedAt =
+      session.status_updated_at ||
+      session.statusUpdatedAt ||
+      (typeof session.status === "object"
+        ? session.status.updatedAt ||
+          session.status.updated_at ||
+          session.status.lastUpdatedAt ||
+          session.status.last_connected_at ||
+          session.status.lastConnectedAt ||
+          null
+        : null) ||
+      session.updated_at ||
+      session.updatedAt ||
+      null;
 
     const qrRecord =
       session.qr ||
@@ -1177,6 +1199,12 @@ class ApiService {
       session.qrDetails ||
       session.qr_code_details ||
       session.qrCodeDetails ||
+      null;
+
+    const sessionDetails =
+      session.session ||
+      session.session_details ||
+      session.sessionDetails ||
       null;
 
     const rawQrContent =
@@ -1241,13 +1269,33 @@ class ApiService {
       }
     }
 
+    const resolvedSessionId =
+      session.session_id ||
+      session.sessionId ||
+      session.id ||
+      (sessionDetails &&
+        (sessionDetails.session_id ||
+          sessionDetails.sessionId ||
+          sessionDetails.agentSessionId)) ||
+      null;
+
+    const hasSessionDetails = Boolean(
+      resolvedSessionId ||
+        session.agent_id ||
+        session.agentId ||
+        (sessionDetails &&
+          (sessionDetails.agentId || sessionDetails.userId || sessionDetails.plan)) ||
+        qrRecord,
+    );
+
     return {
       isActive,
       status: isActive ? "active" : normalizedStatus || "inactive",
       qrImage,
       qrUrl,
-      sessionId: session.session_id || session.id || null,
-      raw: data,
+      sessionId: resolvedSessionId,
+      updatedAt: statusUpdatedAt,
+      raw: hasSessionDetails ? data : null,
     };
   }
 
@@ -1267,6 +1315,9 @@ class ApiService {
       if (response.status === 404) {
         return this.normalizeWhatsAppSession(null);
       }
+      if (response.status === 204) {
+        return this.normalizeWhatsAppSession(null);
+      }
 
       if (!response.ok) {
         const detail = await response.text();
@@ -1276,6 +1327,20 @@ class ApiService {
       }
 
       const payload = await response.json().catch(() => ({}));
+
+      if (
+        payload &&
+        typeof payload === "object" &&
+        "detail" in payload &&
+        !("status" in payload || "session" in payload || "qr" in payload)
+      ) {
+        throw new Error(
+          typeof payload.detail === "string"
+            ? payload.detail
+            : JSON.stringify(payload.detail),
+        );
+      }
+
       return this.normalizeWhatsAppSession(payload);
     } catch (error) {
       console.warn("Unable to load WhatsApp session", { agentId, error });
