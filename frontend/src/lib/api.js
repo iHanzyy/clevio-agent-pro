@@ -925,18 +925,45 @@ class ApiService {
   }
 
   async getAgentDocuments(agentId) {
+    const normalizeResponse = (data) => {
+      if (!data) {
+        return [];
+      }
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (Array.isArray(data?.items)) {
+        return data.items;
+      }
+      if (Array.isArray(data?.data)) {
+        return data.data;
+      }
+      if (Array.isArray(data?.results)) {
+        return data.results;
+      }
+      return [data];
+    };
+
     try {
-      return await this.request(`/agents/${agentId}/documents/`, {
+      const response = await this.request(`/agents/${agentId}/documents/`, {
         authType: "apiKey",
         suppressErrorLog: true,
       });
+
+      return {
+        items: normalizeResponse(response),
+        supportsListing: true,
+      };
     } catch (error) {
       const message = String(error?.message || "");
       if (/method not allowed/i.test(message) || message.includes("405")) {
         console.info(
-          "Document listing unsupported on backend. Returning empty list.",
+          "Document listing unsupported on backend. Returning local history only.",
         );
-        return [];
+        return {
+          items: [],
+          supportsListing: false,
+        };
       }
       throw error;
     }
@@ -958,7 +985,10 @@ class ApiService {
     );
 
     const uploadResults = [];
-    for (const file of files) {
+    const normalizedResults = [];
+    const fileList = Array.from(files || []);
+
+    for (const [index, file] of fileList.entries()) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("chunk_size", String(chunkSize));
@@ -1007,12 +1037,82 @@ class ApiService {
       try {
         const payload = await response.json();
         uploadResults.push(payload);
+        if (payload && typeof payload === "object") {
+          const createdAt =
+            payload.created_at ||
+            payload.createdAt ||
+            payload.ingested_at ||
+            payload.timestamp ||
+            null;
+          const toNumber = (value) => {
+            if (value === null || value === undefined) return null;
+            if (typeof value === "number") return value;
+            const parsed = Number(value);
+            return Number.isNaN(parsed) ? null : parsed;
+          };
+
+          normalizedResults.push({
+            id:
+              payload.id ||
+              payload.document_id ||
+              payload.documentId ||
+              payload.uuid ||
+              `doc-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+            filename:
+              payload.filename ||
+              payload.file_name ||
+              payload.name ||
+              file.name,
+            size_bytes:
+              toNumber(payload.size_bytes) ??
+              toNumber(payload.size) ??
+              file.size ??
+              null,
+            chunk_count:
+              toNumber(payload.chunk_count) ??
+              toNumber(payload.chunks) ??
+              null,
+            content_type:
+              payload.content_type ||
+              payload.mime_type ||
+              payload.type ||
+              file.type ||
+              null,
+            created_at:
+              typeof createdAt === "number"
+                ? new Date(createdAt).toISOString()
+                : createdAt || new Date().toISOString(),
+            _localOnly: false,
+          });
+        } else {
+          normalizedResults.push({
+            id: `local-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+            filename: file.name,
+            size_bytes: file.size ?? null,
+            chunk_count: null,
+            content_type: file.type || "application/octet-stream",
+            created_at: new Date().toISOString(),
+            _localOnly: true,
+          });
+        }
       } catch (_parseError) {
         uploadResults.push(null);
+        normalizedResults.push({
+          id: `local-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+          filename: file.name,
+          size_bytes: file.size ?? null,
+          chunk_count: null,
+          content_type: file.type || "application/octet-stream",
+          created_at: new Date().toISOString(),
+          _localOnly: true,
+        });
       }
     }
 
-    return uploadResults;
+    return {
+      items: normalizedResults,
+      raw: uploadResults,
+    };
   }
 
   // Tools endpoints
