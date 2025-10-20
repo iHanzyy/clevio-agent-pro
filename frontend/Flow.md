@@ -63,3 +63,23 @@ flowchart LR
 ```
 
 > **Note:** WhatsApp linking is managed after the agent is created from the agent detail page (Scan WhatsApp QR). It is not selectable during creation.
+
+# Document Upload Flow
+
+```mermaid
+flowchart LR
+    start[Select Document:\n/pdf|docx|pptx|txt]
+    call[Upload Document:\nPOST ${BASE_URL_SCp}/agents/{agent_id}/documents\nForm fields:\n- file\n- chunk_size\n- chunk_overlap\n- batch_size]
+    process[Server Processing:\n1. Convert to plain text\n2. Clean noisy characters\n3. Chunk content\n4. Embed with OpenAI]
+    store[Store in `embeddings` table]
+    ready[Agent Ready:\nKnowledge available for retrieval]
+
+    start --> call --> process --> store --> ready
+```
+
+### Step-by-step
+
+1. **Prepare the file** – ensure it is one of the supported formats (`pdf`, `docx`, `pptx`, `txt`).
+2. **Call the upload endpoint** – send a `POST` request to `${BASE_URL_SCp}/agents/{agent_id}/documents` with the file and chunk parameters (`chunk_size`, `chunk_overlap`, `batch_size`).
+3. **Allow processing to finish** – the backend converts the document to text, removes distracting characters, creates overlapping chunks, and embeds them with OpenAI.
+4. **Use the knowledge** – vectors are stored in the `embeddings` table so the agent can reference the uploaded document during conversations.

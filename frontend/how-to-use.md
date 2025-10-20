@@ -415,9 +415,9 @@ If you have access to an already activated user account, use that email/password
         }'
   ```
 
-## Document Ingestion (`$API_PREFIX/agents/{agent_id}/documents`)
+## Document Upload (`$API_PREFIX/agents/{agent_id}/documents`)
 
-Upload knowledge files so an agent can reference them later. Supported formats: `pdf`, `docx`, `pptx`, `txt`.
+Upload knowledge files so that agents can refer to them later. Supported formats: `pdf`, `docx`, `pptx`, `txt`.
 
 ```bash
 curl -X POST "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
@@ -428,7 +428,9 @@ curl -X POST "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
   -F "batch_size=50"
 ```
 
-The API converts the file to plain text, removes noisy characters, chunks the content, embeds each chunk with OpenAI, and stores the vectors in the `embeddings` table.
+This API converts files into plain text, removes distracting characters, splits the content into chunks, embeds each chunk into OpenAI, and stores the vectors in the `embeddings` table.
+
+> **Troubleshooting:** Password-protected PDFs that use AES encryption require the backend to install the [`pycryptodome`](https://pypi.org/project/pycryptodome/) package. If you encounter the error `PyCryptodome is required for AES algorithm`, ask your administrator to add that dependency or upload an unencrypted document instead.
 
 - **GET /schemas/{tool_name}**
   ```bash

@@ -856,7 +856,11 @@ class ApiService {
       console.warn("⚠️ Attempting to use auth header without available token");
       return {};
     }
-    return { Authorization: `Bearer ${token}` };
+    const headers = { Authorization: `Bearer ${token}` };
+    if (primary === "apiKey") {
+      headers["X-API-Key"] = token;
+    }
+    return headers;
   }
 
   // Agent endpoints (require API key)
@@ -921,38 +925,94 @@ class ApiService {
   }
 
   async getAgentDocuments(agentId) {
-    return this.request(`/agents/${agentId}/documents`, {
-      authType: "apiKey",
-    });
+    try {
+      return await this.request(`/agents/${agentId}/documents/`, {
+        authType: "apiKey",
+        suppressErrorLog: true,
+      });
+    } catch (error) {
+      const message = String(error?.message || "");
+      if (/method not allowed/i.test(message) || message.includes("405")) {
+        console.info(
+          "Document listing unsupported on backend. Returning empty list.",
+        );
+        return [];
+      }
+      throw error;
+    }
   }
 
-  async uploadAgentDocuments(agentId, files) {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append("files", file);
-    });
-
+  async uploadAgentDocuments(
+    agentId,
+    files,
+    {
+      chunkSize = 400,
+      chunkOverlap = 80,
+      batchSize = 50,
+    } = {},
+  ) {
     const headers = this.authHeader();
-
     const url = joinBaseAndEndpoint(
       this.baseUrl,
-      normalizeEndpoint(`/agents/${agentId}/documents`),
+      normalizeEndpoint(`/agents/${agentId}/documents/`),
     );
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
+    const uploadResults = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("chunk_size", String(chunkSize));
+      formData.append("chunk_overlap", String(chunkOverlap));
+      formData.append("batch_size", String(batchSize));
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(
-        error.detail || error.message || "Failed to upload knowledge documents",
-      );
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let fallbackMessage = "Failed to upload knowledge documents";
+        try {
+          const errorPayload = await response.json();
+          if (typeof errorPayload === "string") {
+            fallbackMessage = errorPayload;
+          } else if (errorPayload?.detail) {
+            fallbackMessage =
+              typeof errorPayload.detail === "string"
+                ? errorPayload.detail
+                : JSON.stringify(errorPayload.detail);
+          } else if (errorPayload?.message) {
+            fallbackMessage =
+              typeof errorPayload.message === "string"
+                ? errorPayload.message
+                : JSON.stringify(errorPayload.message);
+          }
+        } catch (_jsonError) {
+          const text = await response.text();
+          if (text) {
+            fallbackMessage = text;
+          }
+        }
+        if (
+          /pycryptodome is required for aes algorithm/i.test(fallbackMessage)
+        ) {
+          fallbackMessage =
+            "Failed to ingest document: PyCryptodome is required on the server for AES-encrypted PDFs. Ask your administrator to install the `pycryptodome` package or upload an unencrypted file.";
+        }
+
+        throw new Error(fallbackMessage);
+      }
+
+      try {
+        const payload = await response.json();
+        uploadResults.push(payload);
+      } catch (_parseError) {
+        uploadResults.push(null);
+      }
     }
 
-    return response.json();
+    return uploadResults;
   }
 
   // Tools endpoints
