@@ -955,12 +955,15 @@ class ApiService {
   }
 
   async getAgentDocuments(agentId) {
-    const normalizeResponse = (data) => {
+    const normalise = (data) => {
       if (!data) {
         return [];
       }
       if (Array.isArray(data)) {
         return data;
+      }
+      if (Array.isArray(data?.uploads)) {
+        return data.uploads;
       }
       if (Array.isArray(data?.items)) {
         return data.items;
@@ -971,32 +974,89 @@ class ApiService {
       if (Array.isArray(data?.results)) {
         return data.results;
       }
-      return [data];
+      return data ? [data] : [];
     };
 
-    try {
-      const response = await this.request(`/agents/${agentId}/documents/`, {
+    const mapDocument = (doc) => {
+      if (!doc || typeof doc !== "object") {
+        return null;
+      }
+      return {
+        id: doc.id || doc.upload_id || doc.uploadId || null,
+        filename: doc.filename || doc.name || "Unknown",
+        contentType: doc.content_type || doc.contentType || doc.mime_type || doc.mimeType || "Unknown",
+        sizeBytes:
+          doc.size_bytes ??
+          doc.sizeBytes ??
+          doc.size ??
+          doc.file_size ??
+          null,
+        chunkCount:
+          doc.chunk_count ??
+          doc.chunkCount ??
+          doc.chunks ??
+          null,
+        createdAt: doc.created_at || doc.createdAt || null,
+        updatedAt: doc.updated_at || doc.updatedAt || null,
+        details: doc.details || null,
+        raw: doc,
+      };
+    };
+
+    const buildUrl = (path) => {
+      const normalized = normalizeEndpoint(path);
+      const attempts = new Set([normalized]);
+      if (!/[?&]format=/.test(normalized)) {
+        const separator = normalized.includes("?") ? "&" : "?";
+        attempts.add(`${normalized}${separator}format=detailed`);
+      }
+      return Array.from(attempts);
+    };
+
+    const fetchDocuments = async (path) => {
+      const response = await this.request(path, {
         authType: "apiKey",
-        suppressErrorLog: true,
       });
 
+      const items = normalise(response).map(mapDocument).filter(Boolean);
+
       return {
-        items: normalizeResponse(response),
+        items,
         supportsListing: true,
       };
-    } catch (error) {
-      const message = String(error?.message || "");
-      if (/method not allowed/i.test(message) || message.includes("405")) {
-        console.info(
-          "Document listing unsupported on backend. Returning local history only.",
-        );
-        return {
-          items: [],
-          supportsListing: false,
-        };
+    };
+
+    const attempted = new Set();
+    const candidates = [
+      `/agents/${agentId}/documents`,
+      `/agents/${agentId}/documents/`,
+    ]
+      .flatMap((path) => buildUrl(path))
+      .filter((candidate) => {
+        if (attempted.has(candidate)) return false;
+        attempted.add(candidate);
+        return true;
+      });
+
+    for (const candidate of candidates) {
+      try {
+        return await fetchDocuments(candidate);
+      } catch (error) {
+        const message = String(error?.message || "");
+        const methodNotAllowed =
+          /method not allowed/i.test(message) || message.includes("405");
+        if (methodNotAllowed) {
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
+
+    console.info("Document listing unsupported by backend");
+    return {
+      items: [],
+      supportsListing: false,
+    };
   }
 
   async uploadAgentDocuments(
@@ -1011,7 +1071,7 @@ class ApiService {
     const headers = this.authHeader();
     const url = joinBaseAndEndpoint(
       this.baseUrl,
-      normalizeEndpoint(`/agents/${agentId}/documents/`),
+      normalizeEndpoint(`/agents/${agentId}/documents`),
     );
 
     const uploadResults = [];
@@ -1064,85 +1124,28 @@ class ApiService {
         throw new Error(fallbackMessage);
       }
 
+      let payload = null;
       try {
-        const payload = await response.json();
-        uploadResults.push(payload);
-        if (payload && typeof payload === "object") {
-          const createdAt =
-            payload.created_at ||
-            payload.createdAt ||
-            payload.ingested_at ||
-            payload.timestamp ||
-            null;
-          const toNumber = (value) => {
-            if (value === null || value === undefined) return null;
-            if (typeof value === "number") return value;
-            const parsed = Number(value);
-            return Number.isNaN(parsed) ? null : parsed;
-          };
-
-          normalizedResults.push({
-            id:
-              payload.id ||
-              payload.document_id ||
-              payload.documentId ||
-              payload.uuid ||
-              `doc-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-            filename:
-              payload.filename ||
-              payload.file_name ||
-              payload.name ||
-              file.name,
-            size_bytes:
-              toNumber(payload.size_bytes) ??
-              toNumber(payload.size) ??
-              file.size ??
-              null,
-            chunk_count:
-              toNumber(payload.chunk_count) ??
-              toNumber(payload.chunks) ??
-              null,
-            content_type:
-              payload.content_type ||
-              payload.mime_type ||
-              payload.type ||
-              file.type ||
-              null,
-            created_at:
-              typeof createdAt === "number"
-                ? new Date(createdAt).toISOString()
-                : createdAt || new Date().toISOString(),
-            _localOnly: false,
-          });
-        } else {
-          normalizedResults.push({
-            id: `local-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-            filename: file.name,
-            size_bytes: file.size ?? null,
-            chunk_count: null,
-            content_type: file.type || "application/octet-stream",
-            created_at: new Date().toISOString(),
-            _localOnly: true,
-          });
-        }
+        payload = await response.json();
       } catch (_parseError) {
-        uploadResults.push(null);
-        normalizedResults.push({
-          id: `local-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-          filename: file.name,
-          size_bytes: file.size ?? null,
-          chunk_count: null,
-          content_type: file.type || "application/octet-stream",
-          created_at: new Date().toISOString(),
-          _localOnly: true,
-        });
+        payload = null;
       }
+      uploadResults.push(payload);
+      normalizedResults.push(payload);
     }
 
     return {
       items: normalizedResults,
       raw: uploadResults,
     };
+  }
+
+  async deleteAgentDocument(agentId, uploadId) {
+    await this.ensureApiKey();
+    return this.request(`/agents/${agentId}/documents/${uploadId}`, {
+      method: "DELETE",
+      authType: "apiKey",
+    });
   }
 
   normalizeWhatsAppSession(data) {

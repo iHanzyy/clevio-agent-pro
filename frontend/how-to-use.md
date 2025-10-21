@@ -452,6 +452,8 @@ curl "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
   | jq
 ```
 
+> **Note:** Supply an active API key in `$TOKEN`. Session JWTs returned by `/auth/login` do not have permission to access the document-history endpoints.
+
 The response includes every past upload (active and deleted). Example:
 
 ```json

@@ -37,9 +37,6 @@ export default function AgentDetailPage() {
   const [knowledgeLoading, setKnowledgeLoading] = useState(true);
   const [knowledgeError, setKnowledgeError] = useState("");
   const [knowledgeSuccess, setKnowledgeSuccess] = useState("");
-  const [knowledgeListingSupported, setKnowledgeListingSupported] =
-    useState(null);
-  const [localKnowledgeHistory, setLocalKnowledgeHistory] = useState([]);
   const [selectedKnowledgeFiles, setSelectedKnowledgeFiles] = useState([]);
   const [knowledgeUploading, setKnowledgeUploading] = useState(false);
   const [knowledgeInputKey, setKnowledgeInputKey] = useState(() => Date.now());
@@ -56,14 +53,6 @@ export default function AgentDetailPage() {
 
   const authUrl = searchParams?.get("authUrl");
   const authState = searchParams?.get("authState");
-
-  const knowledgeStorageKey = useMemo(
-    () =>
-      params?.agentId
-        ? `agent_knowledge_history_${params.agentId}`
-        : null,
-    [params?.agentId],
-  );
 
   const whatsAppStorageKey = useMemo(
     () => (agent?.id ? `agent_whatsapp_session_${agent.id}` : null),
@@ -232,79 +221,10 @@ export default function AgentDetailPage() {
     [whatsAppQr],
   );
 
-  const persistLocalKnowledgeHistory = useCallback(
-    (records) => {
-      if (!knowledgeStorageKey || typeof window === "undefined") {
-        return;
-      }
-      try {
-        if (!records || records.length === 0) {
-          sessionStorage.removeItem(knowledgeStorageKey);
-        } else {
-          sessionStorage.setItem(
-            knowledgeStorageKey,
-            JSON.stringify(records),
-          );
-        }
-      } catch (err) {
-        console.warn("Unable to persist knowledge history", err);
-      }
-    },
-    [knowledgeStorageKey],
-  );
-
-  const mergeDocumentHistory = useCallback((incoming = [], existing = []) => {
-    const seen = new Set();
-    const merged = [...incoming, ...existing];
-    return merged.filter((doc) => {
-      if (!doc) {
-        return false;
-      }
-      const key =
-        doc.id ||
-        `${doc.filename || "file"}-${doc.created_at || ""}-${doc.size_bytes || ""}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!knowledgeStorageKey || typeof window === "undefined") {
-      setLocalKnowledgeHistory([]);
-      return;
-    }
-    try {
-      const stored = sessionStorage.getItem(knowledgeStorageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setLocalKnowledgeHistory(parsed);
-        } else {
-          setLocalKnowledgeHistory([]);
-        }
-      } else {
-        setLocalKnowledgeHistory([]);
-      }
-    } catch (err) {
-      console.warn("Unable to load knowledge history", err);
-      setLocalKnowledgeHistory([]);
-    }
-  }, [knowledgeStorageKey]);
-
-  useEffect(() => {
-    if (knowledgeListingSupported === false) {
-      setKnowledge(localKnowledgeHistory);
-    }
-  }, [knowledgeListingSupported, localKnowledgeHistory]);
-
   useEffect(() => {
     if (!params?.agentId) {
       return;
     }
-    setKnowledgeListingSupported(null);
     setKnowledge([]);
     setKnowledgeError("");
     setKnowledgeSuccess("");
@@ -357,32 +277,12 @@ export default function AgentDetailPage() {
       return;
     }
 
-    if (knowledgeListingSupported === false) {
-      setKnowledge(localKnowledgeHistory);
-      setKnowledgeError("");
-      setKnowledgeLoading(false);
-      return;
-    }
-
     setKnowledgeLoading(true);
     setKnowledgeError("");
     try {
       const result = await apiService.getAgentDocuments(params.agentId);
-      const supportsListing = Array.isArray(result)
-        ? true
-        : result?.supportsListing !== false;
-      const items = Array.isArray(result)
-        ? result
-        : Array.isArray(result?.items)
-        ? result.items
-        : [];
-
-      setKnowledgeListingSupported(supportsListing);
-      if (supportsListing) {
-        setKnowledge(items);
-      } else {
-        setKnowledge(localKnowledgeHistory);
-      }
+      const items = Array.isArray(result?.items) ? result.items : [];
+      setKnowledge(items);
     } catch (err) {
       setKnowledgeError(
         err?.message || "Unable to load uploaded knowledge files."
@@ -390,12 +290,7 @@ export default function AgentDetailPage() {
     } finally {
       setKnowledgeLoading(false);
     }
-  }, [
-    params?.agentId,
-    user,
-    knowledgeListingSupported,
-    localKnowledgeHistory,
-  ]);
+  }, [params?.agentId, user]);
 
   useEffect(() => {
     if (agent && user) {
@@ -658,48 +553,8 @@ export default function AgentDetailPage() {
     setKnowledgeError("");
     setKnowledgeSuccess("");
     try {
-      const uploadResult = await apiService.uploadAgentDocuments(
-        agent.id,
-        selectedKnowledgeFiles,
-      );
-      const uploadedItems = Array.isArray(uploadResult?.items)
-        ? uploadResult.items.filter(Boolean)
-        : [];
-
-      const now = new Date().toISOString();
-      const fallbackRecords =
-        uploadedItems.length > 0
-          ? uploadedItems
-          : selectedKnowledgeFiles.map((file, index) => ({
-              id: `local-${agent.id}-${Date.now()}-${index}-${Math.random()
-                .toString(36)
-                .slice(2, 8)}`,
-              filename: file.name,
-              size_bytes: file.size ?? null,
-              chunk_count: null,
-              content_type: file.type || "application/octet-stream",
-              created_at: now,
-              _localOnly: true,
-            }));
-
-      const shouldPersistLocally =
-        knowledgeListingSupported === false ||
-        fallbackRecords.some((record) => record?._localOnly);
-
-      if (shouldPersistLocally) {
-        setKnowledgeListingSupported(false);
-        setLocalKnowledgeHistory((prev) => {
-          const next = mergeDocumentHistory(fallbackRecords, prev);
-          persistLocalKnowledgeHistory(next);
-          return next;
-        });
-        setKnowledge((prev) =>
-          mergeDocumentHistory(fallbackRecords, prev),
-        );
-      } else {
-        await loadKnowledge();
-      }
-
+      await apiService.uploadAgentDocuments(agent.id, selectedKnowledgeFiles);
+      await loadKnowledge();
       setKnowledgeSuccess("Knowledge uploaded successfully.");
       resetKnowledgeSelection();
     } catch (err) {
@@ -708,6 +563,37 @@ export default function AgentDetailPage() {
       );
     } finally {
       setKnowledgeUploading(false);
+    }
+  };
+
+  const handleKnowledgeDelete = async (document) => {
+    if (!agent) {
+      return;
+    }
+    const documentId =
+      document?.id || document?.upload_id || document?.uploadId || null;
+    if (!documentId) {
+      setKnowledgeError("Unable to determine document identifier.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove \\"${document?.filename || "this document"}\\" from this agent?`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setKnowledgeError("");
+      setKnowledgeSuccess("");
+      await apiService.deleteAgentDocument(agent.id, documentId);
+      setKnowledgeSuccess("Knowledge document deleted.");
+      await loadKnowledge();
+    } catch (err) {
+      setKnowledgeError(
+        err?.message || "Failed to delete knowledge document. Please try again.",
+      );
     }
   };
 
@@ -1125,14 +1011,6 @@ export default function AgentDetailPage() {
           </div>
         )}
 
-        {knowledgeListingSupported === false && (
-          <div className="p-3 rounded-lg border border-indigo-200 bg-indigo-50 text-xs text-indigo-800 dark:border-indigo-500/60 dark:bg-indigo-900/40 dark:text-indigo-100">
-            Upload history is stored locally for this session because the
-            backend does not expose a document listing endpoint. Refreshing the
-            page or signing out will clear this list.
-          </div>
-        )}
-
         <div className="space-y-4">
           <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-3 md:space-y-0">
             <input
@@ -1181,9 +1059,7 @@ export default function AgentDetailPage() {
             </div>
           ) : knowledge.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {knowledgeListingSupported === false
-                ? "Uploads are tracked locally for this session. Add a document to start building the history."
-                : "No knowledge documents uploaded yet."}
+              No knowledge documents uploaded yet.
             </p>
           ) : (
             <div className="space-y-3">
@@ -1192,25 +1068,30 @@ export default function AgentDetailPage() {
                   key={doc.id}
                   className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-4"
                 >
-                  <div className="flex items-center justify-between text-sm">
-                    <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {doc.filename}
-                    </p>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatDateTime(doc.created_at)}
-                    </span>
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between text-sm">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                        {doc.filename}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Uploaded {formatDateTime(doc.createdAt || doc.created_at)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleKnowledgeDelete(doc)}
+                        className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:bg-red-100 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-2 grid md:grid-cols-4 gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>Size: {formatBytes(doc.size_bytes)}</span>
-                    <span>Chunks: {doc.chunk_count ?? "—"}</span>
-                    <span>
-                      Type: {doc.content_type || "Unknown"}{" "}
-                    </span>
-                    {doc._localOnly && (
-                      <span className="text-indigo-500 dark:text-indigo-300 font-medium">
-                        Session only
-                      </span>
-                    )}
+                    <span>Size: {formatBytes(doc.sizeBytes ?? doc.size_bytes)}</span>
+                    <span>Chunks: {doc.chunkCount ?? doc.chunk_count ?? "—"}</span>
+                    <span>Type: {doc.contentType || doc.content_type || "Unknown"}</span>
+                    <span>ID: {doc.id || "—"}</span>
                   </div>
                 </div>
               ))}
