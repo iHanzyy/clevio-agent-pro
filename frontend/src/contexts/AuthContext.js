@@ -5,6 +5,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { apiService } from "@/lib/api";
 
@@ -117,6 +118,7 @@ export function AuthProvider({ children }) {
     }
   });
   const [loading, setLoading] = useState(true);
+  const logoutRequestedRef = useRef(false);
 
   const persistUser = useCallback((updater) => {
     setUser((prev) => {
@@ -186,6 +188,13 @@ export function AuthProvider({ children }) {
 
   const checkAuth = useCallback(async () => {
     try {
+      if (logoutRequestedRef.current) {
+        logoutRequestedRef.current = false;
+        persistUser(null);
+        setLoading(false);
+        return;
+      }
+
       const hasSession = apiService.hasSessionToken();
       const hasApiKey = apiService.hasApiKey();
       const currentSessionToken =
@@ -366,7 +375,9 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   const login = async (email, password) => {
+    let loginSucceeded = false;
     try {
+      logoutRequestedRef.current = false;
       const response = await apiService.login(email, password);
 
       const sessionToken =
@@ -558,6 +569,7 @@ export function AuthProvider({ children }) {
         }
       }
 
+        loginSucceeded = true;
         return {
           success: true,
           is_active: isActive,
@@ -567,10 +579,16 @@ export function AuthProvider({ children }) {
       return { success: false, error: "Invalid credentials" };
     } catch (error) {
       return { success: false, error: error.message };
+    } finally {
+      if (!loginSucceeded) {
+        apiService.clearAllTokens();
+        persistUser(null);
+      }
     }
   };
 
   const logout = () => {
+    logoutRequestedRef.current = true;
     apiService.clearAllTokens();
     apiService.clearLastOrderId();
     if (typeof window !== "undefined") {

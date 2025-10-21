@@ -131,12 +131,7 @@ export default function AgentDetailPage() {
     }
 
     if (!agent?.id) {
-      setWhatsAppSessionInfo({
-        status: "inactive",
-        isActive: false,
-        qrImage: null,
-        qrUrl: null,
-      });
+      setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
       return;
     }
 

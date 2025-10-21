@@ -162,6 +162,7 @@ export default function Register() {
                 width={216}
                 height={122}
                 className="h-auto w-[216px]"
+                style={{ width: "auto", height: "auto" }}
                 priority
               />
             </div>

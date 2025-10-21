@@ -93,6 +93,12 @@ flowchart TD
 3. **Start / re-link** – Clicking “Scan WhatsApp QR” or “Re-link WhatsApp” sends a `POST /api/whatsapp-sessions` with `{ userId, agentId, agentName, Apikey }`. The response includes `qr.base64` or a URL which the UI renders as an image/deeplink.
 4. **Poll until connected** – While the service reports `awaiting_qr`, the frontend keeps polling `GET` every 5 s. Once `active` is returned, the UI promotes the status badge and polling stops automatically.
 5. **Manual refresh** – The “Refresh Status” button triggers another `GET`. To prevent flicker, the UI preserves the last active state if the service briefly responds with `inactive/not_found` without any new metadata.
+
+# Auth Flow Notes
+
+- Logging in calls `POST /auth/login` followed by `GET /auth/me` to hydrate the profile and infer plan/API keys. The provider caches the session in `sessionStorage` for instant reloads.
+- If authentication fails (bad credentials or inactive account), the provider clears any stored tokens and cached user data so refreshing the page doesn’t trigger `/auth/me` or `/auth/api-keys` calls.
+- Logging out sets a guard flag so the subsequent auth check skips network requests (`/auth/me`), clears tokens/keys, empties the cached user, and redirects to `/login`.
 # Document Upload Flow
 
 ```mermaid
