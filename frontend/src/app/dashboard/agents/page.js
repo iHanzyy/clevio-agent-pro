@@ -18,6 +18,8 @@ export default function AgentsPage() {
   const [whatsAppErrors, setWhatsAppErrors] = useState({});
   const [qrPreview, setQrPreview] = useState(null);
   const whatsAppPollMapRef = useRef({});
+  const whatsAppSessionsRef = useRef({});
+  const hydratedSessionsRef = useRef(false);
 
   const persistWhatsAppSession = useCallback((agentId, session) => {
     if (typeof window === "undefined") {
@@ -184,7 +186,7 @@ export default function AgentsPage() {
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && !hydratedSessionsRef.current) {
       const storedSessions = {};
       agents.forEach((agent) => {
         const key = `agent_whatsapp_session_${agent.id}`;
@@ -203,9 +205,11 @@ export default function AgentsPage() {
       if (Object.keys(storedSessions).length > 0) {
         setWhatsAppSessions((prev) => ({ ...storedSessions, ...prev }));
       }
+      hydratedSessionsRef.current = true;
     }
 
     if (!agents.length) {
+      hydratedSessionsRef.current = false;
       setWhatsAppSessions({});
       setWhatsAppErrors({});
       return;
@@ -238,7 +242,7 @@ export default function AgentsPage() {
       const nextErrors = {};
       results.forEach(({ agentId, info, error }) => {
         if (info) {
-          const previous = whatsAppSessions[agentId];
+          const previous = whatsAppSessionsRef.current[agentId];
           const statusValue = (info.status || "").toLowerCase();
           const shouldPreserveActive =
             previous?.isActive &&
@@ -289,13 +293,11 @@ export default function AgentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    agents,
-    clearAgentPoll,
-    persistWhatsAppSession,
-    scheduleAgentPoll,
-    whatsAppSessions,
-  ]);
+  }, [agents, clearAgentPoll, persistWhatsAppSession, scheduleAgentPoll]);
+
+  useEffect(() => {
+    whatsAppSessionsRef.current = whatsAppSessions;
+  }, [whatsAppSessions]);
 
   useEffect(() => () => {
     Object.keys(whatsAppPollMapRef.current).forEach((agentId) => {
