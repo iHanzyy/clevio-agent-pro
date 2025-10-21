@@ -304,7 +304,7 @@ If you have access to an already activated user account, use that email/password
     -H "Content-Type: application/json" \
     -d '{
           "name": "Updated Agent Name",
-          "status": "ACTIVE"
+          "status": "active"
         }'
   ```
 
@@ -347,7 +347,7 @@ If you have access to an already activated user account, use that email/password
 
 - **GET /** list tools (optional `tool_type`)
   ```bash
-  curl "$BASE_URL$API_PREFIX/tools?tool_type=CUSTOM" \
+  curl "$BASE_URL$API_PREFIX/tools?tool_type=custom" \
     -H "Authorization: Bearer $TOKEN"
   ```
 
@@ -367,7 +367,7 @@ If you have access to an already activated user account, use that email/password
             },
             "required": ["query"]
           },
-          "type": "CUSTOM"
+          "type": "custom"
         }'
   ```
 
@@ -428,9 +428,104 @@ curl -X POST "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
   -F "batch_size=50"
 ```
 
-This API converts files into plain text, removes distracting characters, splits the content into chunks, embeds each chunk into OpenAI, and stores the vectors in the `embeddings` table.
+Successful uploads return chunk statistics, embedding ids, and the `upload_id` used for future management:
+
+```json
+{
+  "message": "Document processed and embeddings stored.",
+  "chunks": 18,
+  "embedding_ids": [
+    "d5e9d4f6-4f2d-4a3b-861a-6b5430a96a16",
+    "..."
+  ],
+  "upload_id": "80b6ed2c-2d5d-4235-9e9f-9f9c1545b203"
+}
+```
 
 > **Troubleshooting:** Password-protected PDFs that use AES encryption require the backend to install the [`pycryptodome`](https://pypi.org/project/pycryptodome/) package. If you encounter the error `PyCryptodome is required for AES algorithm`, ask your administrator to add that dependency or upload an unencrypted document instead.
+
+### List Uploaded Files
+
+```bash
+curl "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
+  -H "Authorization: Bearer $TOKEN" \
+  | jq
+```
+
+The response includes every past upload (active and deleted). Example:
+
+```json
+{
+  "uploads": [
+    {
+      "id": "80b6ed2c-2d5d-4235-9e9f-9f9c1545b203",
+      "agent_id": "d3e9c51d-5a29-4d6f-94b9-88dbe3fbbbfc",
+      "filename": "report.pdf",
+      "content_type": "application/pdf",
+      "size_bytes": 482131,
+      "chunk_count": 18,
+      "embedding_ids": [
+        "d5e9d4f6-4f2d-4a3b-861a-6b5430a96a16",
+        "..."
+      ],
+      "details": {
+        "chunk_size": 400,
+        "chunk_overlap": 80,
+        "batch_size": 50,
+        "characters": 41523,
+        "adjusted": false
+      },
+      "is_deleted": false,
+      "deleted_at": null,
+      "created_at": "2025-10-20T06:12:01.145321+00:00",
+      "updated_at": "2025-10-20T06:12:01.145321+00:00"
+    }
+  ]
+}
+```
+
+### Delete an Uploaded File
+
+```bash
+curl -X DELETE "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents/$UPLOAD_ID" \
+  -H "Authorization: Bearer $TOKEN" \
+  | jq
+```
+
+Deleting marks the upload as `is_deleted: true` and removes generated embeddings in the same transaction.
+
+## WhatsApp Session Management (Frontend Proxy)
+
+The dashboard proxies WhatsApp linking through `/api/whatsapp-sessions` to avoid cross-origin requests. Use the same origin as your frontend (for example, `http://localhost:3000`) when calling these helpers.
+
+- **GET /api/whatsapp-sessions?agentId=...**
+  ```bash
+  curl "$FRONTEND_ORIGIN/api/whatsapp-sessions?agentId=$AGENT_ID"
+  ```
+  Responses normalise the upstream payload:
+  ```json
+  {
+    "status": "active",
+    "isActive": true,
+    "sessionId": "whatsapp-session-uuid",
+    "qrImage": null,
+    "updatedAt": "2025-10-20T04:03:07.765Z"
+  }
+  ```
+  When waiting for authentication the body includes `qrImage` (data URI) or `qrUrl`. The UI stores the latest payload in `sessionStorage` so refreshing the page keeps the displayed status.
+
+- **POST /api/whatsapp-sessions**
+  ```bash
+  curl -X POST "$FRONTEND_ORIGIN/api/whatsapp-sessions" \
+    -H "Content-Type: application/json" \
+    -d '{
+          "userId": "ca6d111a-2951-4c9b-a061-3789c2f76046",
+          "agentId": "841a92a1-078d-44fa-8bab-b23f0275aee6",
+          "agentName": "Jonson",
+          "Apikey": "<agent-api-key>"
+        }'
+  ```
+  The response contains the latest status along with any QR code (`qr.base64` + `qr.contentType`). The frontend polls `GET` every 5 s while the state is `awaiting_qr` and automatically stops once the service reports `active`.
 
 - **GET /schemas/{tool_name}**
   ```bash
