@@ -15,7 +15,8 @@ const buildWhatsAppUrl = (agentId = null) => {
   }
 
   const base =
-    typeof WHATSAPP_SESSIONS_URL === "string" && WHATSAPP_SESSIONS_URL.length > 0
+    typeof WHATSAPP_SESSIONS_URL === "string" &&
+    WHATSAPP_SESSIONS_URL.length > 0
       ? WHATSAPP_SESSIONS_URL
       : "/api/whatsapp-sessions";
 
@@ -121,7 +122,7 @@ class ApiService {
   setSessionToken(token) {
     console.log(
       "🔑 Setting session token:",
-      token ? "***" + token.slice(-10) : "null",
+      token ? "***" + token.slice(-10) : "null"
     );
     this.sessionToken = token || null;
     this.initialized = true;
@@ -134,7 +135,7 @@ class ApiService {
     }
     console.log(
       "🆔 Setting API key:",
-      token ? "***" + token.slice(-10) : "null",
+      token ? "***" + token.slice(-10) : "null"
     );
     this.apiKeyToken = token || null;
     this.initialized = true;
@@ -308,7 +309,7 @@ class ApiService {
         authType,
         " (fallback:",
         fallback,
-        ")",
+        ")"
       );
     }
 
@@ -430,7 +431,7 @@ class ApiService {
           "Cannot connect to server. Please check:\n" +
             "1. DevTunnel is running\n" +
             "2. Backend server is active on port 8000\n" +
-            "3. Check browser console for CORS errors",
+            "3. Check browser console for CORS errors"
         );
       }
 
@@ -504,7 +505,7 @@ class ApiService {
     if (!username && !useSessionAuth) {
       console.warn(
         "generateApiKey() invoked without username; backend may require credentials.",
-        { planCode },
+        { planCode }
       );
     }
 
@@ -524,7 +525,10 @@ class ApiService {
     };
 
     try {
-      response = await this.request("/auth/api-keys", requestWithSuppressedLogs);
+      response = await this.request(
+        "/auth/api-keys",
+        requestWithSuppressedLogs
+      );
     } catch (error) {
       const message = String(error?.message || "");
       const shouldRetry =
@@ -595,7 +599,7 @@ class ApiService {
 
     const planCode =
       planCandidates.find(
-        (value) => typeof value === "string" && value.trim().length > 0,
+        (value) => typeof value === "string" && value.trim().length > 0
       ) || null;
 
     const isActive =
@@ -668,6 +672,26 @@ class ApiService {
     return this.request("/auth/me", {
       authType,
       authFallback,
+      suppressErrorLog: true,
+    });
+  }
+
+  async checkGoogleAuthStatus({ method = "GET" } = {}) {
+    const verb =
+      typeof method === "string" && method.toUpperCase() === "GET"
+        ? "GET"
+        : "POST";
+
+    return this.request("/auth/google", {
+      method: verb,
+      authType: "session",
+      suppressErrorLog: true,
+    });
+  }
+
+  async listGoogleAuthTokens() {
+    return this.request("/auth/google", {
+      authType: "session",
       suppressErrorLog: true,
     });
   }
@@ -750,12 +774,11 @@ class ApiService {
         const message = String(error?.message || "");
         const methodNotAllowed =
           message.includes("405") || /method not allowed/i.test(message);
-        const notFound =
-          message.includes("404") || /not found/i.test(message);
+        const notFound = message.includes("404") || /not found/i.test(message);
 
         if (methodNotAllowed || notFound) {
           console.info(
-            `API endpoint ${endpoint} does not support listing keys; falling back`,
+            `API endpoint ${endpoint} does not support listing keys; falling back`
           );
           continue;
         }
@@ -769,9 +792,7 @@ class ApiService {
 
   async getInformationN8N(orderId, orderSuffix = null) {
     if (!orderId && !orderSuffix) {
-      console.warn(
-        "getInformationN8N invoked without orderId or orderSuffix",
-      );
+      console.warn("getInformationN8N invoked without orderId or orderSuffix");
       return null;
     }
 
@@ -800,7 +821,7 @@ class ApiService {
       throw new Error(
         detail?.error ||
           detail?.detail ||
-          `Failed to fetch payment status (${response.status})`,
+          `Failed to fetch payment status (${response.status})`
       );
     }
 
@@ -816,7 +837,7 @@ class ApiService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-      },
+      }
     );
 
     if (!response.ok) {
@@ -943,18 +964,15 @@ class ApiService {
       return {
         id: doc.id || doc.upload_id || doc.uploadId || null,
         filename: doc.filename || doc.name || "Unknown",
-        contentType: doc.content_type || doc.contentType || doc.mime_type || doc.mimeType || "Unknown",
+        contentType:
+          doc.content_type ||
+          doc.contentType ||
+          doc.mime_type ||
+          doc.mimeType ||
+          "Unknown",
         sizeBytes:
-          doc.size_bytes ??
-          doc.sizeBytes ??
-          doc.size ??
-          doc.file_size ??
-          null,
-        chunkCount:
-          doc.chunk_count ??
-          doc.chunkCount ??
-          doc.chunks ??
-          null,
+          doc.size_bytes ?? doc.sizeBytes ?? doc.size ?? doc.file_size ?? null,
+        chunkCount: doc.chunk_count ?? doc.chunkCount ?? doc.chunks ?? null,
         createdAt: doc.created_at || doc.createdAt || null,
         updatedAt: doc.updated_at || doc.updatedAt || null,
         details: doc.details || null,
@@ -1021,16 +1039,12 @@ class ApiService {
   async uploadAgentDocuments(
     agentId,
     files,
-    {
-      chunkSize = 400,
-      chunkOverlap = 80,
-      batchSize = 50,
-    } = {},
+    { chunkSize = 400, chunkOverlap = 80, batchSize = 50 } = {}
   ) {
     const headers = this.authHeader();
     const url = joinBaseAndEndpoint(
       this.baseUrl,
-      normalizeEndpoint(`/agents/${agentId}/documents`),
+      normalizeEndpoint(`/agents/${agentId}/documents`)
     );
 
     const uploadResults = [];
@@ -1178,7 +1192,8 @@ class ApiService {
       session.image ||
       null;
     const qrContentType =
-      (qrRecord && (qrRecord.contentType || qrRecord.mime_type || qrRecord.mimeType)) ||
+      (qrRecord &&
+        (qrRecord.contentType || qrRecord.mime_type || qrRecord.mimeType)) ||
       session.qr_content_type ||
       session.qrContentType ||
       session.image_type ||
@@ -1200,10 +1215,7 @@ class ApiService {
       }
     } else if (rawQrContent && typeof rawQrContent === "object") {
       const nestedBase64 =
-        rawQrContent.base64 ||
-        rawQrContent.data ||
-        rawQrContent.qr ||
-        null;
+        rawQrContent.base64 || rawQrContent.data || rawQrContent.qr || null;
       if (typeof nestedBase64 === "string") {
         qrImage = `data:${qrContentType};base64,${nestedBase64}`;
       }
@@ -1246,8 +1258,10 @@ class ApiService {
         session.agent_id ||
         session.agentId ||
         (sessionDetails &&
-          (sessionDetails.agentId || sessionDetails.userId || sessionDetails.plan)) ||
-        qrRecord,
+          (sessionDetails.agentId ||
+            sessionDetails.userId ||
+            sessionDetails.plan)) ||
+        qrRecord
     );
 
     return {
@@ -1284,7 +1298,7 @@ class ApiService {
       if (!response.ok) {
         const detail = await response.text();
         throw new Error(
-          detail || `Failed to fetch WhatsApp session (${response.status})`,
+          detail || `Failed to fetch WhatsApp session (${response.status})`
         );
       }
 
@@ -1299,7 +1313,7 @@ class ApiService {
         throw new Error(
           typeof payload.detail === "string"
             ? payload.detail
-            : JSON.stringify(payload.detail),
+            : JSON.stringify(payload.detail)
         );
       }
 
@@ -1310,15 +1324,10 @@ class ApiService {
     }
   }
 
-  async createWhatsAppSession({
-    userId,
-    agentId,
-    agentName,
-    apiKey,
-  } = {}) {
+  async createWhatsAppSession({ userId, agentId, agentName, apiKey } = {}) {
     if (!userId || !agentId || !apiKey) {
       throw new Error(
-        "WhatsApp session requires user ID, agent ID, and an API key.",
+        "WhatsApp session requires user ID, agent ID, and an API key."
       );
     }
 

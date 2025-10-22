@@ -5,10 +5,10 @@ The examples below assume the FastAPI server is running locally on port 8000. Up
 ```bash
 export BASE_URL="http://localhost:8000"
 export API_PREFIX="/api/v1"  # Adjust if you change API_V1_STR or router prefixes
-export TOKEN="paste-your-jwt-here"
+export TOKEN="paste-your-access-token-here"
 ```
 
-Use `$BASE_URL$API_PREFIX` as the base for all versioned endpoints and include `-H "Authorization: Bearer $TOKEN"` on routes that require authentication.
+`$TOKEN` should be the `access_token` value returned by the login or API key generation endpoints. Use `$BASE_URL$API_PREFIX` as the base for all versioned endpoints and include `-H "Authorization: Bearer $TOKEN"` on routes that require authentication.
 
 ## Updated Authentication Flow
 
@@ -97,7 +97,7 @@ If you have access to an already activated user account, use that email/password
   curl -X POST "$BASE_URL$API_PREFIX/auth/login?phone=%2B628123456789&password=changeme"
   ```
   The `password` query parameter accepts either a plaintext password or the stored bcrypt hash (prefix `$2b$12$` or legacy `$bcrypt-sha256$`). Passing the hash lets you authenticate without exposing the raw password when scripting.
-  A successful login response returns a JSON payload containing `jwt_token` (the bearer credential) and `token_type`.
+  A successful login response returns a JSON payload containing `access_token` (the bearer credential) and `token_type`.
 
 - **POST /register** (query parameters)
   ```bash
@@ -161,21 +161,14 @@ If you have access to an already activated user account, use that email/password
   ```
   Updates the authenticated user’s password. The `new_password` accepts plaintext or a bcrypt hash (preferred `$2b$12$…`, legacy `$bcrypt-sha256$…` still supported).
 
-- **POST /google/auth**
+- **GET /google**
   ```bash
-  curl -X POST "$BASE_URL$API_PREFIX/auth/google/auth" \
+  curl -X GET "$BASE_URL$API_PREFIX/auth/google" \
     -H "Authorization: Bearer $TOKEN"
   ```
-  This endpoint initiates Google OAuth authentication. It no longer requires a request body.
+  Initiates Google OAuth authentication or returns the latest token payload when already linked. No request body is required.
 
   **Note:** The system automatically handles scope changes from Google. When requesting `drive.file` scope, Google may add broader Drive scopes (`drive`, `drive.photos.readonly`, `drive.appdata`) which are accepted as long as all requested scopes are granted.
-
-- **GET /google/auth**
-  ```bash
-  curl -X GET "$BASE_URL$API_PREFIX/auth/google/auth" \
-    -H "Authorization: Bearer $TOKEN"
-  ```
-  GET method also available for clickable links.
 
 - **GET /google/callback**
   ```bash
@@ -186,7 +179,7 @@ If you have access to an already activated user account, use that email/password
 - **GET /me**
   ```bash
   curl "$BASE_URL$API_PREFIX/auth/me" \
-    -H "Authorization: Bearer $TOKEN"
+    -H "Authorization: Bearer $JWT_TOKEN"
   ```
   Returns user metadata along with the JWT or API key that was supplied in the request. If the token matches an API key, the response also includes the associated `plan_code`, making it easy to confirm which credential and plan are active.
 
@@ -529,7 +522,7 @@ If you encounter this error during Google authentication:
 **This is normal behavior.** Google automatically adds broader scopes when certain scopes (like `drive.file`) are requested. The system now handles these changes gracefully.
 
 **Solution:** The authentication should work automatically now. If it still fails:
-1. Try re-authenticating by calling `/api/v1/auth/google/auth` again
+1. Try re-authenticating by calling `/api/v1/auth/google` again
 2. Follow the OAuth flow completely
 3. The system will automatically handle scope differences
 

@@ -3,6 +3,60 @@
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+const GOOGLE_AUTH_TOOL_OVERRIDES = {
+  gmail: "Gmail",
+  calendar: "Google Calendar",
+};
+
+const normalizeToolId = (value) => (typeof value === "string" ? value : "")
+  .trim()
+  .toLowerCase();
+
+const titleCase = (input) =>
+  input
+    .split(/[^a-z0-9]+/gi)
+    .filter(Boolean)
+    .map((segment) => segment[0].toUpperCase() + segment.slice(1))
+    .join(" ");
+
+const isGoogleToolId = (toolId) => {
+  const normalized = normalizeToolId(toolId);
+  if (!normalized) {
+    return false;
+  }
+  if (normalized === "gmail" || normalized === "calendar") {
+    return true;
+  }
+  if (normalized.startsWith("gmail") || normalized.startsWith("calendar")) {
+    return true;
+  }
+  return normalized.includes("google");
+};
+
+const formatGoogleToolLabel = (toolId) => {
+  const normalized = normalizeToolId(toolId);
+  if (!normalized) {
+    return "Google Workspace";
+  }
+  if (GOOGLE_AUTH_TOOL_OVERRIDES[normalized]) {
+    return GOOGLE_AUTH_TOOL_OVERRIDES[normalized];
+  }
+  if (normalized.startsWith("gmail")) {
+    const suffix = normalized.slice("gmail".length).replace(/^[^a-z0-9]+/i, "");
+    return suffix ? `Gmail ${titleCase(suffix)}` : "Gmail";
+  }
+  if (normalized.startsWith("google")) {
+    const suffix = normalized
+      .slice("google".length)
+      .replace(/^[^a-z0-9]+/i, "");
+    return suffix ? `Google ${titleCase(suffix)}` : "Google";
+  }
+  if (normalized.includes("google")) {
+    return titleCase(normalized.replace(/google/gi, "Google"));
+  }
+  return titleCase(normalized);
+};
+
 const EMPTY_WHATSAPP_SESSION = {
   status: "inactive",
   isActive: false,
@@ -21,6 +75,7 @@ export default function AgentDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
+  const agentIdParam = params?.agentId || null;
 
   const [agent, setAgent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,8 +106,270 @@ export default function AgentDetailPage() {
   const whatsAppPollRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
 
-  const authUrl = searchParams?.get("authUrl");
-  const authState = searchParams?.get("authState");
+  const queryAuthUrl = searchParams?.get("authUrl") || null;
+  const queryAuthState = searchParams?.get("authState") || null;
+
+  const [googleAuthInfo, setGoogleAuthInfo] = useState(() => ({
+    agentId: agentIdParam,
+    status: queryAuthUrl ? "pending" : "idle",
+    authUrl: queryAuthUrl,
+    authState: queryAuthState,
+    tokens: [],
+    lastCheckedAt: null,
+  }));
+  const [googleAuthError, setGoogleAuthError] = useState("");
+  const [googleAuthChecking, setGoogleAuthChecking] = useState(false);
+  const googleAuthPollRef = useRef(null);
+  const googleAuthCheckingRef = useRef(false);
+
+  useEffect(() => {
+    const upcomingAuthUrl = queryAuthUrl || null;
+    const upcomingAuthState = queryAuthState || null;
+    const nextAgentId = agentIdParam;
+
+    setGoogleAuthInfo((previous) => {
+      const prevAgentId = previous?.agentId ?? null;
+      const prevAuthUrl = previous?.authUrl ?? null;
+      const prevAuthState = previous?.authState ?? null;
+
+      const hasAgentChanged = prevAgentId !== nextAgentId;
+      const hasAuthChanged =
+        prevAuthUrl !== upcomingAuthUrl || prevAuthState !== upcomingAuthState;
+
+      if (!hasAgentChanged && !hasAuthChanged) {
+        return previous;
+      }
+
+      if (
+        !hasAgentChanged &&
+        previous?.status === "connected" &&
+        !upcomingAuthUrl
+      ) {
+        if (
+          prevAuthUrl === null &&
+          prevAuthState === null &&
+          prevAgentId === nextAgentId
+        ) {
+          return previous;
+        }
+        return {
+          ...previous,
+          agentId: nextAgentId,
+          authUrl: null,
+          authState: null,
+        };
+      }
+
+      return {
+        agentId: nextAgentId,
+        status: upcomingAuthUrl ? "pending" : "idle",
+        authUrl: upcomingAuthUrl,
+        authState: upcomingAuthState,
+        tokens: [],
+        lastCheckedAt: null,
+      };
+    });
+
+    setGoogleAuthError("");
+  }, [agentIdParam, queryAuthUrl, queryAuthState]);
+
+  const agentToolIds = useMemo(() => {
+    const collected = new Set();
+
+    const addTool = (value) => {
+      const normalized = normalizeToolId(value);
+      if (normalized) {
+        collected.add(normalized);
+      }
+    };
+
+    const addFrom = (value) => {
+      if (!value) {
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach(addTool);
+        return;
+      }
+      if (typeof value === "string") {
+        addTool(value);
+        return;
+      }
+      if (typeof value === "object") {
+        Object.entries(value).forEach(([key, flag]) => {
+          if (flag) {
+            addTool(key);
+          }
+        });
+      }
+    };
+
+    addFrom(agent?.allowed_tools);
+    addFrom(agent?.allowedTools);
+    addFrom(agent?.tools);
+
+    return collected;
+  }, [agent]);
+
+  const googleToolIds = useMemo(
+    () => Array.from(agentToolIds).filter(isGoogleToolId),
+    [agentToolIds],
+  );
+
+  const requiresGoogleAuth = googleToolIds.length > 0;
+
+  const googleAuthStatus = googleAuthInfo.status;
+  const googleAuthPending = googleAuthStatus === "pending";
+  const googleAuthConnected = googleAuthStatus === "connected";
+  const googleAuthUrl = googleAuthConnected ? null : googleAuthInfo.authUrl;
+  const googleAuthTokens = Array.isArray(googleAuthInfo.tokens)
+    ? googleAuthInfo.tokens
+    : [];
+  const googleAuthPrimaryToken =
+    googleAuthTokens.length > 0 ? googleAuthTokens[0] : null;
+  const googleToolSummary = useMemo(() => {
+    const labels = googleToolIds.map(formatGoogleToolLabel);
+    return Array.from(new Set(labels)).join(", ");
+  }, [googleToolIds]);
+  const googleAuthAlertClasses = googleAuthConnected
+    ? "border-green-300 bg-green-50 text-green-800"
+    : googleAuthError
+      ? "border-red-300 bg-red-50 text-red-800"
+      : "border-yellow-300 bg-yellow-50 text-yellow-800";
+
+  const clearGoogleAuthPoll = useCallback(() => {
+    if (googleAuthPollRef.current) {
+      clearInterval(googleAuthPollRef.current);
+      googleAuthPollRef.current = null;
+    }
+  }, []);
+
+  const checkGoogleAuthStatus = useCallback(async () => {
+    if (!user || !requiresGoogleAuth) {
+      return null;
+    }
+    if (googleAuthCheckingRef.current) {
+      return null;
+    }
+
+    googleAuthCheckingRef.current = true;
+    setGoogleAuthChecking(true);
+    setGoogleAuthError("");
+
+    try {
+      const response = await apiService.checkGoogleAuthStatus();
+
+      if (Array.isArray(response?.tokens) && response.tokens.length > 0) {
+        const tokens = response.tokens;
+        setGoogleAuthInfo({
+          agentId: agentIdParam,
+          status: "connected",
+          authUrl: null,
+          authState: null,
+          tokens,
+          lastCheckedAt: Date.now(),
+        });
+        clearGoogleAuthPoll();
+
+        if (agentIdParam && (queryAuthUrl || queryAuthState)) {
+          router.replace(`/dashboard/agents/${agentIdParam}`);
+        }
+
+        return "connected";
+      }
+
+      if (response?.auth_url) {
+        setGoogleAuthInfo({
+          agentId: agentIdParam,
+          status: "pending",
+          authUrl: response.auth_url,
+          authState: response.auth_state || null,
+          tokens: [],
+          lastCheckedAt: Date.now(),
+        });
+        return "pending";
+      }
+
+      setGoogleAuthInfo((previous) => ({
+        agentId: agentIdParam,
+        status: previous?.status === "connected" ? "connected" : "pending",
+        authUrl:
+          previous?.status === "connected"
+            ? null
+            : previous?.authUrl || null,
+        authState:
+          previous?.status === "connected"
+            ? null
+            : previous?.authState || null,
+        tokens: previous?.status === "connected" ? previous.tokens : [],
+        lastCheckedAt: Date.now(),
+      }));
+
+      return "unknown";
+    } catch (err) {
+      const fallback =
+        err?.message ||
+        "Unable to verify Google authentication status right now.";
+      setGoogleAuthError(fallback);
+      return "error";
+    } finally {
+      googleAuthCheckingRef.current = false;
+      setGoogleAuthChecking(false);
+    }
+  }, [
+    user,
+    requiresGoogleAuth,
+    agentIdParam,
+    queryAuthUrl,
+    queryAuthState,
+    router,
+    clearGoogleAuthPoll,
+  ]);
+
+  useEffect(() => {
+    if (!requiresGoogleAuth || !user || authLoading) {
+      return;
+    }
+
+    if (googleAuthInfo.status !== "connected") {
+      void checkGoogleAuthStatus();
+    }
+  }, [
+    requiresGoogleAuth,
+    user,
+    authLoading,
+    googleAuthInfo.status,
+    checkGoogleAuthStatus,
+  ]);
+
+  useEffect(() => {
+    if (!requiresGoogleAuth || googleAuthInfo.status !== "pending") {
+      clearGoogleAuthPoll();
+      return;
+    }
+
+    if (!googleAuthPollRef.current) {
+      googleAuthPollRef.current = setInterval(() => {
+        void checkGoogleAuthStatus();
+      }, 5000);
+    }
+
+    return () => {
+      clearGoogleAuthPoll();
+    };
+  }, [
+    requiresGoogleAuth,
+    googleAuthInfo.status,
+    checkGoogleAuthStatus,
+    clearGoogleAuthPoll,
+  ]);
+
+  useEffect(
+    () => () => {
+      clearGoogleAuthPoll();
+    },
+    [clearGoogleAuthPoll],
+  );
 
 
   const getApiKeyForWhatsApp = useCallback(async () => {
@@ -322,21 +639,14 @@ export default function AgentDetailPage() {
 
   const capabilitySummary = useMemo(() => {
     const labels = [];
-    if (authUrl) {
-      labels.push("Gmail (authorization pending)");
-    }
-    if (
-      Array.isArray(agent?.allowed_tools) &&
-      agent.allowed_tools.includes("gmail") &&
-      !authUrl
-    ) {
-      labels.push("Gmail");
-    }
-    if (
-      Array.isArray(agent?.allowed_tools) &&
-      agent.allowed_tools.includes("calendar")
-    ) {
-      labels.push("Calendar");
+    if (googleToolIds.length > 0) {
+      const suffix = googleAuthPending ? " (authorization pending)" : "";
+      googleToolIds.forEach((toolId) => {
+        const label = formatGoogleToolLabel(toolId);
+        if (!labels.includes(label + suffix)) {
+          labels.push(label + suffix);
+        }
+      });
     }
     if (!labels.includes("WhatsApp")) {
       labels.push("WhatsApp");
@@ -345,7 +655,7 @@ export default function AgentDetailPage() {
       labels.push("Core agent capabilities");
     }
     return labels.join(", ");
-  }, [agent, authUrl]);
+  }, [googleToolIds, googleAuthPending]);
 
   const handleWhatsAppQr = async () => {
     if (!agent) {
@@ -715,26 +1025,66 @@ export default function AgentDetailPage() {
         </div>
       </div>
 
-      {authUrl && (
-        <div className="p-4 rounded-lg border border-yellow-300 bg-yellow-50 text-sm text-yellow-800">
-          <p className="font-semibold">
-            Action required: connect Google Workspace
-          </p>
-          <p className="mt-1">
-            This agent needs permission to use Gmail. Click the button below to
-            continue the Google authorization flow.
-          </p>
-          <a
-            href={authUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"
-          >
-            Continue with Google
-          </a>
-          {authState && (
-            <p className="mt-2 text-xs text-yellow-700">
-              Keep this window open until the Google authorization completes.
+      {requiresGoogleAuth && (
+        <div
+          className={`p-4 rounded-lg border text-sm ${googleAuthAlertClasses}`}
+        >
+          {googleAuthConnected ? (
+            <>
+              <p className="font-semibold">Google Workspace connected</p>
+              <p className="mt-1">
+                {googleToolSummary
+                  ? `${googleToolSummary} tools are ready to use with this account.`
+                  : "Google Workspace tools are ready to use with this account."}
+              </p>
+              {googleAuthPrimaryToken?.expires_at && (
+                <p className="mt-2 text-xs text-green-700">
+                  Access valid until{" "}
+                  {formatDateTime(googleAuthPrimaryToken.expires_at)}. Re-run
+                  the check if you need to refresh permissions later.
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="font-semibold">
+                Action required: connect Google Workspace
+              </p>
+              <p className="mt-1">
+                {googleToolSummary
+                  ? `This agent needs permission to use ${googleToolSummary}. Click the button below to continue the Google authorization flow.`
+                  : "This agent needs permission to use Google Workspace tools. Click the button below to continue the Google authorization flow."}
+              </p>
+              {googleAuthUrl && (
+                <a
+                  href={googleAuthUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"
+                >
+                  Continue with Google
+                </a>
+              )}
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => {
+                    void checkGoogleAuthStatus();
+                  }}
+                  disabled={googleAuthChecking}
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-semibold text-current disabled:opacity-60 disabled:cursor-not-allowed border border-current transition"
+                >
+                  {googleAuthChecking ? "Checking status..." : "Refresh status"}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-yellow-700">
+                Keep this window open. We will update the status automatically
+                once Google confirms the authorization.
+              </p>
+            </>
+          )}
+          {googleAuthError && (
+            <p className="mt-2 text-xs font-medium text-red-700">
+              {googleAuthError}
             </p>
           )}
         </div>
@@ -929,9 +1279,13 @@ export default function AgentDetailPage() {
             documents tab.
           </li>
           <li>
-            {authUrl
-              ? "Complete the Google authorization before running email tasks."
-              : "Connect additional tools or adjust agent settings at any time."}
+            {googleAuthConnected
+              ? "Run Google Workspace tasks immediately or connect additional tools at any time."
+              : googleAuthPending
+                ? "Complete the Google authorization before running Google Workspace tasks."
+                : requiresGoogleAuth
+                  ? "Refresh the Google authorization status once the Google flow completes."
+                  : "Connect additional tools or adjust agent settings at any time."}
           </li>
         </ul>
       </section>
