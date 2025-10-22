@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { apiService } from "@/lib/api";
@@ -11,14 +11,26 @@ const PLAN_OPTIONS = [
 ];
 
 export default function Payment() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryPlan = searchParams?.get("plan") || "";
+  const queryEmail = searchParams?.get("email") || "";
+  const queryUserId = searchParams?.get("user_id") || "";
+  const searchStatus = searchParams?.get("status");
+  const searchOrderId = searchParams?.get("order_id");
+  const transactionStatusQuery = searchParams?.get("transaction_status") || "";
   const [plans] = useState(PLAN_OPTIONS);
-  const [selectedPlan, setSelectedPlan] = useState("");
+  const [selectedPlan, setSelectedPlan] = useState(queryPlan);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [orderId, setOrderId] = useState("");
-  const [storedPlan, setStoredPlan] = useState("");
-  const [pendingRegistration, setPendingRegistration] = useState(null);
+  const [orderId, setOrderId] = useState(searchOrderId || "");
+  const [storedPlan, setStoredPlan] = useState(queryPlan);
+  const [pendingRegistration, setPendingRegistration] = useState(() =>
+    queryEmail && queryUserId
+      ? { email: String(queryEmail), user_id: String(queryUserId) }
+      : null,
+  );
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [statusState, setStatusState] = useState({
     state: "idle",
@@ -26,12 +38,9 @@ export default function Payment() {
   });
   const [statusError, setStatusError] = useState("");
   const [orderSuffix, setOrderSuffix] = useState(() => Date.now().toString());
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const searchStatus = searchParams?.get("status");
-  const searchOrderId = searchParams?.get("order_id");
   const { user, loading: authLoading, updateSubscription, applySubscription } =
     useAuth();
+  const hasRedirectedRef = useRef(false);
 
   const extractPlanFromOrderId = (value) => {
     if (!value || typeof value !== "string") {
@@ -45,13 +54,6 @@ export default function Payment() {
     (candidateOrderId) => {
       if (storedPlan) return storedPlan;
       if (selectedPlan) return selectedPlan;
-      if (typeof window !== "undefined") {
-        const pendingPlanCode = sessionStorage.getItem("pending_plan_code");
-        if (pendingPlanCode) {
-          setStoredPlan(pendingPlanCode);
-          return pendingPlanCode;
-        }
-      }
       return extractPlanFromOrderId(candidateOrderId);
     },
     [selectedPlan, storedPlan],
@@ -65,11 +67,7 @@ export default function Payment() {
       setIsFinalizing(true);
 
       try {
-        const sessionOrderId =
-          typeof window !== "undefined"
-            ? sessionStorage.getItem("pending_order_id")
-            : null;
-        const effectiveOrderId = latestOrderId || sessionOrderId || null;
+        const effectiveOrderId = latestOrderId || orderId || null;
         const planCodeOverride =
           overrides.planCode || resolvePendingPlan(effectiveOrderId);
 
@@ -94,13 +92,6 @@ export default function Payment() {
             });
           }
 
-          if (typeof window !== "undefined") {
-            sessionStorage.removeItem("pending_registration");
-            sessionStorage.removeItem("pending_plan_code");
-            sessionStorage.removeItem("pending_order_id");
-            sessionStorage.removeItem("pending_order_suffix");
-          }
-
           setOrderId("");
           setOrderSuffix(Date.now().toString());
           setStoredPlan("");
@@ -110,41 +101,16 @@ export default function Payment() {
             state: "success",
             message: "Payment successful! Taking you to your dashboard.",
           });
+          hasRedirectedRef.current = true;
           router.replace("/dashboard");
           return;
         }
 
-        let loginEmail = pendingRegistration?.email || null;
-        if (typeof window !== "undefined") {
-          if (!loginEmail) {
-            try {
-              const storedRegistration =
-                sessionStorage.getItem("pending_registration");
-              if (storedRegistration) {
-                const parsed = JSON.parse(storedRegistration);
-                if (parsed?.email && !loginEmail) {
-                  loginEmail = parsed.email;
-                }
-              }
-            } catch (err) {
-              console.warn(
-                "Unable to read pending registration details before cleanup",
-                err,
-              );
-            }
-          }
-
-          if (loginEmail) {
-            sessionStorage.setItem("payment_last_email", loginEmail);
-          }
-
-          sessionStorage.removeItem("pending_registration");
-          sessionStorage.removeItem("pending_plan_code");
-          sessionStorage.removeItem("pending_order_id");
-          sessionStorage.removeItem("pending_order_suffix");
-          sessionStorage.setItem("payment_settlement_status", "settlement");
-        }
-
+        const loginEmail =
+          overrides.email ||
+          pendingRegistration?.email ||
+          queryEmail ||
+          "";
         setOrderId("");
         setOrderSuffix(Date.now().toString());
         setStoredPlan("");
@@ -154,7 +120,12 @@ export default function Payment() {
           state: "success",
           message: "Payment settled! Please log in to continue.",
         });
-        router.replace("/login?settlement=1");
+        const loginParams = new URLSearchParams({ settlement: "1" });
+        if (loginEmail) {
+          loginParams.set("email", loginEmail);
+        }
+        hasRedirectedRef.current = true;
+        router.replace(`/login?${loginParams.toString()}`);
       } finally {
         setIsFinalizing(false);
       }
@@ -162,7 +133,9 @@ export default function Payment() {
     [
       applySubscription,
       isFinalizing,
+      orderId,
       pendingRegistration,
+      queryEmail,
       resolvePendingPlan,
       router,
       updateSubscription,
@@ -171,31 +144,60 @@ export default function Payment() {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
+    if (queryEmail && queryUserId) {
+      setPendingRegistration({
+        email: String(queryEmail),
+        user_id: String(queryUserId),
+      });
     }
-    try {
-      const stored = sessionStorage.getItem("pending_registration");
-      if (stored) {
-        setPendingRegistration(JSON.parse(stored));
-      }
-      const pendingPlanCode = sessionStorage.getItem("pending_plan_code");
-      if (pendingPlanCode) {
-        setStoredPlan(pendingPlanCode);
-        apiService.setPlanCode(pendingPlanCode);
-      }
-      const storedSuffix = sessionStorage.getItem("pending_order_suffix");
-      if (storedSuffix) {
-        setOrderSuffix(storedSuffix);
-      }
-      if (!searchOrderId) {
-        sessionStorage.removeItem("pending_order_id");
-      }
-    } catch (err) {
-      console.warn("Failed to load pending registration", err);
-      setPendingRegistration(null);
+    if (queryPlan) {
+      setStoredPlan(queryPlan);
+      apiService.setPlanCode(queryPlan);
     }
-  }, [searchOrderId]);
+    if (searchOrderId) {
+      setOrderId(searchOrderId);
+      apiService.setLastOrderId(searchOrderId);
+    }
+  }, [queryEmail, queryPlan, queryUserId, searchOrderId]);
+
+  const isSettled = useCallback((transaction, raw) => {
+    const candidates = [
+      transaction?.transaction_status,
+      raw?.transaction_status,
+      transaction?.status,
+      raw?.status,
+      transaction?.payment_status,
+      raw?.payment_status,
+    ];
+
+    for (const value of candidates) {
+      if (value === true) {
+        return true;
+      }
+      if (typeof value === "string" && value.trim()) {
+        const normalized = value.trim().toLowerCase();
+        if (
+          [
+            "settlement",
+            "capture",
+            "settled",
+            "success",
+            "paid",
+            "paid_off",
+            "payment_successful",
+          ].includes(normalized)
+        ) {
+          return true;
+        }
+      }
+    }
+
+    if (transaction?.success === true || raw?.success === true) {
+      return true;
+    }
+
+    return false;
+  }, []);
 
   const fetchTransactionStatus = useCallback(async () => {
     try {
@@ -299,9 +301,6 @@ export default function Payment() {
           transaction?.order_id || raw?.order_id || raw?.orderId || null;
         if (!orderId && derivedOrderId) {
           setOrderId(derivedOrderId);
-          if (typeof window !== "undefined") {
-            sessionStorage.setItem("pending_order_id", derivedOrderId);
-          }
           apiService.setLastOrderId(derivedOrderId);
         }
 
@@ -313,7 +312,8 @@ export default function Payment() {
 
         if (
           transactionStatus === "settlement" ||
-          transactionStatus === "capture"
+          transactionStatus === "capture" ||
+          isSettled(transaction, raw)
         ) {
           await finalizeSuccess(derivedOrderId ?? orderId);
           return;
@@ -322,7 +322,8 @@ export default function Payment() {
         if (
           transactionStatus &&
           transactionStatus !== "settlement" &&
-          transactionStatus !== "capture"
+          transactionStatus !== "capture" &&
+          !isSettled(transaction, raw)
         ) {
           if (!silent) {
             setStatusState({ state: "idle", message: "" });
@@ -355,6 +356,7 @@ export default function Payment() {
       orderId,
       finalizeSuccess,
       pendingRegistration,
+      isSettled,
       user,
     ],
   );
@@ -365,8 +367,8 @@ export default function Payment() {
     }
     if (user?.subscription?.is_active) {
       const cachedOrder =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("pending_order_id")
+        typeof apiService.getLastOrderId === "function"
+          ? apiService.getLastOrderId()
           : null;
       const activeOrderId = orderId || cachedOrder || null;
       if (!activeOrderId) {
@@ -381,14 +383,15 @@ export default function Payment() {
       return;
     }
 
-    if (typeof window !== "undefined") {
-      const storedOrderId = sessionStorage.getItem("pending_order_id");
-      if (storedOrderId && !orderId) {
-        setOrderId(storedOrderId);
-        apiService.setLastOrderId(storedOrderId);
-      } else if (searchOrderId && !orderId) {
-        setOrderId(searchOrderId);
-        apiService.setLastOrderId(searchOrderId);
+    if (!orderId) {
+      const rememberedOrderId =
+        searchOrderId ||
+        (typeof apiService.getLastOrderId === "function"
+          ? apiService.getLastOrderId()
+          : null);
+      if (rememberedOrderId) {
+        setOrderId(rememberedOrderId);
+        apiService.setLastOrderId(rememberedOrderId);
       }
     }
 
@@ -404,6 +407,34 @@ export default function Payment() {
     orderId,
     finalizeSuccess,
     resolvePendingPlan,
+  ]);
+
+  useEffect(() => {
+    if (hasRedirectedRef.current) {
+      return;
+    }
+    const normalized = transactionStatusQuery.toLowerCase();
+    if (
+      normalized &&
+      ["settlement", "capture", "success", "paid", "paid_off"].includes(
+        normalized,
+      )
+    ) {
+      const effectiveOrderId = searchOrderId || orderId || null;
+      const planCodeOverride = resolvePendingPlan(effectiveOrderId);
+      void finalizeSuccess(effectiveOrderId, {
+        planCode: planCodeOverride,
+        email: pendingRegistration?.email || queryEmail || "",
+      });
+    }
+  }, [
+    finalizeSuccess,
+    orderId,
+    pendingRegistration?.email,
+    queryEmail,
+    resolvePendingPlan,
+    searchOrderId,
+    transactionStatusQuery,
   ]);
 
   useEffect(() => {
@@ -456,10 +487,6 @@ export default function Payment() {
         source: "frontend",
       };
 
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("pending_plan_code", selectedPlan);
-        sessionStorage.setItem("pending_order_suffix", uniqueSuffix);
-      }
       setStoredPlan(selectedPlan);
       apiService.setPlanCode(selectedPlan);
 
@@ -497,12 +524,10 @@ export default function Payment() {
         (webhookResponse?.success === true &&
           normalizedTransactionStatus === "settlement");
       if (generatedOrderId) {
-        sessionStorage.setItem("pending_order_id", generatedOrderId);
         setOrderId(generatedOrderId);
         apiService.setLastOrderId(generatedOrderId);
       } else {
         setOrderId("");
-        sessionStorage.removeItem("pending_order_id");
         apiService.clearLastOrderId();
       }
 

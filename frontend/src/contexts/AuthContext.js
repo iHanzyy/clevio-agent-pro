@@ -8,8 +8,6 @@ import {
   useRef,
 } from "react";
 import { apiService } from "@/lib/api";
-
-const STORAGE_KEY = "auth_user";
 const AuthContext = createContext();
 
 const isNonEmptyString = (value) =>
@@ -107,30 +105,26 @@ const resolveApiKey = (...inputs) => {
   return null;
 };
 
+const shouldDeferAuthCheck = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  const pathname = window.location.pathname || "";
+  return (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/payment")
+  );
+};
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const stored = sessionStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : null;
-    } catch (_err) {
-      return null;
-    }
-  });
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const logoutRequestedRef = useRef(false);
 
   const persistUser = useCallback((updater) => {
     setUser((prev) => {
-      const next = typeof updater === "function" ? updater(prev) : updater;
-      if (typeof window !== "undefined") {
-        if (next) {
-          sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-        } else {
-          sessionStorage.removeItem(STORAGE_KEY);
-        }
-      }
-      return next;
+      return typeof updater === "function" ? updater(prev) : updater;
     });
   }, []);
 
@@ -195,19 +189,21 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      const hasSession = apiService.hasSessionToken();
+      const hasSessionToken = apiService.hasSessionToken();
       const hasApiKey = apiService.hasApiKey();
-      const currentSessionToken =
-        apiService.getAuthToken?.({ primary: "session" }) || null;
-
-      if (!hasSession && !hasApiKey) {
-        persistUser(null);
+      if (shouldDeferAuthCheck() && !hasSessionToken && !hasApiKey) {
         setLoading(false);
         return;
       }
 
+      const currentSessionToken =
+        apiService.getAuthToken?.({ primary: "session" }) || null;
+
       const profile = await apiService.getCurrentUser().catch((err) => {
-        console.warn("Unable to load profile", err);
+        const message = String(err?.message || "").toLowerCase();
+        if (!message.includes("not authenticated")) {
+          console.warn("Unable to load profile", err);
+        }
         return null;
       });
       if (!profile) {
@@ -362,7 +358,10 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (error) {
-      console.warn("Auth check failed", error);
+      const message = String(error?.message || "").toLowerCase();
+      if (!message.includes("unable to refresh session")) {
+        console.warn("Auth check failed", error);
+      }
       apiService.clearAllTokens();
       persistUser(null);
     } finally {
@@ -385,140 +384,151 @@ export function AuthProvider({ children }) {
         response?.accessToken ??
         response?.token ??
         response?.jwt ??
+        response?.jwt_token ??
+        response?.data?.jwt_token ??
         response?.data?.access_token ??
         response?.data?.token ??
         null;
-
       if (sessionToken) {
         apiService.setSessionToken(sessionToken);
+      }
 
-        let profile = null;
+      let profile = null;
+      try {
+        profile = await apiService.getCurrentUser();
+      } catch (profileError) {
+        console.warn("Unable to fetch profile after login", profileError);
+      }
+
+      let subscription = response?.subscription || null;
+
+      if (!subscription || !subscription.plan_code) {
         try {
-          profile = await apiService.getCurrentUser();
-        } catch (profileError) {
-          console.warn("Unable to fetch profile after login", profileError);
-        }
-
-        let subscription = response?.subscription || null;
-
-        if (!subscription || !subscription.plan_code) {
-          try {
-            const refreshed = await apiService.getSubscriptionStatus();
-            if (refreshed) {
-              subscription = {
-                ...(subscription || {}),
-                ...refreshed,
-              };
-            }
-          } catch (subscriptionError) {
-            console.warn(
-              "Unable to fetch subscription after login",
-              subscriptionError,
-            );
+          const refreshed = await apiService.getSubscriptionStatus();
+          if (refreshed) {
+            subscription = {
+              ...(subscription || {}),
+              ...refreshed,
+            };
           }
+        } catch (subscriptionError) {
+          console.warn(
+            "Unable to fetch subscription after login",
+            subscriptionError,
+          );
         }
+      }
 
-        const isSubscriptionActive =
-          subscription?.is_active ??
-          subscription?.isActive ??
-          profile?.is_active ??
-          profile?.isActive ??
-          response?.is_active ??
-          response?.isActive;
+      const backendDeclaredSuccess =
+        response?.success === true ||
+        response?.status === "success" ||
+        response?.detail === "login successful";
 
-        const planCodeFromSources =
-          resolvePlanCode(
-            subscription,
-            subscription?.plan,
-            subscription?.subscription,
-            response,
-            response?.plan,
-            response?.subscription,
-            profile,
-          ) || apiService.getPlanCode?.() || null;
+      if (!sessionToken && !profile && !backendDeclaredSuccess) {
+        return { success: false, error: "Invalid credentials" };
+      }
 
-        if (planCodeFromSources) {
-          apiService.setPlanCode(planCodeFromSources);
-          if (subscription && !subscription.plan_code) {
-            subscription.plan_code = planCodeFromSources;
-          }
-        }
+      const isSubscriptionActive =
+        subscription?.is_active ??
+        subscription?.isActive ??
+        profile?.is_active ??
+        profile?.isActive ??
+        response?.is_active ??
+        response?.isActive;
 
-        const inheritedApiKey = resolveApiKey(
+      const planCodeFromSources =
+        resolvePlanCode(
           subscription,
-          subscription?.api_keys,
+          subscription?.plan,
           subscription?.subscription,
           response,
-          response?.api_keys,
+          response?.plan,
           response?.subscription,
           profile,
-        );
+        ) || apiService.getPlanCode?.() || null;
 
-        if (inheritedApiKey && inheritedApiKey !== sessionToken) {
-          apiService.setApiKey(inheritedApiKey);
-        } else if (!apiService.hasApiKey()) {
-          console.warn("No API key supplied during login; checking vault");
-          try {
-            const existingKeys = await apiService.listApiKeys();
-            const activeKey =
-              existingKeys.find(
-                (item) => item?.is_active ?? item?.isActive ?? false,
-              ) || existingKeys[0];
-            const resolvedKey =
-              activeKey?.access_token ||
-              activeKey?.api_key ||
-              activeKey?.token ||
-              activeKey?.accessToken ||
-              activeKey?.apiKey ||
-              null;
-            if (resolvedKey && resolvedKey !== sessionToken) {
-              apiService.setApiKey(resolvedKey);
-            }
-          } catch (apiKeyListError) {
-            console.warn("Unable to load existing API keys", apiKeyListError);
-          }
+      if (planCodeFromSources) {
+        apiService.setPlanCode(planCodeFromSources);
+        if (subscription && !subscription.plan_code) {
+          subscription.plan_code = planCodeFromSources;
         }
+      }
 
-        const isActive = profile?.is_active ?? true;
-        const nextUser = {
-          email: profile?.email || email,
-          user_id: profile?.id || response.user_id,
+      const inheritedApiKey = resolveApiKey(
+        subscription,
+        subscription?.api_keys,
+        subscription?.subscription,
+        response,
+        response?.api_keys,
+        response?.subscription,
+        profile,
+      );
+
+      if (inheritedApiKey && inheritedApiKey !== sessionToken) {
+        apiService.setApiKey(inheritedApiKey);
+      } else if (!apiService.hasApiKey()) {
+        console.warn("No API key supplied during login; checking vault");
+        try {
+          const existingKeys = await apiService.listApiKeys();
+          const activeKey =
+            existingKeys.find(
+              (item) => item?.is_active ?? item?.isActive ?? false,
+            ) || existingKeys[0];
+          const resolvedKey =
+            activeKey?.access_token ||
+            activeKey?.api_key ||
+            activeKey?.token ||
+            activeKey?.accessToken ||
+            activeKey?.apiKey ||
+            null;
+          if (resolvedKey && resolvedKey !== sessionToken) {
+            apiService.setApiKey(resolvedKey);
+          }
+        } catch (apiKeyListError) {
+          console.warn("Unable to load existing API keys", apiKeyListError);
+        }
+      }
+
+      const isActive = profile?.is_active ?? true;
+      const nextUser = {
+        email: profile?.email || email,
+        user_id: profile?.id || response.user_id,
+        is_active: isSubscriptionActive ?? isActive,
+        subscription: {
           is_active: isSubscriptionActive ?? isActive,
-          subscription: {
-            is_active: isSubscriptionActive ?? isActive,
-            plan_code:
-              planCodeFromSources ||
-              subscription?.plan_code ||
-              subscription?.planCode ||
-              response?.plan_code ||
-              response?.planCode ||
-              profile?.subscription_plan ||
-              profile?.subscriptionPlan ||
-              null,
-            expires_at:
-              subscription?.expires_at ||
-              subscription?.expiresAt ||
-              response?.expires_at ||
-              response?.expiresAt ||
-              null,
-            days_remaining:
-              subscription?.days_remaining ||
-              subscription?.daysRemaining ||
-              response?.days_remaining ||
-              response?.daysRemaining ||
-              null,
-            api_key: inheritedApiKey || null,
-          },
-        };
-        persistUser(nextUser);
+          plan_code:
+            planCodeFromSources ||
+            subscription?.plan_code ||
+            subscription?.planCode ||
+            response?.plan_code ||
+            response?.planCode ||
+            profile?.subscription_plan ||
+            profile?.subscriptionPlan ||
+            null,
+          expires_at:
+            subscription?.expires_at ||
+            subscription?.expiresAt ||
+            response?.expires_at ||
+            response?.expiresAt ||
+            null,
+          days_remaining:
+            subscription?.days_remaining ||
+            subscription?.daysRemaining ||
+            response?.days_remaining ||
+            response?.daysRemaining ||
+            null,
+          api_key: inheritedApiKey || null,
+        },
+      };
+      persistUser(nextUser);
 
-        applySubscription({
-          is_active: nextUser.subscription.is_active,
-          plan_code: nextUser.subscription.plan_code,
-          expires_at: nextUser.subscription.expires_at,
-          days_remaining: nextUser.subscription.days_remaining,
-          api_key: nextUser.subscription.api_key,
-        });
+      applySubscription({
+        is_active: nextUser.subscription.is_active,
+        plan_code: nextUser.subscription.plan_code,
+        expires_at: nextUser.subscription.expires_at,
+        days_remaining: nextUser.subscription.days_remaining,
+        api_key: nextUser.subscription.api_key,
+      });
 
       if (!apiService.hasApiKey()) {
         const fallbackPlanCode =
@@ -569,14 +579,11 @@ export function AuthProvider({ children }) {
         }
       }
 
-        loginSucceeded = true;
-        return {
-          success: true,
-          is_active: isActive,
-        };
-      }
-
-      return { success: false, error: "Invalid credentials" };
+      loginSucceeded = true;
+      return {
+        success: true,
+        is_active: isActive,
+      };
     } catch (error) {
       return { success: false, error: error.message };
     } finally {
@@ -591,15 +598,6 @@ export function AuthProvider({ children }) {
     logoutRequestedRef.current = true;
     apiService.clearAllTokens();
     apiService.clearLastOrderId();
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("pending_credentials");
-      sessionStorage.removeItem("pending_plan_code");
-      sessionStorage.removeItem("pending_order_id");
-      sessionStorage.removeItem("pending_registration");
-      sessionStorage.removeItem("pending_order_suffix");
-      sessionStorage.removeItem("payment_settlement_status");
-      sessionStorage.removeItem("payment_last_email");
-    }
     persistUser(null);
   };
 

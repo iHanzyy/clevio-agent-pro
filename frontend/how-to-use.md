@@ -47,14 +47,15 @@ if echo "$API_KEY_RESPONSE" | jq -e '.access_token' > /dev/null 2>&1; then
 
     # Use the token for authenticated requests
     curl -H "Authorization: Bearer $TOKEN" "$BASE_URL$API_PREFIX/auth/me"
-    # Response includes user profile fields and echoes the same access token.
+    # Response includes user profile fields, echoes the same token, and reports the plan code when an API key is used.
     # Example:
     # {
     #   "id": "0a1b2c3d-....",
     #   "email": "newuser@example.com",
     #   "is_active": true,
     #   "created_at": "2024-06-03T11:22:33.123456",
-    #   "access_token": "..."  # Matches $TOKEN
+    #   "access_token": "...",  # Matches $TOKEN
+    #   "plan_code": "PRO_M"
     # }
 else
     echo "API key generation failed: $API_KEY_RESPONSE"
@@ -95,6 +96,8 @@ If you have access to an already activated user account, use that email/password
   # Login with phone number (digits with optional +). identifier= takes precedence over email/phone.
   curl -X POST "$BASE_URL$API_PREFIX/auth/login?phone=%2B628123456789&password=changeme"
   ```
+  The `password` query parameter accepts either a plaintext password or the stored bcrypt hash (prefix `$2b$12$` or legacy `$bcrypt-sha256$`). Passing the hash lets you authenticate without exposing the raw password when scripting.
+  A successful login response returns a JSON payload containing `jwt_token` (the bearer credential) and `token_type`.
 
 - **POST /register** (query parameters)
   ```bash
@@ -185,13 +188,14 @@ If you have access to an already activated user account, use that email/password
   curl "$BASE_URL$API_PREFIX/auth/me" \
     -H "Authorization: Bearer $TOKEN"
   ```
-  Returns user metadata along with the JWT access token that was supplied in the request. This makes it easy to confirm which key or login session you're currently using.
+  Returns user metadata along with the JWT or API key that was supplied in the request. If the token matches an API key, the response also includes the associated `plan_code`, making it easy to confirm which credential and plan are active.
 
-- **GET /tokens**
+- **GET /google**
   ```bash
-  curl "$BASE_URL$API_PREFIX/auth/tokens" \
+  curl "$BASE_URL$API_PREFIX/auth/google" \
     -H "Authorization: Bearer $TOKEN"
   ```
+  Lists every stored auth token for the signed-in user. Look for entries where `service` is `google` to confirm a Google account has been linked and to inspect granted scopes and expirations.
 
 ## Agent Routes (`$API_PREFIX/agents`)
 
@@ -409,15 +413,17 @@ If you have access to an already activated user account, use that email/password
     -d '{
           "tool_id": "TOOL_ID",
           "parameters": {
-            "query": "latest unread",
-            "max_results": 10
+            "directory": "/data/reports",
+            "pattern": "*.csv",
+            "recursive": true
           }
         }'
   ```
+  The execution payload is routed to the registered tool. Built-in tools include file utilities (`csv`, `json`, `file_list`) in addition to Google Workspace integrations.
 
-## Document Upload (`$API_PREFIX/agents/{agent_id}/documents`)
+## Document Ingestion (`$API_PREFIX/agents/{agent_id}/documents`)
 
-Upload knowledge files so that agents can refer to them later. Supported formats: `pdf`, `docx`, `pptx`, `txt`.
+Upload knowledge files so an agent can reference them later. Supported formats: `pdf`, `docx`, `pptx`, `txt`.
 
 ```bash
 curl -X POST "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
@@ -428,7 +434,7 @@ curl -X POST "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
   -F "batch_size=50"
 ```
 
-Successful uploads return chunk statistics, embedding ids, and the `upload_id` used for future management:
+Successful uploads return chunk statistics, embedding ids, and a unique `upload_id`:
 
 ```json
 {
@@ -442,9 +448,9 @@ Successful uploads return chunk statistics, embedding ids, and the `upload_id` u
 }
 ```
 
-> **Troubleshooting:** Password-protected PDFs that use AES encryption require the backend to install the [`pycryptodome`](https://pypi.org/project/pycryptodome/) package. If you encounter the error `PyCryptodome is required for AES algorithm`, ask your administrator to add that dependency or upload an unencrypted document instead.
-
 ### List Uploaded Files
+
+Every ingestion is logged for easier management. Use the new history endpoint to review uploads (active and deleted):
 
 ```bash
 curl "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
@@ -452,9 +458,7 @@ curl "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents" \
   | jq
 ```
 
-> **Note:** Supply an active API key in `$TOKEN`. Session JWTs returned by `/auth/login` do not have permission to access the document-history endpoints.
-
-The response includes every past upload (active and deleted). Example:
+Response shape:
 
 ```json
 {
@@ -488,46 +492,15 @@ The response includes every past upload (active and deleted). Example:
 
 ### Delete an Uploaded File
 
+To remove the original upload and its associated embeddings, call:
+
 ```bash
 curl -X DELETE "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents/$UPLOAD_ID" \
   -H "Authorization: Bearer $TOKEN" \
   | jq
 ```
 
-Deleting marks the upload as `is_deleted: true` and removes generated embeddings in the same transaction.
-
-## WhatsApp Session Management (Frontend Proxy)
-
-The dashboard proxies WhatsApp linking through `/api/whatsapp-sessions` to avoid cross-origin requests. Use the same origin as your frontend (for example, `http://localhost:3000`) when calling these helpers.
-
-- **GET /api/whatsapp-sessions?agentId=...**
-  ```bash
-  curl "$FRONTEND_ORIGIN/api/whatsapp-sessions?agentId=$AGENT_ID"
-  ```
-  Responses normalise the upstream payload:
-  ```json
-  {
-    "status": "active",
-    "isActive": true,
-    "sessionId": "whatsapp-session-uuid",
-    "qrImage": null,
-    "updatedAt": "2025-10-20T04:03:07.765Z"
-  }
-  ```
-  When waiting for authentication the body includes `qrImage` (data URI) or `qrUrl`. The UI stores the latest payload in `sessionStorage` so refreshing the page keeps the displayed status.
-
-- **POST /api/whatsapp-sessions**
-  ```bash
-  curl -X POST "$FRONTEND_ORIGIN/api/whatsapp-sessions" \
-    -H "Content-Type: application/json" \
-    -d '{
-          "userId": "ca6d111a-2951-4c9b-a061-3789c2f76046",
-          "agentId": "841a92a1-078d-44fa-8bab-b23f0275aee6",
-          "agentName": "Jonson",
-          "Apikey": "<agent-api-key>"
-        }'
-  ```
-  The response contains the latest status along with any QR code (`qr.base64` + `qr.contentType`). The frontend polls `GET` every 5 s while the state is `awaiting_qr` and automatically stops once the service reports `active`.
+The response echoes the upload record with `is_deleted` set to `true`. Embeddings created from the upload are removed inside the same transaction.
 
 - **GET /schemas/{tool_name}**
   ```bash

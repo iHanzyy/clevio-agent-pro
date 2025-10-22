@@ -1,8 +1,4 @@
 const DEFAULT_API_BASE_URL = "/api/proxy";
-const SESSION_TOKEN_KEY = "auth_session_token";
-const API_KEY_STORAGE_KEY = "auth_api_key_token";
-const LAST_ORDER_ID_KEY = "payment_last_order_id";
-const LAST_PLAN_CODE_KEY = "auth_plan_code";
 const WHATSAPP_SESSIONS_URL = "/api/whatsapp-sessions";
 
 const buildWhatsAppUrl = (agentId = null) => {
@@ -114,36 +110,7 @@ class ApiService {
     this.initialized = false;
     this.lastOrderId = null;
     this.lastPlanCode = null;
-
-    console.log("🔑 Checking stored tokens");
-    if (typeof window !== "undefined") {
-      const savedSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
-      const legacyToken = sessionStorage.getItem("auth_token");
-      const savedApiKey =
-        sessionStorage.getItem(API_KEY_STORAGE_KEY) || legacyToken;
-      const savedOrderId = sessionStorage.getItem(LAST_ORDER_ID_KEY);
-      const savedPlanCode = sessionStorage.getItem(LAST_PLAN_CODE_KEY);
-
-      if (savedSession) {
-        this.sessionToken = savedSession;
-        this.initialized = true;
-        console.log("🔑 Session token loaded from storage");
-      }
-
-      if (savedApiKey) {
-        this.apiKeyToken = savedApiKey;
-        this.initialized = true;
-        console.log("🆔 API key loaded from storage");
-      }
-
-      if (savedOrderId) {
-        this.lastOrderId = savedOrderId;
-      }
-
-      if (savedPlanCode) {
-        this.lastPlanCode = savedPlanCode;
-      }
-    }
+    console.log("🔑 ApiService initialized");
   }
 
   setBaseUrl(url) {
@@ -158,14 +125,6 @@ class ApiService {
     );
     this.sessionToken = token || null;
     this.initialized = true;
-
-    if (typeof window !== "undefined") {
-      if (token) {
-        sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-      } else {
-        sessionStorage.removeItem(SESSION_TOKEN_KEY);
-      }
-    }
   }
 
   setApiKey(token) {
@@ -179,16 +138,6 @@ class ApiService {
     );
     this.apiKeyToken = token || null;
     this.initialized = true;
-
-    if (typeof window !== "undefined") {
-      if (token) {
-        sessionStorage.setItem(API_KEY_STORAGE_KEY, token);
-      } else {
-        sessionStorage.removeItem(API_KEY_STORAGE_KEY);
-      }
-      // Drop legacy storage key if present
-      sessionStorage.removeItem("auth_token");
-    }
   }
 
   /**
@@ -201,18 +150,11 @@ class ApiService {
   clearSessionToken() {
     console.log("🗑️ Clearing session token");
     this.sessionToken = null;
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    }
   }
 
   clearApiKey() {
     console.log("🗑️ Clearing API key");
     this.apiKeyToken = null;
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem(API_KEY_STORAGE_KEY);
-      sessionStorage.removeItem("auth_token");
-    }
   }
 
   clearToken() {
@@ -227,29 +169,19 @@ class ApiService {
 
   setLastOrderId(orderId) {
     this.lastOrderId = orderId || null;
-    if (typeof window !== "undefined") {
-      if (orderId) {
-        sessionStorage.setItem(LAST_ORDER_ID_KEY, orderId);
-      } else {
-        sessionStorage.removeItem(LAST_ORDER_ID_KEY);
-      }
-    }
   }
 
   clearLastOrderId() {
     this.setLastOrderId(null);
   }
 
+  getLastOrderId() {
+    return this.lastOrderId;
+  }
+
   setPlanCode(planCode) {
     console.log("📦 Setting plan code", planCode);
     this.lastPlanCode = planCode || null;
-    if (typeof window !== "undefined") {
-      if (planCode) {
-        sessionStorage.setItem(LAST_PLAN_CODE_KEY, planCode);
-      } else {
-        sessionStorage.removeItem(LAST_PLAN_CODE_KEY);
-      }
-    }
   }
 
   getPlanCode() {
@@ -433,6 +365,7 @@ class ApiService {
     const config = {
       ...fetchOptions,
       headers,
+      credentials: fetchOptions.credentials ?? "include",
     };
 
     try {
@@ -520,11 +453,22 @@ class ApiService {
   }
 
   async login(identifier, password) {
-    const query = new URLSearchParams({ email: identifier, password });
+    const params = new URLSearchParams();
+    if (identifier !== undefined && identifier !== null) {
+      params.set("email", String(identifier));
+    }
+    if (password !== undefined && password !== null) {
+      params.set("password", String(password));
+    }
 
-    return this.request(`/auth/login?${query.toString()}`, {
+    const serialized = params.toString();
+
+    return this.request(`/auth/login${serialized ? `?${serialized}` : ""}`, {
       method: "POST",
-      body: JSON.stringify({ email: identifier, password }),
+      body: serialized,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
     });
   }
 
@@ -615,8 +559,16 @@ class ApiService {
   }
 
   async getSubscriptionStatus() {
+    const hasSession = this.hasSessionToken();
+    const hasApiKey = this.hasApiKey();
+    const authType = hasSession ? "session" : hasApiKey ? "apiKey" : null;
+    const authFallback =
+      authType === "session" && hasApiKey ? "apiKey" : undefined;
+
     const profile = await this.request("/auth/me", {
-      authType: "session",
+      authType,
+      authFallback,
+      suppressErrorLog: true,
     });
 
     if (!profile || typeof profile !== "object") {
@@ -707,9 +659,16 @@ class ApiService {
   }
 
   async getCurrentUser() {
+    const hasSession = this.hasSessionToken();
+    const hasApiKey = this.hasApiKey();
+    const authType = hasSession ? "session" : hasApiKey ? "apiKey" : null;
+    const authFallback =
+      authType === "session" && hasApiKey ? "apiKey" : undefined;
+
     return this.request("/auth/me", {
-      authType: "session",
-      authFallback: "apiKey",
+      authType,
+      authFallback,
+      suppressErrorLog: true,
     });
   }
 

@@ -125,19 +125,13 @@ export default function Register() {
       setEmail("");
       setPassword("");
       setConfirmPassword("");
-      if (typeof window !== "undefined") {
-        apiService.clearLastOrderId();
-        sessionStorage.removeItem("pending_order_id");
-        sessionStorage.setItem(
-          "pending_registration",
-          JSON.stringify({
-            user_id: String(userId),
-            email: String(normalizedEmail),
-          })
-        );
-      }
+      apiService.clearLastOrderId();
       setTimeout(() => {
-        router.push("/payment");
+        const params = new URLSearchParams({
+          user_id: String(userId),
+          email: String(normalizedEmail),
+        });
+        router.push(`/payment?${params.toString()}`);
       }, 1000);
     } catch (err) {
       let message = "Registration failed";

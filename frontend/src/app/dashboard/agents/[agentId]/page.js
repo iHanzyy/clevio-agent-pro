@@ -54,31 +54,6 @@ export default function AgentDetailPage() {
   const authUrl = searchParams?.get("authUrl");
   const authState = searchParams?.get("authState");
 
-  const whatsAppStorageKey = useMemo(
-    () => (agent?.id ? `agent_whatsapp_session_${agent.id}` : null),
-    [agent?.id],
-  );
-
-  const persistWhatsAppSession = useCallback(
-    (session) => {
-      if (!whatsAppStorageKey || typeof window === "undefined") {
-        return;
-      }
-      try {
-        if (!session) {
-          sessionStorage.removeItem(whatsAppStorageKey);
-        } else {
-          sessionStorage.setItem(
-            whatsAppStorageKey,
-            JSON.stringify(session),
-          );
-        }
-      } catch (err) {
-        console.warn("Unable to persist WhatsApp session", err);
-      }
-    },
-    [whatsAppStorageKey],
-  );
 
   const getApiKeyForWhatsApp = useCallback(async () => {
     let apiKey =
@@ -151,7 +126,6 @@ export default function AgentDetailPage() {
             }
           : session;
 
-        persistWhatsAppSession(nextSession);
         return nextSession;
       });
 
@@ -169,14 +143,13 @@ export default function AgentDetailPage() {
           ...(previous || EMPTY_WHATSAPP_SESSION),
           status: previous?.status || "active",
         };
-        persistWhatsAppSession(next);
         return next;
       });
     } finally {
       whatsAppStatusLoadingRef.current = false;
       setWhatsAppStatusLoading(false);
     }
-  }, [agent?.id, persistWhatsAppSession]);
+  }, [agent?.id]);
 
   const whatsAppStatusValue = useMemo(() => {
     const statusRaw =
@@ -347,29 +320,6 @@ export default function AgentDetailPage() {
     whatsAppStatusValue,
   ]);
 
-  useEffect(() => {
-    if (!whatsAppStorageKey || typeof window === "undefined") {
-      return;
-    }
-
-    try {
-      const stored = sessionStorage.getItem(whatsAppStorageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setWhatsAppSessionInfo(parsed);
-        if (parsed.qrImage || parsed.qrUrl) {
-          setWhatsAppQr(parsed.qrImage || parsed.qrUrl || null);
-          setShowWhatsAppQr(Boolean(parsed.qrImage || parsed.qrUrl));
-        }
-      } else {
-        setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
-      }
-    } catch (err) {
-      console.warn("Unable to load stored WhatsApp session", err);
-      setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
-    }
-  }, [whatsAppStorageKey]);
-
   const capabilitySummary = useMemo(() => {
     const labels = [];
     if (authUrl) {
@@ -440,7 +390,6 @@ export default function AgentDetailPage() {
             }
           : session;
 
-        persistWhatsAppSession(nextSession);
         return nextSession;
       });
       const qr =
@@ -472,7 +421,6 @@ export default function AgentDetailPage() {
       );
       setWhatsAppSessionInfo((previous) => {
         const next = previous || EMPTY_WHATSAPP_SESSION;
-        persistWhatsAppSession(next);
         return next;
       });
       setWhatsAppQr(null);

@@ -19,23 +19,7 @@ export default function AgentsPage() {
   const [qrPreview, setQrPreview] = useState(null);
   const whatsAppPollMapRef = useRef({});
   const whatsAppSessionsRef = useRef({});
-  const hydratedSessionsRef = useRef(false);
 
-  const persistWhatsAppSession = useCallback((agentId, session) => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const key = `agent_whatsapp_session_${agentId}`;
-    try {
-      if (!session) {
-        sessionStorage.removeItem(key);
-      } else {
-        sessionStorage.setItem(key, JSON.stringify(session));
-      }
-    } catch (err) {
-      console.warn("Unable to persist WhatsApp session", { agentId, err });
-    }
-  }, []);
 
   const resolveApiKey = useCallback(async () => {
     let apiKey =
@@ -186,30 +170,7 @@ export default function AgentsPage() {
   }, [loading, user, router]);
 
   useEffect(() => {
-    if (typeof window !== "undefined" && !hydratedSessionsRef.current) {
-      const storedSessions = {};
-      agents.forEach((agent) => {
-        const key = `agent_whatsapp_session_${agent.id}`;
-        const stored = sessionStorage.getItem(key);
-        if (stored) {
-          try {
-            storedSessions[agent.id] = JSON.parse(stored);
-          } catch (err) {
-            console.warn("Unable to parse stored WhatsApp session", {
-              agentId: agent.id,
-              err,
-            });
-          }
-        }
-      });
-      if (Object.keys(storedSessions).length > 0) {
-        setWhatsAppSessions((prev) => ({ ...storedSessions, ...prev }));
-      }
-      hydratedSessionsRef.current = true;
-    }
-
     if (!agents.length) {
-      hydratedSessionsRef.current = false;
       setWhatsAppSessions({});
       setWhatsAppErrors({});
       return;
@@ -263,7 +224,7 @@ export default function AgentsPage() {
             : info;
 
           nextSessions[agentId] = nextSession;
-          persistWhatsAppSession(agentId, nextSession);
+          whatsAppSessionsRef.current[agentId] = nextSession;
 
           const shouldPoll =
             nextSession.raw &&
@@ -293,7 +254,7 @@ export default function AgentsPage() {
     return () => {
       cancelled = true;
     };
-  }, [agents, clearAgentPoll, persistWhatsAppSession, scheduleAgentPoll]);
+  }, [agents, clearAgentPoll, scheduleAgentPoll]);
 
   useEffect(() => {
     whatsAppSessionsRef.current = whatsAppSessions;
@@ -348,7 +309,7 @@ export default function AgentsPage() {
               }
             : session;
 
-          persistWhatsAppSession(agent.id, nextSession);
+          whatsAppSessionsRef.current[agent.id] = nextSession;
 
           return {
             ...prev,
@@ -381,7 +342,6 @@ export default function AgentsPage() {
     },
     [
       openQrPreview,
-      persistWhatsAppSession,
       resolveApiKey,
       scheduleAgentPoll,
       user?.user_id,

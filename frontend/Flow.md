@@ -2,20 +2,56 @@
 
 ```mermaid
 flowchart LR
-    title[Register]
-    reg[Register:\ncurl -X POST "${BASE_URL_SCp}/auth/register?email=newuser@example.com&password=changeme"]
-    plan[Choose Plan:\nPRO_M or PRO_Y]
-    send[Send Information to N8n:\n"user id"\n"email"\n"plan code"\n"charge"\n"order suffix"]
-    receive[Get information from N8n:\n{\n  "success": true,\n  "status": true,\n  "transaction_status": "settlement",\n  "order_id": "...",\n  "plan_code": "PRO_M",\n  "received": "...",\n  "source": "n8n"\n}]
-    status[Check Payment Status:\nwebhook frontend: /payment/status]
+    reg[Register:\nPOST ${BASE_URL_SCp}/auth/register]
+    redirect[Redirect to\n/payment?user_id=...&email=...]
+    plan[Choose Plan (PRO_M or PRO_Y)]
+    notify[Notify Midtrans bridge (n8n):\nPOST /api/v1/payment/webhook]
+    poll[Poll status:\nGET /api/v1/payment/status?order_id=...]
     decision{Settlement?}
-    success[Log in interface]
-    retry[back to payment interface]
+    dashboard[/Auto-activate\n→ /dashboard/]
+    login[/Prompt to sign in\n→ /login?settlement=1&email=.../]
+    pending[Stay on payment\npage + status banner]
 
-    title --> reg --> plan --> send --> receive --> status --> decision
-    decision -->|Yes| success
-    decision -->|No| retry
+    reg --> redirect --> plan --> notify --> poll --> decision
+    decision -->|Yes & user authenticated| dashboard
+    decision -->|Yes & user not authenticated| login
+    decision -->|No| pending --> plan
 ```
+
+### Step-by-step
+
+1. **Registration** – the frontend calls `POST ${BASE_URL_SCp}/auth/register` with the email/password. The response supplies `user_id` and the confirmed email.
+2. **Redirect to payment** – the UI immediately navigates to `/payment?user_id=...&email=...`; all state needed for follow-up requests is now carried in the query string or fetched from the backend.
+3. **Plan selection** – the user picks `PRO_M` or `PRO_Y`. The frontend posts the plan, user id, and generated `order_suffix` to `/api/v1/payment/webhook` (proxied to n8n/Midtrans) and stores the resulting `order_id` in memory.
+4. **Status polling** – the payment screen calls `/api/v1/payment/status?order_id=...` until Midtrans reports `settlement`/`capture`. Intermediate statuses surface as inline banners; the page no longer relies on `sessionStorage`.
+5. **Completion routing**
+   - If the user is already authenticated (e.g., they upgraded from inside the dashboard), the payment screen refreshes the subscription and sends them to `/dashboard`.
+   - If the user is not authenticated, the payment screen redirects to `/login?settlement=1&email=...` so the login form can display the settlement message and prefill the email directly from the query parameters.
+
+# Login Flow
+
+```mermaid
+flowchart LR
+    form[/Login form\n(frontend /login)/]
+    submit[POST ${BASE_URL_SCp}/auth/login\n(HTTP-only cookie issued)]
+    profile[GET ${BASE_URL_SCp}/auth/me\n(using cookie or token)]
+    subscription[GET ${BASE_URL_SCp}/auth/subscription-status]
+    dashboard[/Redirect to /dashboard/]
+    retry[Show inline error + stay on form]
+
+    form --> submit --> profile --> subscription --> dashboard
+    submit -->|401 / inactive| retry
+    profile -->|inactive subscription| retry
+```
+
+### Step-by-step
+
+1. **Submit credentials** – the login page posts `{ email, password }` to `/auth/login`. The backend answers with an HTTP-only session cookie and typically returns `jwt_token` (the bearer credential) alongside `token_type`.
+2. **Hydrate the session** – whether a token is returned or not, the frontend immediately calls `/auth/me` and `/auth/subscription-status` using the new cookie. Any API key or plan metadata returned is stored in memory via `apiService` for the active runtime.
+3. **Route by status**  
+   - If `is_active` is `true`, the router sends the user to `/dashboard`.  
+   - If the account is inactive (payment not settled), the login page surfaces an error message and keeps the user on the form.
+4. **Prefill after settlement** – when redirected from payment, `/login?settlement=1&email=...` displays the settlement banner and pre-populates the email field using the query string (no client storage). If the user has not logged in yet, they can now use the same credentials they registered with; the login flow accepts both token-based and cookie-only responses.
 
 # Create Agent Flow
 
@@ -84,7 +120,7 @@ flowchart TD
 
 ### Step-by-step
 
-1. **Auto-fetch status** – Every agent card and the detail page call `GET /api/whatsapp-sessions?agentId=...` (proxied through Next.js) as soon as the component mounts. The UI rehydrates the last known status from `sessionStorage` first so an already-linked session doesn’t flash back to “Not linked.”  
+1. **Auto-fetch status** – Every agent card and the detail page call `GET /api/whatsapp-sessions?agentId=...` (proxied through Next.js) as soon as the component mounts. The UI keeps the last known status in component state so the badge does not flicker while polling.  
 2. **Display state**  
    - `active`/`connected`: show the green “Active” badge; background polling stops.  
    - `awaiting_qr`/`pending`: show the “Scan WhatsApp QR” prompt and start polling every 5 s.  
@@ -96,9 +132,9 @@ flowchart TD
 
 # Auth Flow Notes
 
-- Logging in calls `POST /auth/login` followed by `GET /auth/me` to hydrate the profile and infer plan/API keys. The provider caches the session in `sessionStorage` for instant reloads.
-- If authentication fails (bad credentials or inactive account), the provider clears any stored tokens and cached user data so refreshing the page doesn’t trigger `/auth/me` or `/auth/api-keys` calls.
-- Logging out sets a guard flag so the subsequent auth check skips network requests (`/auth/me`), clears tokens/keys, empties the cached user, and redirects to `/login`.
+- Logging in calls `POST /auth/login`, stores tokens in memory for the current runtime, then immediately invokes `/auth/me` and `/auth/subscription-status` to rebuild the full user object.
+- Because no browser storage is used, each page load performs a lightweight auth check; the backend-managed session cookie controls access.
+- Logging out sets a guard flag so the subsequent auth check skips network requests, clears in-memory tokens/API keys, and redirects to `/login`.
 # Document Upload Flow
 
 ```mermaid

@@ -103,39 +103,19 @@ export default function Login() {
       searchParams.get("settlement") === "1" ||
       searchParams.get("settlement") === "true";
 
-    let settlementFlag = false;
-    try {
-      settlementFlag =
-        sessionStorage.getItem("payment_settlement_status") === "settlement";
-    } catch (err) {
-      console.warn("Unable to read settlement status flag", err);
-    }
-
-    if (settlementFlag || hasSettlementQuery) {
+    if (hasSettlementQuery) {
       setInfoMessage(
         "Payment settled. Please sign in with your registered email and password."
       );
     }
 
-    let lastEmail = null;
-    try {
-      lastEmail = sessionStorage.getItem("payment_last_email");
-    } catch (err) {
-      console.warn("Unable to load last email", err);
-    }
+    const queryEmail = searchParams.get("email");
 
-    if (lastEmail) {
+    if (queryEmail) {
       setFormData((prev) => ({
         ...prev,
-        email: prev.email || lastEmail,
+        email: prev.email || queryEmail,
       }));
-    }
-
-    try {
-      sessionStorage.removeItem("payment_settlement_status");
-      sessionStorage.removeItem("payment_last_email");
-    } catch (err) {
-      console.warn("Unable to clear settlement session flags", err);
     }
   }, []);
 
