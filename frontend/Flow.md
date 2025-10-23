@@ -104,31 +104,26 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    load[Agent detail/dashboard loads] --> status[GET /api/whatsapp-sessions?agentId={id}]
-    status -->|returns active| active[Show \"Active\" badge\nPolling stops]
-    status -->|returns awaiting_qr| awaiting[Display \"Scan WhatsApp QR\" CTA\nBegin 5s polling loop]
-    status -->|returns not_found/inactive| inactive[Show \"Not linked\" state]
-
-    awaiting --> userClick[User clicks \"Scan WhatsApp QR\"] --> create[POST /api/whatsapp-sessions]
-    create --> qr[Response with QR data/base64]
-    qr --> displayQr[Show QR / deeplink to user]
-    userScan[User scans QR in WhatsApp] --> status
-
-    create -->|error| error[Display error toast\nKeep previous status]
-    status -->|transient error| fallback[Keep last known active state\nRetry on next poll]
+    load[Agent detail loads] --> status[GET /api/whatsapp-sessions?agentId={id}]
+    status -->|active| active[Show “Active” badge\nStop polling]
+    status -->|inactive/not_found| idle[Show “Not linked” badge\n+ Scan CTA]
+    idle --> click[User selects “Scan WhatsApp QR”]
+    click --> request[POST /api/whatsapp-sessions\n{userId, agentId, agentName, Apikey}]
+    request -->|QR payload| qrPanel[Render QR panel\nCountdown + instructions]
+    qrPanel --> poll[Poll every 5 s\nGET /api/whatsapp-sessions]
+    poll -->|connected| success[Show success state\nAuto-close panel]
+    qrPanel -->|QR expires| expired[Prompt “Generate new QR”]
+    expired --> click
+    request -->|error| error[Inline error\nKeep previous state]
 ```
 
 ### Step-by-step
 
-1. **Auto-fetch status** – Every agent card and the detail page call `GET /api/whatsapp-sessions?agentId=...` (proxied through Next.js) as soon as the component mounts. The UI keeps the last known status in component state so the badge does not flicker while polling.  
-2. **Display state**  
-   - `active`/`connected`: show the green “Active” badge; background polling stops.  
-   - `awaiting_qr`/`pending`: show the “Scan WhatsApp QR” prompt and start polling every 5 s.  
-   - `not_found`/`inactive`: show “Not linked”.  
-   - Network errors keep the previous state so you don’t see an unexpected downgrade.
-3. **Start / re-link** – Clicking “Scan WhatsApp QR” or “Re-link WhatsApp” sends a `POST /api/whatsapp-sessions` with `{ userId, agentId, agentName, Apikey }`. The response includes `qr.base64` or a URL which the UI renders as an image/deeplink.
-4. **Poll until connected** – While the service reports `awaiting_qr`, the frontend keeps polling `GET` every 5 s. Once `active` is returned, the UI promotes the status badge and polling stops automatically.
-5. **Manual refresh** – The “Refresh Status” button triggers another `GET`. To prevent flicker, the UI preserves the last active state if the service briefly responds with `inactive/not_found` without any new metadata.
+1. **Initial status check** – When the agent detail page mounts, it calls `GET /api/whatsapp-sessions?agentId=...`. The result drives the badge (“Active”, “Awaiting QR”, “Not linked”), and the last known active state is preserved to avoid flicker if the service briefly returns `inactive`.
+2. **User starts linking** – Selecting “Scan WhatsApp QR” issues `POST /api/whatsapp-sessions` with `{ userId, agentId, agentName, Apikey }`. A successful response opens a panel with the QR image or deeplink immediately.
+3. **QR presentation** – The panel now shows step-by-step instructions, a live countdown derived from `qrExpiresAt` (or the reported TTL), and a warning when the QR is no longer valid. Once expired, the user can generate a fresh code directly from the panel.
+4. **Live polling** – While the session reports `awaiting_qr`/`pending`, the UI polls every 5 s. As soon as the backend returns `active/connected`, the panel switches to a success state, displays the linked timestamp, and auto-closes after a short delay.
+5. **Manual controls & errors** – “Refresh status” stays available, and network issues keep the previous badge while surfacing an inline error instead of clearing state. Users can close the panel at any time; regenerating the QR resets the countdown and fetches a new code.
 
 # Auth Flow Notes
 

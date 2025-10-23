@@ -619,6 +619,20 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updatePassword = useCallback(
+    async (newPassword) => {
+      const targetUserId = user?.user_id || user?.id;
+      if (!targetUserId) {
+        throw new Error("Unable to determine user id");
+      }
+      return apiService.updateUserPassword({
+        userId: targetUserId,
+        newPassword,
+      });
+    },
+    [user],
+  );
+
   const value = {
     user,
     subscription: user?.subscription,
@@ -628,6 +642,7 @@ export function AuthProvider({ children }) {
     checkAuth,
     updateSubscription,
     applySubscription,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

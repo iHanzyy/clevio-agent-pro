@@ -790,6 +790,20 @@ class ApiService {
     return [];
   }
 
+  async updateUserPassword({ userId, newPassword }) {
+    const payload = JSON.stringify({
+      user_id: userId,
+      new_password: newPassword,
+    });
+
+    return this.request("/auth/user/update-password", {
+      method: "POST",
+      body: payload,
+      authType: "session",
+      authFallback: "apiKey",
+    });
+  }
+
   async getInformationN8N(orderId, orderSuffix = null) {
     if (!orderId && !orderSuffix) {
       console.warn("getInformationN8N invoked without orderId or orderSuffix");
@@ -1134,6 +1148,50 @@ class ApiService {
     }
 
     const session = Array.isArray(data) ? data[0] || {} : data;
+
+    const toIsoString = (input) => {
+      if (!input && input !== 0) {
+        return null;
+      }
+      if (input instanceof Date) {
+        return input.toISOString();
+      }
+      if (typeof input === "number" && Number.isFinite(input)) {
+        const isMilliseconds = input > 1e12;
+        const milliseconds = isMilliseconds ? input : input * 1000;
+        return new Date(milliseconds).toISOString();
+      }
+      if (typeof input === "string") {
+        const trimmed = input.trim();
+        if (!trimmed) {
+          return null;
+        }
+        const parsed = Date.parse(trimmed);
+        if (!Number.isNaN(parsed)) {
+          return new Date(parsed).toISOString();
+        }
+        return null;
+      }
+      if (typeof input === "object") {
+        const seconds =
+          input.seconds ??
+          input.second ??
+          input._seconds ??
+          input.epochSeconds ??
+          null;
+        const nanos =
+          input.nanoseconds ??
+          input.nanos ??
+          input.nanoSeconds ??
+          input._nanoseconds ??
+          0;
+        if (typeof seconds === "number" && Number.isFinite(seconds)) {
+          return new Date(seconds * 1000 + Math.round(nanos / 1e6)).toISOString();
+        }
+      }
+      return null;
+    };
+
     let rawStatus =
       session.status ||
       session.session_status ||
@@ -1154,7 +1212,7 @@ class ApiService {
       session.active === true ||
       normalizedStatus === "active" ||
       normalizedStatus === "connected";
-    const statusUpdatedAt =
+    const statusUpdatedSource =
       session.status_updated_at ||
       session.statusUpdatedAt ||
       (typeof session.status === "object"
@@ -1168,6 +1226,11 @@ class ApiService {
       session.updated_at ||
       session.updatedAt ||
       null;
+    const statusUpdatedAt =
+      toIsoString(statusUpdatedSource) ||
+      (typeof statusUpdatedSource === "string"
+        ? statusUpdatedSource
+        : null);
 
     const qrRecord =
       session.qr ||
@@ -1182,6 +1245,70 @@ class ApiService {
       session.session_details ||
       session.sessionDetails ||
       null;
+
+    const qrGeneratedSource =
+      (qrRecord &&
+        (qrRecord.generated_at ||
+          qrRecord.generatedAt ||
+          qrRecord.created_at ||
+          qrRecord.createdAt ||
+          qrRecord.issued_at ||
+          qrRecord.issuedAt)) ||
+      session.qr_generated_at ||
+      session.qrGeneratedAt ||
+      session.qr_created_at ||
+      session.qrCreatedAt ||
+      statusUpdatedSource ||
+      null;
+
+    const expiresSourceFromRecord =
+      (qrRecord &&
+        (qrRecord.expires_at ||
+          qrRecord.expiresAt ||
+          qrRecord.expired_at ||
+          qrRecord.expiredAt ||
+          qrRecord.valid_until ||
+          qrRecord.validUntil)) ||
+      session.qr_expires_at ||
+      session.qrExpiresAt ||
+      session.qr_expired_at ||
+      session.qrExpiredAt ||
+      null;
+
+    const expiresInSeconds =
+      (typeof qrRecord?.expires_in === "number"
+        ? qrRecord.expires_in
+        : null) ??
+      (typeof qrRecord?.expires_in_seconds === "number"
+        ? qrRecord.expires_in_seconds
+        : null) ??
+      (typeof qrRecord?.ttl === "number" ? qrRecord.ttl : null);
+
+    const qrGeneratedAt =
+      toIsoString(qrGeneratedSource) ||
+      (typeof qrGeneratedSource === "string"
+        ? qrGeneratedSource
+        : null);
+
+    let qrExpiresAt =
+      toIsoString(expiresSourceFromRecord) ||
+      (typeof expiresSourceFromRecord === "string"
+        ? expiresSourceFromRecord
+        : null);
+
+    if (!qrExpiresAt && typeof expiresInSeconds === "number") {
+      const baseIso =
+        qrGeneratedAt ||
+        (toIsoString(statusUpdatedSource) ||
+          statusUpdatedAt) ||
+        new Date().toISOString();
+      const baseMs = Date.parse(baseIso);
+      if (!Number.isNaN(baseMs)) {
+        qrExpiresAt = new Date(
+          baseMs + Math.max(0, expiresInSeconds) * 1000,
+        ).toISOString();
+      }
+    }
 
     const rawQrContent =
       (qrRecord && (qrRecord.base64 || qrRecord.data || qrRecord.qr || null)) ||
@@ -1269,6 +1396,10 @@ class ApiService {
       status: isActive ? "active" : normalizedStatus || "inactive",
       qrImage,
       qrUrl,
+      qrGeneratedAt,
+      qrExpiresAt,
+      qrExpiresInSeconds:
+        typeof expiresInSeconds === "number" ? expiresInSeconds : null,
       sessionId: resolvedSessionId,
       updatedAt: statusUpdatedAt,
       raw: hasSessionDetails ? data : null,
