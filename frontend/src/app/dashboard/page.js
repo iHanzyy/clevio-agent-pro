@@ -4,13 +4,18 @@ import { useRouter } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
+import {
+  describeWhatsAppStatus,
+  toneToBadgeClasses,
+} from "@/lib/whatsappStatus";
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth();
   const [agents, setAgents] = useState([]);
+  const [whatsAppStatuses, setWhatsAppStatuses] = useState({});
   const [stats, setStats] = useState({
     totalAgents: 0,
-    activeAgents: 0,
+    connectedWhatsApp: 0,
     totalConversations: 0,
     messagesThisWeek: 0,
   });
@@ -43,19 +48,45 @@ export default function Dashboard() {
 
       setAgents(agentsData);
 
-      // Calculate stats
-      const activeAgents = agentsData.filter(
-        (agent) => agent.status === "ACTIVE",
-      ).length;
+      let connectedCount = 0;
+      const sessionMap = {};
+
+      if (agentsData.length > 0) {
+        const sessionResults = await Promise.allSettled(
+          agentsData.map((agent) =>
+            apiService.getWhatsAppSession(agent.id),
+          ),
+        );
+
+        sessionResults.forEach((result, index) => {
+          const agentId = agentsData[index]?.id;
+          if (!agentId) {
+            return;
+          }
+
+          if (result.status === "fulfilled") {
+            const session = result.value;
+            sessionMap[agentId] = session;
+            if (session?.isActive) {
+              connectedCount += 1;
+            }
+          } else {
+            sessionMap[agentId] = null;
+          }
+        });
+      }
+
+      setWhatsAppStatuses(sessionMap);
 
       setStats({
         totalAgents: agentsData.length,
-        activeAgents,
+        connectedWhatsApp: connectedCount,
         totalConversations: 0,
         messagesThisWeek: 0,
       });
     } catch (error) {
       setError(error.message || "Failed to load dashboard data");
+      setWhatsAppStatuses({});
 
       // If unauthorized, redirect to login
       if (
@@ -69,23 +100,48 @@ export default function Dashboard() {
     }
   };
 
-  const StatCard = ({ title, value, icon, color = "indigo" }) => (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {title}
-          </p>
-          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-white">
-            {value}
-          </p>
-        </div>
-        <div className={`p-3 rounded-lg bg-${color}-100 dark:bg-${color}-900`}>
-          {icon}
+  const StatCard = ({ title, value, icon, accent = "indigo" }) => {
+    const palette = {
+      indigo: {
+        ring: "bg-indigo-500/15 dark:bg-indigo-500/20",
+        text: "text-indigo-600 dark:text-indigo-300",
+      },
+      emerald: {
+        ring: "bg-emerald-500/15 dark:bg-emerald-500/20",
+        text: "text-emerald-600 dark:text-emerald-300",
+      },
+      blue: {
+        ring: "bg-blue-500/15 dark:bg-blue-500/20",
+        text: "text-blue-600 dark:text-blue-300",
+      },
+      purple: {
+        ring: "bg-purple-500/15 dark:bg-purple-500/20",
+        text: "text-purple-600 dark:text-purple-300",
+      },
+    };
+
+    const styles = palette[accent] || palette.indigo;
+
+    return (
+      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              {title}
+            </p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+              {value}
+            </p>
+          </div>
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-2xl ${styles.ring} ${styles.text}`}
+          >
+            {icon}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Show loading while auth is checking
   if (authLoading || loading) {
@@ -136,50 +192,143 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Welcome back! Here&apos;s what&apos;s happening with your agents.
-          </p>
+    <div className="space-y-10">
+      <section className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-indigo-500/10 via-white to-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:from-indigo-500/20">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
+              Control center
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+              Dashboard
+            </h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+              Track how many agents are online, confirm WhatsApp connectivity, and jump
+              straight into the workflows that need attention.
+            </p>
+          </div>
+          <Link
+            href="/dashboard/agents/new"
+            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400/70"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Create agent
+          </Link>
         </div>
+      </section>
+
+      {/* Quick Actions */}
+      <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <Link
           href="/dashboard/agents/new"
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors duration-150"
+          className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/70"
         >
-          <svg
-            className="w-5 h-5 mr-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 4v16m8-8H4"
-            />
-          </svg>
-          Create Agent
-        </Link>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total Agents"
-          value={stats.totalAgents}
-          icon={
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </div>
             <svg
-              className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
+              className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 dark:text-slate-500 dark:group-hover:text-indigo-300"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 space-y-1">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              Create new agent
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Spin up an assistant tailored to your workflows.
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/dashboard/analytics"
+          className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/70"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            <svg
+              className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 dark:text-slate-500 dark:group-hover:text-indigo-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 space-y-1">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+              View analytics
+            </h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Understand engagement and message volume at a glance.
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/dashboard/settings"
+          className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/70"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-500/10 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300">
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+            </div>
+            <svg
+              className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 dark:text-slate-500 dark:group-hover:text-indigo-300"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+          <div className="mt-6 space-y-1">
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Settings</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Manage billing, credentials, and workspace preferences.
+            </p>
+          </div>
+        </Link>
+      </section>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          title="Total agents"
+          value={stats.totalAgents}
+          icon={
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -188,40 +337,25 @@ export default function Dashboard() {
               />
             </svg>
           }
-          color="indigo"
+          accent="indigo"
         />
 
         <StatCard
-          title="Active Agents"
-          value={stats.activeAgents}
+          title="Connected WhatsApp"
+          value={stats.connectedWhatsApp}
           icon={
-            <svg
-              className="w-6 h-6 text-green-600 dark:text-green-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           }
-          color="green"
+          accent="emerald"
         />
 
         <StatCard
           title="Conversations"
           value={stats.totalConversations}
           icon={
-            <svg
-              className="w-6 h-6 text-blue-600 dark:text-blue-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -230,19 +364,14 @@ export default function Dashboard() {
               />
             </svg>
           }
-          color="blue"
+          accent="blue"
         />
 
         <StatCard
-          title="Messages This Week"
+          title="Messages this week"
           value={stats.messagesThisWeek}
           icon={
-            <svg
-              className="w-6 h-6 text-purple-600 dark:text-purple-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -251,242 +380,118 @@ export default function Dashboard() {
               />
             </svg>
           }
-          color="purple"
+          accent="purple"
         />
       </div>
 
       {/* Recent Agents */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Your Agents
-          </h2>
-          <Link
-            href="/dashboard/agents"
-            className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
-          >
-            View All →
-          </Link>
+      <section className="rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+        <div className="flex flex-col gap-2 border-b border-slate-200/80 p-6 dark:border-slate-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Your agents
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                A quick view of the latest assistants and their WhatsApp status.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/agents"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+            >
+              View all
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
         </div>
 
         {agents.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-              />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-              No agents yet
-            </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Get started by creating your first AI agent.
-            </p>
-            <div className="mt-6">
-              <Link
-                href="/dashboard/agents/new"
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-              >
-                <svg
-                  className="w-5 h-5 mr-2"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Create Agent
-              </Link>
+          <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+              <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                />
+              </svg>
             </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+                No agents yet
+              </h3>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Create your first agent to unlock WhatsApp automation.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/agents/new"
+              className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400/70"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Create agent
+            </Link>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {agents.slice(0, 5).map((agent) => (
-              <Link
-                key={agent.id}
-                href={`/dashboard/agents/${agent.id}`}
-                className="block px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4 flex-1 min-w-0">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
-                        <svg
-                          className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-                          />
-                        </svg>
-                      </div>
+          <div className="divide-y divide-slate-200/80 dark:divide-slate-700">
+            {agents.slice(0, 5).map((agent) => {
+              const session = whatsAppStatuses[agent.id] || null;
+              const descriptor = describeWhatsAppStatus(session);
+              const badgeClasses = toneToBadgeClasses(descriptor.tone);
+
+              const createdAtLabel = agent.created_at
+                ? new Date(agent.created_at).toLocaleDateString()
+                : "Unknown date";
+
+              return (
+                <Link
+                  key={agent.id}
+                  href={`/dashboard/agents/${agent.id}`}
+                  className="flex items-center justify-between gap-6 px-6 py-4 transition hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20"
+                >
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                        />
+                      </svg>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
                         {agent.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                        {agent.tools?.length || 0} tools •{" "}
-                        {new Date(agent.created_at).toLocaleDateString()}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {agent.tools?.length || 0} tools • {createdAtLabel}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
+                  <div className="flex flex-col items-end gap-1 text-right">
                     <span
-                      className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                        agent.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                          : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                      }`}
+                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${badgeClasses}`}
                     >
-                      {agent.status}
+                      <span className="h-2 w-2 rounded-full bg-current opacity-70"></span>
+                      {descriptor.label}
                     </span>
-                    <svg
-                      className="w-5 h-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
+                    <span className="max-w-[16rem] text-[11px] leading-4 text-slate-500 line-clamp-2 dark:text-slate-400">
+                      {descriptor.helper}
+                    </span>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Link
-          href="/dashboard/agents/new"
-          className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors duration-150"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-indigo-600 dark:text-indigo-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                Create New Agent
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Build a custom AI agent
-              </p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/analytics"
-          className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors duration-150"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-blue-600 dark:text-blue-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                View Analytics
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Track performance metrics
-              </p>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/dashboard/settings"
-          className="block p-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors duration-150"
-        >
-          <div className="flex items-center space-x-4">
-            <div className="flex-shrink-0">
-              <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-6 h-6 text-gray-600 dark:text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                Settings
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Manage your account
-              </p>
-            </div>
-          </div>
-        </Link>
-      </div>
+      </section>
     </div>
   );
 }

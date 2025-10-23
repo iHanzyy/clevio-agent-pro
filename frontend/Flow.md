@@ -105,8 +105,8 @@ flowchart LR
 ```mermaid
 flowchart TD
     load[Agent detail loads] --> status[GET /api/whatsapp-sessions?agentId={id}]
-    status -->|active| active[Show “Active” badge\nStop polling]
-    status -->|inactive/not_found| idle[Show “Not linked” badge\n+ Scan CTA]
+    status -->|active| active[Show “Connected” badge\nStop polling]
+    status -->|inactive/not_found| idle[Show “Not connected” badge\n+ Scan CTA]
     idle --> click[User selects “Scan WhatsApp QR”]
     click --> request[POST /api/whatsapp-sessions\n{userId, agentId, agentName, Apikey}]
     request -->|QR payload| qrPanel[Render QR panel\nCountdown + instructions]
@@ -119,7 +119,7 @@ flowchart TD
 
 ### Step-by-step
 
-1. **Initial status check** – When the agent detail page mounts, it calls `GET /api/whatsapp-sessions?agentId=...`. The result drives the badge (“Active”, “Awaiting QR”, “Not linked”), and the last known active state is preserved to avoid flicker if the service briefly returns `inactive`.
+1. **Initial status check** – When the agent detail page mounts, it calls `GET /api/whatsapp-sessions?agentId=...`. The result drives the badge (“Connected”, “Awaiting QR”, “Not connected”), and the last known active state is preserved to avoid flicker if the service briefly returns `inactive`. The agent list mirrors the same copy so “Connected” always means WhatsApp is live.
 2. **User starts linking** – Selecting “Scan WhatsApp QR” issues `POST /api/whatsapp-sessions` with `{ userId, agentId, agentName, Apikey }`. A successful response opens a panel with the QR image or deeplink immediately.
 3. **QR presentation** – The panel now shows step-by-step instructions, a live countdown derived from `qrExpiresAt` (or the reported TTL), and a warning when the QR is no longer valid. Once expired, the user can generate a fresh code directly from the panel.
 4. **Live polling** – While the session reports `awaiting_qr`/`pending`, the UI polls every 5 s. As soon as the backend returns `active/connected`, the panel switches to a success state, displays the linked timestamp, and auto-closes after a short delay.
@@ -130,6 +130,13 @@ flowchart TD
 - Logging in calls `POST /auth/login`, stores tokens in memory for the current runtime, then immediately invokes `/auth/me` and `/auth/subscription-status` to rebuild the full user object.
 - Because no browser storage is used, each page load performs a lightweight auth check; the backend-managed session cookie controls access.
 - Logging out sets a guard flag so the subsequent auth check skips network requests, clears in-memory tokens/API keys, and redirects to `/login`.
+# Dashboard Overview
+
+- The dashboard hero now highlights the workspace context with a gradient header and a single primary CTA (“Create agent”).
+- Stats cards surface `Total agents`, `Connected WhatsApp`, `Conversations`, and `Messages this week`; the WhatsApp card counts the number of sessions where `isActive === true`.
+- The “Your agents” rail mirrors the WhatsApp badges used on the listing page — rows show “Connected” or “Not connected” with helper copy instead of the former `ACTIVE` badge.
+- Quick actions were restyled into elevated tiles that link to creation, analytics, and settings flows for faster navigation.
+
 # Document Upload Flow
 
 ```mermaid
