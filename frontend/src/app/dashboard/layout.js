@@ -5,13 +5,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import Image from "next/image";
 import Link from "next/link";
 import { apiService } from "@/lib/api";
+import AnimatedHamburgerButton from "@/components/AnimatedHamburgerButton";
 
 export default function DashboardLayout({ children }) {
   const { user, loading, logout } = useAuth();
   const subscription = user?.subscription;
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false); // ✅ Changed to false
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
   // Auto-open sidebar on desktop
@@ -24,7 +25,7 @@ export default function DashboardLayout({ children }) {
       }
     };
 
-    handleResize(); // Check on mount
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -181,14 +182,14 @@ export default function DashboardLayout({ children }) {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-surface-strong/60">
+          <div className="flex items-center justify-between h-18 px-8 border-b border-surface-strong/60">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <Image
                 src="/clevioAIAssistantsLogo.png"
                 alt="Clevio AI Assistants"
-                width={200}
-                height={200}
-                className="mb-0 ml-10"
+                width={150}
+                height={150}
+                className="mb-0 ml-14"
               />
             </Link>
           </div>
@@ -289,24 +290,16 @@ export default function DashboardLayout({ children }) {
         {/* Top Bar */}
         <header className="sticky top-0 z-40 bg-surface border-b border-surface-strong/60 shadow-sm">
           <div className="flex items-center justify-between h-16 px-6">
-            <button
-              onClick={toggleSidebar}
-              className="p-2 text-muted hover:text-muted rounded-lg hover:bg-surface/70"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
+            <AnimatedHamburgerButton
+              onToggle={(isOpen) => {
+                // Optional: sync state if needed
+                if (isOpen !== sidebarOpen) {
+                  setSidebarOpen(isOpen);
+                }
+              }}
+              initialOpen={sidebarOpen}
+              className="p-2"
+            />
           </div>
         </header>
 
