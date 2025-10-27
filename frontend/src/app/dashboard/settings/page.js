@@ -102,17 +102,14 @@ export default function SettingsPage() {
   const planCode = subscription.plan_code || "NO_PLAN";
   const planLabel = PLAN_LABELS[planCode] || planCode;
   const isActive =
-    subscription.is_active ??
-    subscription.isActive ??
-    user?.is_active ??
-    false;
+    subscription.is_active ?? subscription.isActive ?? user?.is_active ?? false;
   const expiresAt = subscription.expires_at || subscription.expiresAt || null;
   const daysRemaining =
     typeof subscription.days_remaining === "number"
       ? subscription.days_remaining
       : typeof subscription.daysRemaining === "number"
-        ? subscription.daysRemaining
-        : null;
+      ? subscription.daysRemaining
+      : null;
 
   const initials = useMemo(() => {
     if (!user?.email) return "U";
@@ -132,7 +129,7 @@ export default function SettingsPage() {
 
   const passwordStrength = useMemo(
     () => evaluatePasswordStrength(passwordForm.newPassword),
-    [passwordForm.newPassword],
+    [passwordForm.newPassword]
   );
 
   const handlePasswordChange = (event) => {
@@ -197,9 +194,7 @@ export default function SettingsPage() {
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent"></div>
-          <p className="mt-4 text-sm text-muted">
-            Loading your settings…
-          </p>
+          <p className="mt-4 text-sm text-muted">Loading your settings…</p>
         </div>
       </div>
     );
@@ -247,9 +242,7 @@ export default function SettingsPage() {
           </div>
           <div className="text-left md:text-right">
             <p className="text-sm text-accent-foreground/70">Next renewal</p>
-            <p className="text-xl font-semibold">
-              {formatDate(expiresAt)}
-            </p>
+            <p className="text-xl font-semibold">{formatDate(expiresAt)}</p>
             {typeof daysRemaining === "number" ? (
               <p className="mt-1 text-sm text-accent-foreground/70">
                 {daysRemaining} day{daysRemaining === 1 ? "" : "s"} remaining
@@ -292,33 +285,25 @@ export default function SettingsPage() {
             </div>
             <dl className="mt-6 grid gap-6 sm:grid-cols-2">
               <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">
-                  Account ID
-                </dt>
+                <dt className="text-sm text-muted">Account ID</dt>
                 <dd className="mt-2 break-words text-base font-medium text-foreground">
                   {user.user_id || "—"}
                 </dd>
               </div>
               <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">
-                  Email
-                </dt>
+                <dt className="text-sm text-muted">Email</dt>
                 <dd className="mt-2 break-words text-base font-medium text-foreground">
                   {user.email}
                 </dd>
               </div>
               <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">
-                  Plan
-                </dt>
+                <dt className="text-sm text-muted">Plan</dt>
                 <dd className="mt-2 text-base font-medium text-foreground">
                   {planLabel}
                 </dd>
               </div>
               <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">
-                  Subscription status
-                </dt>
+                <dt className="text-sm text-muted">Subscription status</dt>
                 <dd
                   className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                     isActive
@@ -330,9 +315,7 @@ export default function SettingsPage() {
                 </dd>
               </div>
               <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">
-                  Days remaining
-                </dt>
+                <dt className="text-sm text-muted">Days remaining</dt>
                 <dd className="mt-2 text-base font-medium text-foreground">
                   {typeof daysRemaining === "number"
                     ? `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`
@@ -340,16 +323,13 @@ export default function SettingsPage() {
                 </dd>
               </div>
               <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">
-                  Renewal date
-                </dt>
+                <dt className="text-sm text-muted">Renewal date</dt>
                 <dd className="mt-2 text-base font-medium text-foreground">
                   {formatDate(expiresAt)}
                 </dd>
               </div>
             </dl>
           </section>
-
         </div>
 
         <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm">
@@ -445,7 +425,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-accent"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-accent cursor-pointer"
               >
                 {isSubmitting ? "Updating…" : "Update password"}
               </button>

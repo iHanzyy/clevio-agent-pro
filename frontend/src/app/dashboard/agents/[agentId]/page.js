@@ -1106,7 +1106,7 @@ export default function AgentDetailPage() {
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-accent-foreground text-sm font-semibold disabled:opacity-60"
+            className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-accent-foreground text-sm font-semibold disabled:opacity-60 cursor-pointer"
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
@@ -1262,7 +1262,7 @@ export default function AgentDetailPage() {
               type="button"
               onClick={handleWhatsAppQr}
               disabled={whatsAppLoading}
-              className="inline-flex items-center px-4 py-2 rounded-lg bg-[#25D366] hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60"
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-[#25D366] hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
             >
               {whatsAppLoading
                 ? "Requesting QR..."
@@ -1274,7 +1274,7 @@ export default function AgentDetailPage() {
               type="button"
               onClick={refreshWhatsAppSession}
               disabled={whatsAppStatusLoading || whatsAppLoading}
-              className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
+              className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60 cursor-pointer"
             >
               {whatsAppStatusLoading ? "Refreshing..." : "Refresh Status"}
             </button>
@@ -1567,7 +1567,7 @@ export default function AgentDetailPage() {
                       <button
                         type="button"
                         onClick={() => handleKnowledgeDelete(doc)}
-                        className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:bg-red-100"
+                        className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:bg-red-100 cursor-pointer"
                       >
                         Delete
                       </button>
@@ -1654,7 +1654,7 @@ export default function AgentDetailPage() {
             <button
               type="submit"
               disabled={isSending || !chatInput.trim()}
-              className="inline-flex items-center px-4 py-2 rounded-full bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 rounded-full bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSending ? "Sending..." : "Send"}
             </button>

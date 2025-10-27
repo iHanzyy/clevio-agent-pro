@@ -183,7 +183,7 @@ export default function DashboardLayout({ children }) {
       {/* Dark Mode Toggle - Fixed position */}
       <button
         onClick={toggleDarkMode}
-        className="hidden lg:block fixed right-6 top-6 z-50 p-2.5 rounded-full bg-surface border border-surface-strong/60 hover:bg-surface-strong/40 transition-all duration-200 shadow-lg"
+        className="hidden lg:block fixed right-6 top-6 z-50 p-2.5 rounded-full bg-surface border border-surface-strong/60 hover:bg-surface-strong/40 transition-all duration-200 shadow-lg cursor-pointer"
         title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
       >
         {darkMode ? (
@@ -461,7 +461,7 @@ export default function DashboardLayout({ children }) {
                                text-foreground font-semibold
                                bg-surface-strong/40 hover:bg-surface-strong/60
                                ring-1 ring-surface-strong/30
-                               transition-all duration-200"
+                               transition-all duration-200 "
                   >
                     <svg
                       className="w-5 h-5"
