@@ -247,7 +247,7 @@ export default function Dashboard() {
             <svg
               className="h-6 w-6"
               fill="none"
-              stroke="currentColor"
+              stroke="#22c55e"
               viewBox="0 0 24 24"
             >
               <path

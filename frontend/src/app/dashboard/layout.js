@@ -219,7 +219,7 @@ export default function DashboardLayout({ children }) {
         className="lg:hidden fixed right-4 top-4 z-50"
       >
         <AnimatedHamburgerButton
-          key={`mobile-hamburger-${sidebarOpen}`} // Key berubah berdasarkan state, bukan pathname
+          key={`mobile-hamburger-${sidebarOpen}`}
           initialOpen={sidebarOpen}
           onToggle={setSidebarOpen}
         />
@@ -351,7 +351,7 @@ export default function DashboardLayout({ children }) {
           )}
         </AnimatePresence>
 
-        {/* Content area - bergeser ketika sidebar muncul */}
+        {/* Content area - bergeser ketika sidebar muncul dengan padding yang lebih baik */}
         <motion.div
           className="w-full h-screen overflow-y-auto"
           animate={{
@@ -365,7 +365,18 @@ export default function DashboardLayout({ children }) {
             ease: "easeInOut",
           }}
         >
-          <div className="pb-10 pt-20">{children}</div>
+          {/* Wrapper dengan max-width dan padding yang lebih baik */}
+          <div className="min-h-screen">
+            <div
+              className={`mx-auto ${
+                sidebarOpen
+                  ? "max-w-7xl px-6 sm:px-8 lg:px-12"
+                  : "max-w-7xl px-8 sm:px-12 lg:px-16"
+              } py-8 pt-24 transition-all duration-400`}
+            >
+              {children}
+            </div>
+          </div>
         </motion.div>
       </div>
 
@@ -396,7 +407,6 @@ export default function DashboardLayout({ children }) {
                     <Link
                       key={item.name}
                       href={item.href}
-                      // HAPUS onClick={() => setSidebarOpen(false)} agar sidebar tidak tertutup saat navigasi
                       className={`inline-flex items-center gap-3 rounded-xl px-4 py-3 transition ${
                         isActive(item.href)
                           ? "bg-accent/15 text-accent"
@@ -439,7 +449,8 @@ export default function DashboardLayout({ children }) {
           )}
         </AnimatePresence>
 
-        <div className="pt-20">{children}</div>
+        {/* Mobile Content dengan padding yang lebih baik */}
+        <div className="pt-20 px-4 sm:px-6 pb-8">{children}</div>
       </div>
     </div>
   );
