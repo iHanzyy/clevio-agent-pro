@@ -338,8 +338,8 @@ export default function AgentsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-muted dark:text-muted">
             Loading your agents...
           </p>
         </div>
@@ -355,16 +355,16 @@ export default function AgentsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground dark:text-foreground">
             Your Agents
           </h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-sm text-muted dark:text-muted">
             Manage, edit, and monitor the assistants you&apos;ve created.
           </p>
         </div>
         <Link
           href="/dashboard/agents/new"
-          className="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition"
+          className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground font-semibold text-sm transition"
         >
           <svg
             className="w-4 h-4 mr-2"
@@ -390,17 +390,17 @@ export default function AgentsPage() {
       )}
 
       {agents.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center bg-white dark:bg-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <div className="rounded-xl border border-dashed border-surface-strong/60 dark:border-surface-strong p-10 text-center bg-surface dark:bg-surface-strong">
+          <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
             You haven&apos;t created any agents yet
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-sm text-muted dark:text-muted">
             Build your first agent to automate workflows across Gmail, WhatsApp,
             and more.
           </p>
           <Link
             href="/dashboard/agents/new"
-            className="mt-6 inline-flex items-center px-5 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition"
+            className="mt-6 inline-flex items-center px-5 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition"
           >
             Create your first agent
           </Link>
@@ -427,29 +427,29 @@ export default function AgentsPage() {
             return (
               <div
                 key={agent.id}
-                className="group relative flex flex-col justify-between gap-6 rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-2xl dark:border-slate-700 dark:bg-slate-900/70"
+                className="group relative flex flex-col justify-between gap-6 rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-2xl dark:border-surface-strong dark:bg-surface-strong"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-1 flex-col gap-3">
                     <div>
-                      <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                      <h3 className="text-xl font-semibold text-foreground dark:text-foreground">
                         {agent.name}
                       </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300 line-clamp-3">
+                      <p className="mt-1 text-sm leading-relaxed text-muted dark:text-muted line-clamp-3">
                         {agent.config?.system_message ||
                           agent.config?.system_prompt ||
                           "No system prompt provided yet."}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-slate-500 dark:text-slate-400">
-                      <span className="font-medium text-slate-700 dark:text-slate-200">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted dark:text-muted">
+                      <span className="font-medium text-muted dark:text-foreground">
                         Capabilities
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {capabilityList.map((capability) => (
                           <span
                             key={capability}
-                            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300"
+                            className="rounded-full border border-surface-strong bg-background px-3 py-1 font-medium text-muted dark:border-surface-strong dark:bg-surface-strong/70 dark:text-muted"
                           >
                             {capability}
                           </span>
@@ -465,7 +465,7 @@ export default function AgentsPage() {
                       {sessionLoading ? "Checking..." : sessionDescriptor.label}
                     </span>
                     {!sessionLoading && (
-                      <p className="max-w-[14rem] text-[11px] text-slate-500 dark:text-slate-300">
+                      <p className="max-w-[14rem] text-[11px] text-muted dark:text-muted">
                         {sessionDescriptor.helper}
                       </p>
                     )}
@@ -475,7 +475,7 @@ export default function AgentsPage() {
                 <div className="flex items-center justify-between">
                   <Link
                     href={`/dashboard/agents/${agent.id}`}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accent dark:text-accent dark:hover:text-accent"
                   >
                     View details
                     <svg
@@ -497,7 +497,7 @@ export default function AgentsPage() {
                       type="button"
                       onClick={() => handleWhatsAppActivation(agent)}
                       disabled={sessionLoading}
-                      className="inline-flex items-center justify-center rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400/70 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                      className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent"
                     >
                       {sessionLoading
                         ? "Requesting..."
@@ -511,7 +511,7 @@ export default function AgentsPage() {
                         onClick={() =>
                           openQrPreview(agent.id, agent.name, qrValue)
                         }
-                        className="text-[11px] font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+                        className="text-[11px] font-medium text-accent hover:text-accent dark:text-accent dark:hover:text-accent"
                       >
                         View latest QR
                       </button>
@@ -531,25 +531,25 @@ export default function AgentsPage() {
 
       {qrPreview?.qr && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="relative w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-xl dark:border-gray-700 dark:bg-gray-900">
+          <div className="relative w-full max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-6 text-center shadow-xl dark:border-surface-strong dark:bg-surface-strong">
             <button
               type="button"
               onClick={closeQrPreview}
-              className="absolute right-3 top-3 rounded-full bg-gray-200 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              className="absolute right-3 top-3 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/60 dark:bg-surface-strong dark:text-foreground dark:hover:bg-surface-strong/70"
             >
               Close
             </button>
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-base font-semibold text-foreground dark:text-foreground">
               Scan WhatsApp QR
             </h3>
             {qrPreview?.agentName && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-muted dark:text-muted">
                 Agent: {qrPreview.agentName}
               </p>
             )}
             <div className="mt-4">
               {qrPreview.isImage ? (
-                <div className="mx-auto inline-flex rounded-md border border-gray-200 bg-white p-2">
+                <div className="mx-auto inline-flex rounded-md border border-surface-strong/60 bg-surface p-2">
                   <Image
                     src={qrPreview.qr}
                     alt="WhatsApp QR Code"
@@ -564,12 +564,12 @@ export default function AgentsPage() {
                   href={qrPreview.qr}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"
+                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
                 >
                   Open WhatsApp Link
                 </a>
               )}
-              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-3 text-xs text-muted dark:text-muted">
                 QR codes expire quickly. Refresh if the scan times out.
               </p>
             </div>

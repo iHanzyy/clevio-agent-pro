@@ -15,8 +15,8 @@ export default function NewAgentPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Checking authentication...</p>
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-muted">Checking authentication...</p>
         </div>
       </div>
     );
@@ -56,10 +56,10 @@ export default function NewAgentPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-3xl font-bold text-foreground dark:text-accent-foreground">
           Create a New Agent
         </h1>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-sm text-muted dark:text-muted">
           Configure the tools and behaviour for your assistant. You can adjust
           these settings later from the agent detail page.
         </p>

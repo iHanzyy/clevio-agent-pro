@@ -602,13 +602,13 @@ export default function Payment() {
     const isChecking = statusState.state === "checking";
     return (
       <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+        <div className="w-full max-w-md rounded-2xl bg-surface p-6 text-center shadow-xl">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent/15">
             {isChecking ? (
-              <span className="h-6 w-6 animate-spin rounded-full border-2 border-green-500 border-t-transparent" />
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
             ) : (
               <svg
-                className="h-6 w-6 text-green-600"
+                className="h-6 w-6 text-accent"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2.5"
@@ -622,19 +622,19 @@ export default function Payment() {
               </svg>
             )}
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             {isChecking ? "Checking Payment" : "Payment Successful"}
           </h2>
-          <p className="mt-2 text-sm text-gray-600">{statusState.message}</p>
+          <p className="mt-2 text-sm text-muted">{statusState.message}</p>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-900 flex justify-center">
+    <div className="min-h-screen bg-surface text-foreground flex justify-center">
       {renderStatusOverlay()}
-      <div className="max-w-screen-xl m-0 sm:m-10 bg-white shadow sm:rounded-lg flex justify-center flex-1">
+      <div className="max-w-screen-xl m-0 sm:m-10 bg-surface shadow sm:rounded-lg flex justify-center flex-1">
         <div className="w-full p-6 sm:p-12">
           <div className="text-center mb-8">
             <Image
@@ -645,16 +645,16 @@ export default function Payment() {
               className="mx-auto mb-6"
               priority
             />
-            <h1 className="text-3xl font-extrabold text-gray-900">
+            <h1 className="text-3xl font-extrabold text-foreground">
               Choose Your Plan
             </h1>
-            <p className="mt-4 text-lg text-gray-600">
+            <p className="mt-4 text-lg text-muted">
               Select a subscription plan to activate your account
             </p>
           </div>
 
           {statusError && (
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 text-yellow-700 rounded max-w-xl mx-auto text-sm">
+            <div className="mb-6 p-4 bg-surface-strong/40 border border-surface-strong/60 text-muted rounded max-w-xl mx-auto text-sm">
               {statusError}
             </div>
           )}
@@ -672,22 +672,22 @@ export default function Payment() {
                   key={plan.code}
                   className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
                     selectedPlan === plan.code
-                      ? "border-green-500 bg-green-50"
-                      : "border-gray-200 hover:border-green-300"
+                      ? "border-accent bg-accent/10"
+                      : "border-surface-strong/60 hover:border-accent/40"
                   }`}
                   onClick={() => setSelectedPlan(plan.code)}
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-xl font-semibold">{plan.name}</h3>
-                      <p className="text-gray-600">{plan.duration_days} days</p>
+                      <p className="text-muted">{plan.duration_days} days</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-green-600">
+                      <div className="text-2xl font-bold text-accent">
                         {formatPrice(plan.price)}
                       </div>
                       {plan.code === "PRO_Y" && (
-                        <div className="text-sm text-green-600">Save 17%!</div>
+                        <div className="text-sm text-accent">Save 17%!</div>
                       )}
                     </div>
                   </div>
@@ -700,7 +700,7 @@ export default function Payment() {
                       onChange={() => setSelectedPlan(plan.code)}
                       className="mr-2"
                     />
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-muted">
                       {plan.code === "PRO_M"
                         ? "Monthly subscription"
                         : "Yearly subscription (Best value!)"}
@@ -714,16 +714,16 @@ export default function Payment() {
               <button
                 onClick={handlePayment}
                 disabled={loading || !selectedPlan}
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-4 px-8 rounded-lg text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-accent/100 hover:bg-accent-hover text-accent-foreground font-semibold py-4 px-8 rounded-lg text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? "Processing..." : "Continue to Payment"}
               </button>
               {successMessage && (
-                <div className="mt-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded max-w-xl mx-auto text-sm">
+                <div className="mt-4 p-4 bg-accent/10 border border-accent/40 text-accent rounded max-w-xl mx-auto text-sm">
                   {successMessage}
                 </div>
               )}
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-muted">
                 If you were not redirected automatically, please check the
                 payment instructions sent by our billing partner. Keep this
                 order ID for reference:{" "}
@@ -733,7 +733,7 @@ export default function Payment() {
 
             <div className="mt-8 text-center">
               <h4 className="text-lg font-semibold mb-4">What you get:</h4>
-              <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-600">
+              <div className="grid md:grid-cols-3 gap-4 text-sm text-muted">
                 <div>✅ Unlimited AI Agents</div>
                 <div>✅ WhatsApp Integration</div>
                 <div>✅ Document Upload (RAG)</div>

@@ -11,6 +11,15 @@ module.exports = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        surface: "var(--surface)",
+        "surface-strong": "var(--surface-strong)",
+        accent: {
+          DEFAULT: "var(--accent)",
+          hover: "var(--accent-hover)",
+          foreground: "var(--accent-foreground)",
+        },
+        muted: "var(--muted)",
+        overlay: "var(--overlay)",
       },
     },
   },

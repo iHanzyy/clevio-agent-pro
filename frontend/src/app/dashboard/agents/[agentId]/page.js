@@ -239,10 +239,10 @@ export default function AgentDetailPage() {
     return Array.from(new Set(labels)).join(", ");
   }, [googleToolIds]);
   const googleAuthAlertClasses = googleAuthConnected
-    ? "border-green-300 bg-green-50 text-green-800"
+    ? "border-accent/40 bg-background text-accent"
     : googleAuthError
       ? "border-red-300 bg-red-50 text-red-800"
-      : "border-yellow-300 bg-yellow-50 text-yellow-800";
+      : "border-surface-strong/60 bg-background text-muted";
 
   const clearGoogleAuthPoll = useCallback(() => {
     if (googleAuthPollRef.current) {
@@ -509,12 +509,12 @@ export default function AgentDetailPage() {
 
   const whatsAppStatusClasses = useMemo(() => {
     if (whatsAppSessionInfo.isActive) {
-      return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      return "bg-accent text-accent-foreground dark:bg-accent dark:text-accent-foreground";
     }
     if (whatsAppStatusLoading) {
-      return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200";
+      return "bg-accent/20 text-accent dark:bg-accent/25 dark:text-accent";
     }
-    return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+    return "bg-surface-strong/50 text-muted dark:bg-surface-strong dark:text-muted";
   }, [whatsAppSessionInfo.isActive, whatsAppStatusLoading]);
 
   const whatsAppQrIsImage = useMemo(
@@ -1051,8 +1051,8 @@ export default function AgentDetailPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading agent...</p>
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-muted">Loading agent...</p>
         </div>
       </div>
     );
@@ -1077,19 +1077,19 @@ export default function AgentDetailPage() {
 
   const statusChipClasses =
     agent.status === "ACTIVE"
-      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
+      ? "bg-accent/15 text-accent dark:bg-accent/25 dark:text-accent"
+      : "bg-surface text-foreground dark:bg-surface-strong dark:text-foreground";
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-foreground dark:text-foreground">
             {agent.name}
           </h1>
-          <p className="mt-2 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted dark:text-muted">
             <span>Agent ID:</span>
-            <code className="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800">
+            <code className="px-2 py-1 rounded bg-surface dark:bg-surface-strong">
               {agent.id}
             </code>
           </p>
@@ -1100,14 +1100,14 @@ export default function AgentDetailPage() {
         <div className="flex items-center gap-2">
           <Link
             href={`/dashboard/agents/${agent.id}/edit`}
-            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-medium text-muted dark:text-foreground hover:bg-surface dark:hover:bg-surface-strong"
           >
             Edit
           </Link>
           <button
             onClick={handleDelete}
             disabled={isDeleting}
-            className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white text-sm font-semibold disabled:opacity-60"
+            className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-accent-foreground text-sm font-semibold disabled:opacity-60"
           >
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
@@ -1132,7 +1132,7 @@ export default function AgentDetailPage() {
                   : "Google Workspace tools are ready to use with this account."}
               </p>
               {googleAuthPrimaryToken?.expires_at && (
-                <p className="mt-2 text-xs text-green-700">
+                <p className="mt-2 text-xs text-accent">
                   Access valid until{" "}
                   {formatDateTime(googleAuthPrimaryToken.expires_at)}. Re-run
                   the check if you need to refresh permissions later.
@@ -1154,7 +1154,7 @@ export default function AgentDetailPage() {
                   href={googleAuthUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"
+                  className="inline-flex items-center mt-3 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
                 >
                   Continue with Google
                 </a>
@@ -1165,12 +1165,12 @@ export default function AgentDetailPage() {
                     void checkGoogleAuthStatus();
                   }}
                   disabled={googleAuthChecking}
-                  className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-semibold text-current disabled:opacity-60 disabled:cursor-not-allowed border border-current transition"
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg bg-surface/20 hover:bg-surface/30 text-sm font-semibold text-current disabled:opacity-60 disabled:cursor-not-allowed border border-current transition"
                 >
                   {googleAuthChecking ? "Checking status..." : "Refresh status"}
                 </button>
               </div>
-              <p className="mt-2 text-xs text-yellow-700">
+              <p className="mt-2 text-xs text-muted">
                 Keep this window open. We will update the status automatically
                 once Google confirms the authorization.
               </p>
@@ -1184,75 +1184,75 @@ export default function AgentDetailPage() {
         </div>
       )}
 
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
           Configuration
         </h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               LLM Model
             </p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-foreground dark:text-foreground">
               {agent.config?.model ||
                 agent.config?.llm_model ||
                 "Default"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               Temperature
             </p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-foreground dark:text-foreground">
               {agent.config?.temperature ?? 0.7}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               Max Tokens
             </p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-foreground dark:text-foreground">
               {agent.config?.max_tokens ?? 1000}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               Memory Type
             </p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-foreground dark:text-foreground">
               {agent.config?.memory_type ?? "buffer"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               Reasoning Strategy
             </p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-foreground dark:text-foreground">
               {agent.config?.reasoning_strategy ?? "react"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               Capabilities
             </p>
-            <p className="text-sm text-gray-900 dark:text-gray-100">
+            <p className="text-sm text-foreground dark:text-foreground">
               {capabilitySummary}
             </p>
           </div>
         </div>
         {(agent.config?.system_message || agent.config?.system_prompt) && (
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
               System Prompt
             </p>
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground dark:text-foreground bg-background dark:bg-surface-strong/60 border border-surface-strong/60 dark:border-surface-strong rounded-lg p-4">
               {agent.config.system_message || agent.config.system_prompt}
             </pre>
           </div>
         )}
-        <div className="border-t border-dashed border-gray-200 dark:border-gray-700 pt-4 mt-4 space-y-3">
+        <div className="border-t border-dashed border-surface-strong/60 dark:border-surface-strong pt-4 mt-4 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              <p className="text-sm font-medium text-foreground dark:text-foreground">
                 WhatsApp Session
               </p>
               <span
@@ -1271,7 +1271,7 @@ export default function AgentDetailPage() {
                 type="button"
                 onClick={handleWhatsAppQr}
                 disabled={whatsAppLoading}
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold transition disabled:opacity-60"
+                className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60"
               >
                 {whatsAppLoading
                   ? "Requesting QR..."
@@ -1283,22 +1283,22 @@ export default function AgentDetailPage() {
                 type="button"
                 onClick={refreshWhatsAppSession}
                 disabled={whatsAppStatusLoading || whatsAppLoading}
-                className="inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60"
+                className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-semibold text-muted dark:text-foreground hover:bg-surface dark:hover:bg-surface-strong disabled:opacity-60"
               >
                 {whatsAppStatusLoading ? "Refreshing..." : "Refresh Status"}
               </button>
             </div>
             {whatsAppSessionInfo.isActive && (
-              <p className="text-xs text-green-600 dark:text-green-300">
+              <p className="text-xs text-accent dark:text-accent">
                 WhatsApp session is active. Re-scan the QR if you need to link a
                 different device.
               </p>
             )}
             {showWhatsAppQr && (
-              <div className="rounded-lg border border-dashed border-green-400 bg-green-50/60 dark:bg-green-900/20 p-4 space-y-3">
+              <div className="rounded-lg border border-dashed border-accent/40 bg-accent/15 dark:bg-accent/25/20 p-4 space-y-3">
                 {whatsAppSessionInfo.isActive ? (
                   <div className="space-y-4 text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-800/60 dark:text-green-200">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-accent dark:bg-accent/25 dark:text-accent">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
@@ -1314,15 +1314,15 @@ export default function AgentDetailPage() {
                       </svg>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-green-700 dark:text-green-200">
+                      <p className="text-sm font-semibold text-accent dark:text-accent">
                         WhatsApp connected
                       </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-300">
+                      <p className="text-xs text-muted dark:text-muted">
                         We detected the linked device. Messages can now be sent
                         through this agent.
                       </p>
                       {whatsAppSessionInfo.updatedAt && (
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <p className="text-xs text-muted dark:text-muted">
                           Linked at {formatDateTime(whatsAppSessionInfo.updatedAt)}.
                         </p>
                       )}
@@ -1330,7 +1330,7 @@ export default function AgentDetailPage() {
                     <button
                       type="button"
                       onClick={closeWhatsAppQrPreview}
-                      className="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 hover:bg-green-700 text-sm font-semibold text-white"
+                      className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-sm font-semibold text-accent-foreground"
                     >
                       Close
                     </button>
@@ -1338,18 +1338,18 @@ export default function AgentDetailPage() {
                 ) : (
                   <>
                     {whatsAppLoading && (
-                      <p className="text-sm text-gray-700 dark:text-gray-200">
+                      <p className="text-sm text-muted dark:text-foreground">
                         Generating WhatsApp QR code…
                       </p>
                     )}
                     {!whatsAppLoading && whatsAppQr && (
                       <div className="space-y-4 text-center">
-                        <p className="text-sm text-gray-700 dark:text-gray-200">
+                        <p className="text-sm text-muted dark:text-foreground">
                           Open WhatsApp &gt; Linked Devices and scan this code
                           to connect the agent.
                         </p>
                         {whatsAppQrIsImage ? (
-                          <div className="mx-auto inline-flex rounded-md border border-gray-200 bg-white p-2">
+                          <div className="mx-auto inline-flex rounded-md border border-surface-strong/60 bg-surface p-2">
                             <Image
                               src={whatsAppQr}
                               alt="WhatsApp QR Code"
@@ -1364,7 +1364,7 @@ export default function AgentDetailPage() {
                             href={whatsAppQr}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold"
+                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
                           >
                             Open WhatsApp Link
                           </a>
@@ -1374,7 +1374,7 @@ export default function AgentDetailPage() {
                             className={`text-xs font-semibold ${
                               whatsAppQrExpired
                                 ? "text-red-600 dark:text-red-400"
-                                : "text-gray-600 dark:text-gray-300"
+                                : "text-muted dark:text-muted"
                             }`}
                           >
                             {whatsAppQrExpired
@@ -1382,34 +1382,34 @@ export default function AgentDetailPage() {
                               : `QR expires in ${whatsAppQrCountdown}s`}
                           </p>
                         ) : (
-                          <p className="text-xs text-gray-500 dark:text-gray-300">
+                          <p className="text-xs text-muted dark:text-muted">
                             QR codes expire after about a minute. Regenerate if
                             the scan times out.
                           </p>
                         )}
-                        <ol className="mx-auto max-w-md space-y-1 text-left text-xs text-gray-600 dark:text-gray-300">
+                        <ol className="mx-auto max-w-md space-y-1 text-left text-xs text-muted dark:text-muted">
                           <li>
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                            <span className="font-semibold text-muted dark:text-foreground">
                               1.
                             </span>{" "}
                             Open WhatsApp on your phone.
                           </li>
                           <li>
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                            <span className="font-semibold text-muted dark:text-foreground">
                               2.
                             </span>{" "}
                             Tap <span className="font-medium">Linked Devices</span>{" "}
                             &gt; <span className="font-medium">Link a Device</span>.
                           </li>
                           <li>
-                            <span className="font-semibold text-gray-700 dark:text-gray-200">
+                            <span className="font-semibold text-muted dark:text-foreground">
                               3.
                             </span>{" "}
                             Point the camera at this QR before it expires.
                           </li>
                         </ol>
                         {whatsAppSessionInfo.updatedAt && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                          <p className="text-xs text-muted dark:text-muted">
                             Last status update {formatDateTime(whatsAppSessionInfo.updatedAt)}.
                           </p>
                         )}
@@ -1419,7 +1419,7 @@ export default function AgentDetailPage() {
                               type="button"
                               onClick={handleWhatsAppQr}
                               disabled={whatsAppLoading}
-                              className="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold disabled:opacity-60"
+                              className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60"
                             >
                               {whatsAppLoading ? "Requesting..." : "Generate new QR"}
                             </button>
@@ -1428,14 +1428,14 @@ export default function AgentDetailPage() {
                             type="button"
                             onClick={refreshWhatsAppSession}
                             disabled={whatsAppStatusLoading || whatsAppLoading}
-                            className="inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60"
+                            className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-semibold text-muted dark:text-foreground hover:bg-surface dark:hover:bg-surface-strong disabled:opacity-60"
                           >
                             {whatsAppStatusLoading ? "Refreshing..." : "Refresh status"}
                           </button>
                           <button
                             type="button"
                             onClick={closeWhatsAppQrPreview}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-gray-200 hover:bg-gray-300 text-sm font-medium text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-100 transition"
+                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-surface hover:bg-surface-strong/60 text-sm font-medium text-muted dark:bg-surface-strong dark:hover:bg-surface-strong/70 dark:text-foreground transition"
                           >
                             Close
                           </button>
@@ -1443,7 +1443,7 @@ export default function AgentDetailPage() {
                       </div>
                     )}
                     {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
-                      <p className="text-sm text-gray-700 dark:text-gray-200">
+                      <p className="text-sm text-muted dark:text-foreground">
                         QR code is being prepared. This can take a few seconds…
                       </p>
                     )}
@@ -1457,11 +1457,11 @@ export default function AgentDetailPage() {
         </div>
       </section>
 
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6">
+        <h2 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">
           Next Steps
         </h2>
-        <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300 list-disc list-inside">
+        <ul className="space-y-2 text-sm text-muted dark:text-muted list-disc list-inside">
           <li>
             Use the dashboard to execute this agent or integrate it into your
             workflows.
@@ -1482,12 +1482,12 @@ export default function AgentDetailPage() {
         </ul>
       </section>
 
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 space-y-6">
+      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6 space-y-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+          <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
             Add Knowledge
           </h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+          <p className="mt-2 text-sm text-muted dark:text-muted">
             Upload up to 10 documents (PDF, PPTX, DOCX, TXT), 20 MB per file, to
             enrich this agent&apos;s context.
           </p>
@@ -1498,7 +1498,7 @@ export default function AgentDetailPage() {
             className={`p-3 rounded-lg text-sm ${
               knowledgeError
                 ? "bg-red-50 border border-red-200 text-red-700"
-                : "bg-green-50 border border-green-200 text-green-700"
+                : "bg-background border border-accent/40 text-accent"
             }`}
           >
             {knowledgeError || knowledgeSuccess}
@@ -1513,7 +1513,7 @@ export default function AgentDetailPage() {
               multiple
               accept=".pdf,.pptx,.docx,.txt"
               onChange={handleKnowledgeFileChange}
-              className="flex-1 text-sm text-gray-700 dark:text-gray-200 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700"
+              className="flex-1 text-sm text-muted dark:text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-foreground hover:file:bg-accent-hover"
               disabled={knowledgeUploading}
             />
             <button
@@ -1522,17 +1522,17 @@ export default function AgentDetailPage() {
               disabled={
                 knowledgeUploading || selectedKnowledgeFiles.length === 0
               }
-              className="inline-flex items-center px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {knowledgeUploading ? "Uploading..." : "Upload"}
             </button>
           </div>
           {selectedKnowledgeFiles.length > 0 && (
-            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-3">
-              <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+            <div className="rounded-lg border border-dashed border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-3">
+              <p className="text-xs font-medium text-muted dark:text-muted mb-2">
                 Files ready to upload:
               </p>
-              <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-300">
+              <ul className="space-y-1 text-xs text-muted dark:text-muted">
                 {selectedKnowledgeFiles.map((file) => (
                   <li key={file.name}>
                     {file.name} · {formatBytes(file.size)}
@@ -1544,15 +1544,15 @@ export default function AgentDetailPage() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-3">
+          <h3 className="text-sm font-semibold text-foreground dark:text-foreground mb-3">
             Upload History
           </h3>
           {knowledgeLoading ? (
             <div className="flex items-center justify-center py-6">
-              <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
           ) : knowledge.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-muted dark:text-muted">
               No knowledge documents uploaded yet.
             </p>
           ) : (
@@ -1560,14 +1560,14 @@ export default function AgentDetailPage() {
               {knowledge.map((doc) => (
                 <div
                   key={doc.id}
-                  className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/60 p-4"
+                  className="rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-4"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between text-sm">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                      <p className="font-medium text-foreground dark:text-foreground">
                         {doc.filename}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-muted dark:text-muted">
                         Uploaded {formatDateTime(doc.createdAt || doc.created_at)}
                       </p>
                     </div>
@@ -1581,7 +1581,7 @@ export default function AgentDetailPage() {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 grid md:grid-cols-4 gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="mt-2 grid md:grid-cols-4 gap-2 text-xs text-muted dark:text-muted">
                     <span>Size: {formatBytes(doc.sizeBytes ?? doc.size_bytes)}</span>
                     <span>Chunks: {doc.chunkCount ?? doc.chunk_count ?? "—"}</span>
                     <span>Type: {doc.contentType || doc.content_type || "Unknown"}</span>
@@ -1594,18 +1594,18 @@ export default function AgentDetailPage() {
         </div>
       </section>
 
-      <section className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6">
+        <h2 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">
           Test the Agent
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-sm text-muted dark:text-muted mb-4">
           Start a quick conversation to verify your configuration. Messages here
           use the live agent and tools you selected.
         </p>
         <div className="space-y-4">
-          <div className="h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-900/60 p-4 flex flex-col space-y-4">
+          <div className="h-72 overflow-y-auto rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-4 flex flex-col space-y-4">
             {chatMessages.length === 0 ? (
-              <div className="m-auto text-center text-sm text-gray-500 dark:text-gray-400">
+              <div className="m-auto text-center text-sm text-muted dark:text-muted">
                 <p className="font-medium">No messages yet</p>
                 <p className="mt-1">
                   Ask your agent something, for example:{" "}
@@ -1618,10 +1618,10 @@ export default function AgentDetailPage() {
               chatMessages.map((message) => {
                 const isUser = message.role === "user";
                 const bubbleClasses = isUser
-                  ? "ml-auto bg-green-500 text-white"
+                  ? "ml-auto bg-background0 text-accent-foreground"
                   : message.error
                   ? "mr-auto bg-red-100 text-red-700"
-                  : "mr-auto bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100";
+                  : "mr-auto bg-surface text-foreground dark:bg-surface-strong dark:text-foreground";
 
                 return (
                   <div key={message.id} className="max-w-[80%]">
@@ -1632,7 +1632,7 @@ export default function AgentDetailPage() {
                         {message.text}
                       </p>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-1 text-xs text-muted dark:text-muted">
                       {isUser ? "You" : "Agent"} ·{" "}
                       {formatTimestamp(message.timestamp)}
                     </p>
@@ -1655,13 +1655,13 @@ export default function AgentDetailPage() {
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
               placeholder="Type a message..."
-              className="flex-1 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="flex-1 rounded-full border border-surface-strong/60 dark:border-surface-strong bg-surface dark:bg-surface-strong px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               disabled={isSending}
             />
             <button
               type="submit"
               disabled={isSending || !chatInput.trim()}
-              className="inline-flex items-center px-4 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 rounded-full bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSending ? "Sending..." : "Send"}
             </button>

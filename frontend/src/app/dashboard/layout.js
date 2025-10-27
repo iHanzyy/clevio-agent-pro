@@ -90,10 +90,10 @@ export default function DashboardLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-surface-strong">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+          <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-muted dark:text-muted">Loading...</p>
         </div>
       </div>
     );
@@ -191,16 +191,16 @@ export default function DashboardLayout({ children }) {
   const isActive = (path) => pathname === path;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background dark:bg-surface-strong">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 transform transition-transform duration-200 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface dark:bg-surface-strong border-r border-surface-strong/60 dark:border-surface-strong transform transition-transform duration-200 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between h-16 px-6 border-b border-surface-strong/60 dark:border-surface-strong">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <Image
                 src="/clevioAIAssistantsLogo.png"
@@ -226,8 +226,8 @@ export default function DashboardLayout({ children }) {
                 }}
                 className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
                   isActive(item.href)
-                    ? "bg-indigo-50 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-indigo-400"
+                    ? "bg-accent/10 dark:bg-accent/25 text-accent dark:text-accent"
+                    : "text-muted dark:text-muted hover:bg-surface/70 dark:hover:bg-surface-strong hover:text-accent dark:hover:text-accent"
                 }`}
               >
                 <span className="mr-3">{item.icon}</span>
@@ -238,16 +238,16 @@ export default function DashboardLayout({ children }) {
 
           {/* Subscription Status */}
           {subscription && (
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="px-6 py-4 border-t border-surface-strong/60 dark:border-surface-strong">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span className="text-xs font-medium text-muted dark:text-muted">
                   Plan
                 </span>
                 <span
                   className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     subscription.is_active
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                      ? "bg-accent/15 text-accent dark:bg-accent/25 dark:text-accent"
+                      : "bg-surface text-foreground dark:bg-surface-strong dark:text-muted"
                   }`}
                 >
                   {formattedPlan}
@@ -255,7 +255,7 @@ export default function DashboardLayout({ children }) {
               </div>
               {subscription.days_remaining !== null &&
                 subscription.days_remaining !== undefined && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-muted dark:text-muted">
                     {subscription.days_remaining} days remaining
                   </p>
                 )}
@@ -263,23 +263,23 @@ export default function DashboardLayout({ children }) {
           )}
 
           {/* User Menu */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4 border-t border-surface-strong/60 dark:border-surface-strong">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-medium text-white">
+                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-medium text-accent-foreground">
                     {user.email?.[0]?.toUpperCase() || "U"}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  <p className="text-sm font-medium text-foreground dark:text-foreground truncate">
                     {user.email}
                   </p>
                 </div>
               </div>
               <button
                 onClick={logout}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 flex-shrink-0"
+                className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong flex-shrink-0"
                 title="Logout"
               >
                 <svg
@@ -308,11 +308,11 @@ export default function DashboardLayout({ children }) {
         }`}
       >
         {/* Top Bar */}
-        <header className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+        <header className="sticky top-0 z-40 bg-surface dark:bg-surface-strong border-b border-surface-strong/60 dark:border-surface-strong shadow-sm">
           <div className="flex items-center justify-between h-16 px-6">
             <button
               onClick={toggleSidebar}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong"
             >
               <svg
                 className="w-6 h-6"
@@ -333,7 +333,7 @@ export default function DashboardLayout({ children }) {
               {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong"
                 title={darkMode ? "Light Mode" : "Dark Mode"}
               >
                 {darkMode ? (
@@ -368,7 +368,7 @@ export default function DashboardLayout({ children }) {
               </button>
 
               {/* Notifications */}
-              <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 relative">
+              <button className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong relative">
                 <svg
                   className="w-5 h-5"
                   fill="none"

@@ -41,15 +41,15 @@ export const describeWhatsAppStatus = (session) => {
 
 export const toneToBadgeClasses = (tone, { loading = false } = {}) => {
   if (loading) {
-    return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200";
+    return "bg-accent/20 text-accent dark:bg-accent/25 dark:text-accent";
   }
 
   switch (tone) {
     case "success":
-      return "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-200";
+      return "bg-accent text-accent-foreground dark:bg-accent dark:text-accent-foreground";
     case "warning":
-      return "bg-amber-100 text-amber-700 dark:bg-amber-900/70 dark:text-amber-200";
+      return "bg-surface-strong/60 text-muted dark:bg-surface-strong dark:text-muted";
     default:
-      return "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200";
+      return "bg-surface text-muted dark:bg-surface-strong dark:text-muted";
   }
 };

@@ -53,9 +53,7 @@ export default function Dashboard() {
 
       if (agentsData.length > 0) {
         const sessionResults = await Promise.allSettled(
-          agentsData.map((agent) =>
-            apiService.getWhatsAppSession(agent.id),
-          ),
+          agentsData.map((agent) => apiService.getWhatsAppSession(agent.id))
         );
 
         sessionResults.forEach((result, index) => {
@@ -103,33 +101,33 @@ export default function Dashboard() {
   const StatCard = ({ title, value, icon, accent = "indigo" }) => {
     const palette = {
       indigo: {
-        ring: "bg-indigo-500/15 dark:bg-indigo-500/20",
-        text: "text-indigo-600 dark:text-indigo-300",
+        ring: "bg-accent/15 dark:bg-accent/25",
+        text: "text-accent dark:text-accent",
       },
       emerald: {
-        ring: "bg-emerald-500/15 dark:bg-emerald-500/20",
-        text: "text-emerald-600 dark:text-emerald-300",
+        ring: "bg-accent/15 dark:bg-accent/25",
+        text: "text-accent dark:text-accent",
       },
       blue: {
-        ring: "bg-blue-500/15 dark:bg-blue-500/20",
-        text: "text-blue-600 dark:text-blue-300",
+        ring: "bg-accent/15 dark:bg-accent/25",
+        text: "text-accent dark:text-accent",
       },
       purple: {
-        ring: "bg-purple-500/15 dark:bg-purple-500/20",
-        text: "text-purple-600 dark:text-purple-300",
+        ring: "bg-accent/15 dark:bg-accent/25",
+        text: "text-accent dark:text-accent",
       },
     };
 
     const styles = palette[accent] || palette.indigo;
 
     return (
-      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
+      <div className="rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm dark:border-surface-strong dark:bg-surface-strong">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+            <p className="text-sm font-medium text-muted dark:text-muted">
               {title}
             </p>
-            <p className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+            <p className="mt-2 text-3xl font-semibold text-foreground dark:text-foreground">
               {value}
             </p>
           </div>
@@ -148,8 +146,8 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">
+          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-muted dark:text-muted">
             {authLoading
               ? "Checking authentication..."
               : "Loading dashboard..."}
@@ -176,13 +174,13 @@ export default function Dashboard() {
               d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+          <h3 className="text-lg font-medium text-foreground dark:text-foreground mb-2">
             Error Loading Dashboard
           </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+          <p className="text-muted dark:text-muted mb-4">{error}</p>
           <button
             onClick={loadDashboardData}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            className="px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent-hover"
           >
             Try Again
           </button>
@@ -193,26 +191,33 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-10">
-      <section className="rounded-3xl border border-slate-200/80 bg-gradient-to-br from-indigo-500/10 via-white to-white p-8 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:from-indigo-500/20">
+      <section className="rounded-3xl border border-surface-strong/60 bg-gradient-to-br from-accent/10 via-background to-background p-8 shadow-sm dark:border-surface-strong dark:bg-surface-strong dark:from-accent/25">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-indigo-600 dark:text-indigo-300">
-              Control center
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-white">
+            <h1 className="mt-2 text-3xl font-semibold text-foreground dark:text-foreground">
               Dashboard
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              Track how many agents are online, confirm WhatsApp connectivity, and jump
-              straight into the workflows that need attention.
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted dark:text-muted">
+              Track how many agents are online, confirm WhatsApp connectivity,
+              and jump straight into the workflows that need attention.
             </p>
           </div>
           <Link
             href="/dashboard/agents/new"
-            className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400/70"
+            className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent/70"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             Create agent
           </Link>
@@ -223,28 +228,43 @@ export default function Dashboard() {
       <section className="grid grid-cols-1 gap-6 md:grid-cols-3">
         <Link
           href="/dashboard/agents/new"
-          className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/70"
+          className="group rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-xl dark:border-surface-strong dark:bg-surface-strong"
         >
           <div className="flex items-start justify-between gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent">
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
             </div>
             <svg
-              className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 dark:text-slate-500 dark:group-hover:text-indigo-300"
+              className="h-5 w-5 text-muted transition group-hover:text-accent dark:text-muted dark:group-hover:text-accent"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </div>
           <div className="mt-6 space-y-1">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-base font-semibold text-foreground dark:text-foreground">
               Create new agent
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-muted dark:text-muted">
               Spin up an assistant tailored to your workflows.
             </p>
           </div>
@@ -252,11 +272,16 @@ export default function Dashboard() {
 
         <Link
           href="/dashboard/analytics"
-          className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/70"
+          className="group rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-xl dark:border-surface-strong dark:bg-surface-strong"
         >
           <div className="flex items-start justify-between gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-accent dark:bg-accent/20 dark:text-accent">
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -266,19 +291,24 @@ export default function Dashboard() {
               </svg>
             </div>
             <svg
-              className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 dark:text-slate-500 dark:group-hover:text-indigo-300"
+              className="h-5 w-5 text-muted transition group-hover:text-accent dark:text-muted dark:group-hover:text-accent"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </div>
           <div className="mt-6 space-y-1">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-base font-semibold text-foreground dark:text-foreground">
               View analytics
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-muted dark:text-muted">
               Understand engagement and message volume at a glance.
             </p>
           </div>
@@ -286,11 +316,16 @@ export default function Dashboard() {
 
         <Link
           href="/dashboard/settings"
-          className="group rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-xl dark:border-slate-700 dark:bg-slate-900/70"
+          className="group rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-xl dark:border-surface-strong dark:bg-surface-strong"
         >
           <div className="flex items-start justify-between gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-500/10 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-surface-strong/20 text-muted dark:bg-surface-strong/25 dark:text-muted">
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -306,17 +341,24 @@ export default function Dashboard() {
               </svg>
             </div>
             <svg
-              className="h-5 w-5 text-slate-400 transition group-hover:text-indigo-500 dark:text-slate-500 dark:group-hover:text-indigo-300"
+              className="h-5 w-5 text-muted transition group-hover:text-accent dark:text-muted dark:group-hover:text-accent"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5l7 7-7 7"
+              />
             </svg>
           </div>
           <div className="mt-6 space-y-1">
-            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Settings</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <h3 className="text-base font-semibold text-foreground dark:text-foreground">
+              Settings
+            </h3>
+            <p className="text-sm text-muted dark:text-muted">
               Manage billing, credentials, and workspace preferences.
             </p>
           </div>
@@ -328,7 +370,12 @@ export default function Dashboard() {
           title="Total agents"
           value={stats.totalAgents}
           icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -344,8 +391,18 @@ export default function Dashboard() {
           title="Connected WhatsApp"
           value={stats.connectedWhatsApp}
           icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           }
           accent="emerald"
@@ -355,7 +412,12 @@ export default function Dashboard() {
           title="Conversations"
           value={stats.totalConversations}
           icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -371,7 +433,12 @@ export default function Dashboard() {
           title="Messages this week"
           value={stats.messagesThisWeek}
           icon={
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              className="h-6 w-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -385,24 +452,34 @@ export default function Dashboard() {
       </div>
 
       {/* Recent Agents */}
-      <section className="rounded-3xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/70">
-        <div className="flex flex-col gap-2 border-b border-slate-200/80 p-6 dark:border-slate-700">
+      <section className="rounded-3xl border border-surface-strong/60 bg-surface shadow-sm dark:border-surface-strong dark:bg-surface-strong">
+        <div className="flex flex-col gap-2 border-b border-surface-strong/60 p-6 dark:border-surface-strong">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
                 Your agents
               </h2>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-muted dark:text-muted">
                 A quick view of the latest assistants and their WhatsApp status.
               </p>
             </div>
             <Link
               href="/dashboard/agents"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 transition hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accent dark:text-accent dark:hover:text-accent"
             >
               View all
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
               </svg>
             </Link>
           </div>
@@ -410,8 +487,13 @@ export default function Dashboard() {
 
         {agents.length === 0 ? (
           <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-              <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent">
+              <svg
+                className="h-7 w-7"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -421,25 +503,35 @@ export default function Dashboard() {
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-sm font-semibold text-foreground dark:text-foreground">
                 No agents yet
               </h3>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-sm text-muted dark:text-muted">
                 Create your first agent to unlock WhatsApp automation.
               </p>
             </div>
             <Link
               href="/dashboard/agents/new"
-              className="inline-flex items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400/70"
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent/70"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4v16m8-8H4"
+                />
               </svg>
               Create agent
             </Link>
           </div>
         ) : (
-          <div className="divide-y divide-slate-200/80 dark:divide-slate-700">
+          <div className="divide-y divide-surface-strong/60 dark:divide-surface-strong">
             {agents.slice(0, 5).map((agent) => {
               const session = whatsAppStatuses[agent.id] || null;
               const descriptor = describeWhatsAppStatus(session);
@@ -453,11 +545,16 @@ export default function Dashboard() {
                 <Link
                   key={agent.id}
                   href={`/dashboard/agents/${agent.id}`}
-                  className="flex items-center justify-between gap-6 px-6 py-4 transition hover:bg-indigo-50/40 dark:hover:bg-indigo-900/20"
+                  className="flex items-center justify-between gap-6 px-6 py-4 transition hover:bg-accent/10 dark:hover:bg-accent/25"
                 >
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent">
+                      <svg
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -467,10 +564,10 @@ export default function Dashboard() {
                       </svg>
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      <p className="text-sm font-semibold text-foreground dark:text-foreground truncate">
                         {agent.name}
                       </p>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+                      <p className="mt-1 text-xs text-muted dark:text-muted truncate">
                         {agent.tools?.length || 0} tools • {createdAtLabel}
                       </p>
                     </div>
@@ -482,7 +579,7 @@ export default function Dashboard() {
                       <span className="h-2 w-2 rounded-full bg-current opacity-70"></span>
                       {descriptor.label}
                     </span>
-                    <span className="max-w-[16rem] text-[11px] leading-4 text-slate-500 line-clamp-2 dark:text-slate-400">
+                    <span className="max-w-[16rem] text-[11px] leading-4 text-muted line-clamp-2 dark:text-muted">
                       {descriptor.helper}
                     </span>
                   </div>
