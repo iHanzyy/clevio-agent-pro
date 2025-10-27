@@ -38,7 +38,7 @@ export default function DashboardLayout({ children }) {
       setDarkMode(storedPreference === "true");
     } else if (window.matchMedia) {
       const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)",
+        "(prefers-color-scheme: dark)"
       ).matches;
       setDarkMode(prefersDark);
     }
@@ -90,10 +90,10 @@ export default function DashboardLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-surface-strong">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-muted dark:text-muted">Loading...</p>
+          <p className="mt-4 text-muted">Loading...</p>
         </div>
       </div>
     );
@@ -143,25 +143,6 @@ export default function DashboardLayout({ children }) {
       ),
     },
     {
-      name: "Analytics",
-      href: "/dashboard/analytics",
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-          />
-        </svg>
-      ),
-    },
-    {
       name: "Settings",
       href: "/dashboard/settings",
       icon: (
@@ -191,16 +172,16 @@ export default function DashboardLayout({ children }) {
   const isActive = (path) => pathname === path;
 
   return (
-    <div className="min-h-screen bg-background dark:bg-surface-strong">
+    <div className="min-h-screen bg-background">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface dark:bg-surface-strong border-r border-surface-strong/60 dark:border-surface-strong transform transition-transform duration-200 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-surface-strong/60 transform transition-transform duration-200 ease-in-out ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-surface-strong/60 dark:border-surface-strong">
+          <div className="flex items-center justify-between h-16 px-6 border-b border-surface-strong/60">
             <Link href="/dashboard" className="flex items-center space-x-2">
               <Image
                 src="/clevioAIAssistantsLogo.png"
@@ -226,8 +207,8 @@ export default function DashboardLayout({ children }) {
                 }}
                 className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
                   isActive(item.href)
-                    ? "bg-accent/10 dark:bg-accent/25 text-accent dark:text-accent"
-                    : "text-muted dark:text-muted hover:bg-surface/70 dark:hover:bg-surface-strong hover:text-accent dark:hover:text-accent"
+                    ? "bg-accent/10 text-accent"
+                    : "text-muted hover:bg-surface/70 hover:text-accent"
                 }`}
               >
                 <span className="mr-3">{item.icon}</span>
@@ -238,16 +219,14 @@ export default function DashboardLayout({ children }) {
 
           {/* Subscription Status */}
           {subscription && (
-            <div className="px-6 py-4 border-t border-surface-strong/60 dark:border-surface-strong">
+            <div className="px-6 py-4 border-t border-surface-strong/60">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted dark:text-muted">
-                  Plan
-                </span>
+                <span className="text-xs font-medium text-muted">Plan</span>
                 <span
                   className={`px-2 py-1 text-xs font-semibold rounded-full ${
                     subscription.is_active
-                      ? "bg-accent/15 text-accent dark:bg-accent/25 dark:text-accent"
-                      : "bg-surface text-foreground dark:bg-surface-strong dark:text-muted"
+                      ? "bg-accent/15 text-accent"
+                      : "bg-surface text-foreground"
                   }`}
                 >
                   {formattedPlan}
@@ -255,7 +234,7 @@ export default function DashboardLayout({ children }) {
               </div>
               {subscription.days_remaining !== null &&
                 subscription.days_remaining !== undefined && (
-                  <p className="text-xs text-muted dark:text-muted">
+                  <p className="text-xs text-muted">
                     {subscription.days_remaining} days remaining
                   </p>
                 )}
@@ -263,7 +242,7 @@ export default function DashboardLayout({ children }) {
           )}
 
           {/* User Menu */}
-          <div className="px-6 py-4 border-t border-surface-strong/60 dark:border-surface-strong">
+          <div className="px-6 py-4 border-t border-surface-strong/60">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
@@ -272,14 +251,14 @@ export default function DashboardLayout({ children }) {
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground dark:text-foreground truncate">
+                  <p className="text-sm font-medium text-foreground truncate">
                     {user.email}
                   </p>
                 </div>
               </div>
               <button
                 onClick={logout}
-                className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong flex-shrink-0"
+                className="p-2 text-muted hover:text-muted rounded-lg hover:bg-surface/70 flex-shrink-0"
                 title="Logout"
               >
                 <svg
@@ -308,11 +287,11 @@ export default function DashboardLayout({ children }) {
         }`}
       >
         {/* Top Bar */}
-        <header className="sticky top-0 z-40 bg-surface dark:bg-surface-strong border-b border-surface-strong/60 dark:border-surface-strong shadow-sm">
+        <header className="sticky top-0 z-40 bg-surface border-b border-surface-strong/60 shadow-sm">
           <div className="flex items-center justify-between h-16 px-6">
             <button
               onClick={toggleSidebar}
-              className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong"
+              className="p-2 text-muted hover:text-muted rounded-lg hover:bg-surface/70"
             >
               <svg
                 className="w-6 h-6"
@@ -328,62 +307,6 @@ export default function DashboardLayout({ children }) {
                 />
               </svg>
             </button>
-
-            <div className="flex items-center space-x-4">
-              {/* Dark Mode Toggle */}
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong"
-                title={darkMode ? "Light Mode" : "Dark Mode"}
-              >
-                {darkMode ? (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                    />
-                  </svg>
-                )}
-              </button>
-
-              {/* Notifications */}
-              <button className="p-2 text-muted hover:text-muted dark:hover:text-muted rounded-lg hover:bg-surface/70 dark:hover:bg-surface-strong relative">
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                  />
-                </svg>
-              </button>
-            </div>
           </div>
         </header>
 

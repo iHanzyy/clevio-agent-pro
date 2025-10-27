@@ -24,7 +24,6 @@ export default function AgentsPage() {
   const whatsAppPollMapRef = useRef({});
   const whatsAppSessionsRef = useRef({});
 
-
   const resolveApiKey = useCallback(async () => {
     let apiKey =
       (typeof apiService.getCurrentApiKey === "function"
@@ -42,13 +41,16 @@ export default function AgentsPage() {
             ? apiService.getCurrentApiKey()
             : null;
       } catch (err) {
-        console.warn("Unable to auto-generate API key for WhatsApp session", err);
+        console.warn(
+          "Unable to auto-generate API key for WhatsApp session",
+          err
+        );
       }
     }
 
     if (!apiKey) {
       throw new Error(
-        "API key unavailable. Refresh the page or generate an API key before linking WhatsApp.",
+        "API key unavailable. Refresh the page or generate an API key before linking WhatsApp."
       );
     }
 
@@ -98,7 +100,7 @@ export default function AgentsPage() {
         }
       }, 5000);
     },
-    [clearAgentPoll],
+    [clearAgentPoll]
   );
 
   const openQrPreview = useCallback((agentId, agentName, qrValue) => {
@@ -178,7 +180,7 @@ export default function AgentsPage() {
                 "Unable to fetch WhatsApp session status right now.",
             };
           }
-        }),
+        })
       );
 
       if (cancelled) {
@@ -198,7 +200,7 @@ export default function AgentsPage() {
             !info.qrUrl &&
             (!statusValue ||
               ["inactive", "not_linked", "not_found", "unknown"].includes(
-                statusValue,
+                statusValue
               ));
 
           const nextSession = shouldPreserveActive
@@ -215,10 +217,12 @@ export default function AgentsPage() {
           const shouldPoll =
             nextSession.raw &&
             !nextSession.isActive &&
-            !(typeof nextSession.status === "string" &&
+            !(
+              typeof nextSession.status === "string" &&
               ["inactive", "not_found"].includes(
-                nextSession.status.toLowerCase(),
-              ));
+                nextSession.status.toLowerCase()
+              )
+            );
 
           if (shouldPoll) {
             scheduleAgentPoll(agentId);
@@ -246,11 +250,14 @@ export default function AgentsPage() {
     whatsAppSessionsRef.current = whatsAppSessions;
   }, [whatsAppSessions]);
 
-  useEffect(() => () => {
-    Object.keys(whatsAppPollMapRef.current).forEach((agentId) => {
-      clearAgentPoll(agentId);
-    });
-  }, [clearAgentPoll]);
+  useEffect(
+    () => () => {
+      Object.keys(whatsAppPollMapRef.current).forEach((agentId) => {
+        clearAgentPoll(agentId);
+      });
+    },
+    [clearAgentPoll]
+  );
 
   const handleWhatsAppActivation = useCallback(
     async (agent) => {
@@ -284,7 +291,7 @@ export default function AgentsPage() {
             !session.qrUrl &&
             (!statusValue ||
               ["inactive", "not_linked", "not_found", "unknown"].includes(
-                statusValue,
+                statusValue
               ));
 
           const nextSession = shouldPreserveActive
@@ -326,12 +333,7 @@ export default function AgentsPage() {
         }));
       }
     },
-    [
-      openQrPreview,
-      resolveApiKey,
-      scheduleAgentPoll,
-      user?.user_id,
-    ],
+    [openQrPreview, resolveApiKey, scheduleAgentPoll, user?.user_id]
   );
 
   if (loading || isLoadingAgents) {
@@ -339,9 +341,7 @@ export default function AgentsPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-muted dark:text-muted">
-            Loading your agents...
-          </p>
+          <p className="mt-4 text-muted">Loading your agents...</p>
         </div>
       </div>
     );
@@ -355,10 +355,8 @@ export default function AgentsPage() {
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground dark:text-foreground">
-            Your Agents
-          </h1>
-          <p className="mt-2 text-sm text-muted dark:text-muted">
+          <h1 className="text-3xl font-bold text-foreground">Your Agents</h1>
+          <p className="mt-2 text-sm text-muted">
             Manage, edit, and monitor the assistants you&apos;ve created.
           </p>
         </div>
@@ -390,11 +388,11 @@ export default function AgentsPage() {
       )}
 
       {agents.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-surface-strong/60 dark:border-surface-strong p-10 text-center bg-surface dark:bg-surface-strong">
-          <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
+        <div className="rounded-xl border border-dashed border-surface-strong/60 p-10 text-center bg-surface">
+          <h2 className="text-lg font-semibold text-foreground">
             You haven&apos;t created any agents yet
           </h2>
-          <p className="mt-2 text-sm text-muted dark:text-muted">
+          <p className="mt-2 text-sm text-muted">
             Build your first agent to automate workflows across Gmail, WhatsApp,
             and more.
           </p>
@@ -414,7 +412,7 @@ export default function AgentsPage() {
             const sessionDescriptor = describeWhatsAppStatus(sessionInfo);
             const sessionChipClasses = toneToBadgeClasses(
               sessionDescriptor.tone,
-              { loading: sessionLoading },
+              { loading: sessionLoading }
             );
             const qrValue = sessionInfo?.qrImage || sessionInfo?.qrUrl || null;
             const capabilityList = Array.isArray(agent?.allowed_tools)
@@ -427,29 +425,29 @@ export default function AgentsPage() {
             return (
               <div
                 key={agent.id}
-                className="group relative flex flex-col justify-between gap-6 rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-2xl dark:border-surface-strong dark:bg-surface-strong"
+                className="group relative flex flex-col justify-between gap-6 rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-2xl"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-1 flex-col gap-3">
                     <div>
-                      <h3 className="text-xl font-semibold text-foreground dark:text-foreground">
+                      <h3 className="text-xl font-semibold text-foreground">
                         {agent.name}
                       </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-muted dark:text-muted line-clamp-3">
+                      <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-3">
                         {agent.config?.system_message ||
                           agent.config?.system_prompt ||
                           "No system prompt provided yet."}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted dark:text-muted">
-                      <span className="font-medium text-muted dark:text-foreground">
+                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
+                      <span className="font-medium text-muted">
                         Capabilities
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {capabilityList.map((capability) => (
                           <span
                             key={capability}
-                            className="rounded-full border border-surface-strong bg-background px-3 py-1 font-medium text-muted dark:border-surface-strong dark:bg-surface-strong/70 dark:text-muted"
+                            className="rounded-full border border-surface-strong bg-background px-3 py-1 font-medium text-muted"
                           >
                             {capability}
                           </span>
@@ -465,7 +463,7 @@ export default function AgentsPage() {
                       {sessionLoading ? "Checking..." : sessionDescriptor.label}
                     </span>
                     {!sessionLoading && (
-                      <p className="max-w-[14rem] text-[11px] text-muted dark:text-muted">
+                      <p className="max-w-[14rem] text-[11px] text-muted">
                         {sessionDescriptor.helper}
                       </p>
                     )}
@@ -475,7 +473,7 @@ export default function AgentsPage() {
                 <div className="flex items-center justify-between">
                   <Link
                     href={`/dashboard/agents/${agent.id}`}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accent dark:text-accent dark:hover:text-accent"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accent"
                   >
                     View details
                     <svg
@@ -497,7 +495,7 @@ export default function AgentsPage() {
                       type="button"
                       onClick={() => handleWhatsAppActivation(agent)}
                       disabled={sessionLoading}
-                      className="inline-flex items-center justify-center rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent"
+                      className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-[#128c7e] focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent cursor-pointer"
                     >
                       {sessionLoading
                         ? "Requesting..."
@@ -511,13 +509,13 @@ export default function AgentsPage() {
                         onClick={() =>
                           openQrPreview(agent.id, agent.name, qrValue)
                         }
-                        className="text-[11px] font-medium text-accent hover:text-accent dark:text-accent dark:hover:text-accent"
+                        className="text-[11px] font-medium text-accent hover:text-accent"
                       >
                         View latest QR
                       </button>
                     )}
                     {sessionError && (
-                      <p className="max-w-[18rem] rounded-md bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-600 dark:text-rose-300">
+                      <p className="max-w-[18rem] rounded-md bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-600">
                         {sessionError}
                       </p>
                     )}
@@ -531,19 +529,19 @@ export default function AgentsPage() {
 
       {qrPreview?.qr && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="relative w-full max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-6 text-center shadow-xl dark:border-surface-strong dark:bg-surface-strong">
+          <div className="relative w-full max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-6 text-center shadow-xl">
             <button
               type="button"
               onClick={closeQrPreview}
-              className="absolute right-3 top-3 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/60 dark:bg-surface-strong dark:text-foreground dark:hover:bg-surface-strong/70"
+              className="absolute right-3 top-3 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/60"
             >
               Close
             </button>
-            <h3 className="text-base font-semibold text-foreground dark:text-foreground">
+            <h3 className="text-base font-semibold text-foreground">
               Scan WhatsApp QR
             </h3>
             {qrPreview?.agentName && (
-              <p className="mt-1 text-xs text-muted dark:text-muted">
+              <p className="mt-1 text-xs text-muted">
                 Agent: {qrPreview.agentName}
               </p>
             )}
@@ -569,7 +567,7 @@ export default function AgentsPage() {
                   Open WhatsApp Link
                 </a>
               )}
-              <p className="mt-3 text-xs text-muted dark:text-muted">
+              <p className="mt-3 text-xs text-muted">
                 QR codes expire quickly. Refresh if the scan times out.
               </p>
             </div>

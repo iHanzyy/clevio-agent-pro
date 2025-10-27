@@ -214,7 +214,7 @@ export default function AgentForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-8 bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-8"
+      className="space-y-8 bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-8"
     >
       {serverError && (
         <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
@@ -223,12 +223,12 @@ export default function AgentForm({
       )}
 
       <section>
-        <h2 className="text-xl font-semibold text-foreground dark:text-foreground mb-4">
+        <h2 className="text-xl font-semibold text-foreground mb-4">
           Agent Basics
         </h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-muted dark:text-muted">
+            <label className="block text-sm font-medium text-muted">
               Agent Name
             </label>
             <input
@@ -238,7 +238,7 @@ export default function AgentForm({
                 setValues((prev) => ({ ...prev, name: event.target.value }))
               }
               placeholder="e.g. Inbox Concierge"
-              className="mt-1 w-full rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-surface dark:bg-surface-strong px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+              className="mt-1 w-full rounded-lg border border-surface-strong/60 bg-surface px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
             />
             {formErrors.name && (
               <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>
@@ -246,14 +246,14 @@ export default function AgentForm({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-muted dark:text-muted mb-2">
+            <label className="block text-sm font-medium text-muted mb-2">
               Capabilities
             </label>
             <div className="grid md:grid-cols-2 gap-4">
               {TOOL_OPTIONS.map((tool) => (
                 <label
                   key={tool.id}
-                  className="flex items-start space-x-3 rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-4 cursor-pointer hover:border-accent transition"
+                  className="flex items-start space-x-3 rounded-lg border border-surface-strong/60 bg-background p-4 cursor-pointer hover:border-accent transition"
                 >
                   <input
                     type="checkbox"
@@ -262,10 +262,10 @@ export default function AgentForm({
                     className="mt-1 h-4 w-4 text-accent border-surface-strong/60 rounded focus:ring-accent"
                   />
                   <span>
-                    <span className="block text-sm font-semibold text-foreground dark:text-foreground">
+                    <span className="block text-sm font-semibold text-foreground">
                       {tool.label}
                     </span>
-                    <span className="mt-1 block text-xs text-muted dark:text-muted">
+                    <span className="mt-1 block text-xs text-muted">
                       {tool.description}
                     </span>
                   </span>
@@ -280,10 +280,10 @@ export default function AgentForm({
       </section>
 
       <section>
-        <h2 className="text-xl font-semibold text-foreground dark:text-foreground mb-4">
+        <h2 className="text-xl font-semibold text-foreground mb-4">
           System Prompt
         </h2>
-        <p className="text-sm text-muted dark:text-muted mb-3">
+        <p className="text-sm text-muted mb-3">
           Describe how the agent should behave, what tone to use, and any
           constraints. You can keep the template below or provide your own
           instructions.
@@ -297,7 +297,7 @@ export default function AgentForm({
             }))
           }
           rows={6}
-          className="w-full rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-surface dark:bg-surface-strong px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent"
+          className="w-full rounded-lg border border-surface-strong/60 bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent"
         />
         {formErrors.systemPrompt && (
           <p className="mt-2 text-sm text-red-600">{formErrors.systemPrompt}</p>
@@ -315,7 +315,7 @@ export default function AgentForm({
             setFormErrors({});
             setValues(mapInitialValues(initialValues));
           }}
-          className="px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-medium text-muted dark:text-muted hover:bg-surface/70 dark:hover:bg-surface-strong disabled:opacity-60"
+          className="px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 disabled:opacity-60"
         >
           Reset
         </button>

@@ -197,7 +197,7 @@ export default function SettingsPage() {
       <div className="flex h-64 items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent"></div>
-          <p className="mt-4 text-sm text-muted dark:text-muted">
+          <p className="mt-4 text-sm text-muted">
             Loading your settings…
           </p>
         </div>
@@ -207,11 +207,11 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-12 text-center shadow-sm dark:border-surface-strong dark:bg-surface-strong">
-        <h2 className="text-2xl font-semibold text-foreground dark:text-foreground">
+      <div className="mx-auto max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-12 text-center shadow-sm">
+        <h2 className="text-2xl font-semibold text-foreground">
           No account data found
         </h2>
-        <p className="mt-3 text-muted dark:text-muted">
+        <p className="mt-3 text-muted">
           Sign in again to access your settings and security controls.
         </p>
       </div>
@@ -279,71 +279,71 @@ export default function SettingsPage() {
 
       <div className="grid gap-8 xl:grid-cols-3">
         <div className="space-y-8 xl:col-span-2">
-          <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm dark:border-surface-strong dark:bg-surface-strong">
+          <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-foreground dark:text-foreground">
+                <h2 className="text-xl font-semibold text-foreground">
                   Account overview
                 </h2>
-                <p className="mt-1 text-sm text-muted dark:text-muted">
+                <p className="mt-1 text-sm text-muted">
                   Key details about your subscription and workspace access.
                 </p>
               </div>
             </div>
             <dl className="mt-6 grid gap-6 sm:grid-cols-2">
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5 dark:border-surface-strong dark:bg-surface-strong/70">
-                <dt className="text-sm text-muted dark:text-muted">
+              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
+                <dt className="text-sm text-muted">
                   Account ID
                 </dt>
-                <dd className="mt-2 break-words text-base font-medium text-foreground dark:text-foreground">
+                <dd className="mt-2 break-words text-base font-medium text-foreground">
                   {user.user_id || "—"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5 dark:border-surface-strong dark:bg-surface-strong/70">
-                <dt className="text-sm text-muted dark:text-muted">
+              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
+                <dt className="text-sm text-muted">
                   Email
                 </dt>
-                <dd className="mt-2 break-words text-base font-medium text-foreground dark:text-foreground">
+                <dd className="mt-2 break-words text-base font-medium text-foreground">
                   {user.email}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5 dark:border-surface-strong dark:bg-surface-strong/70">
-                <dt className="text-sm text-muted dark:text-muted">
+              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
+                <dt className="text-sm text-muted">
                   Plan
                 </dt>
-                <dd className="mt-2 text-base font-medium text-foreground dark:text-foreground">
+                <dd className="mt-2 text-base font-medium text-foreground">
                   {planLabel}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5 dark:border-surface-strong dark:bg-surface-strong/70">
-                <dt className="text-sm text-muted dark:text-muted">
+              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
+                <dt className="text-sm text-muted">
                   Subscription status
                 </dt>
                 <dd
                   className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
                     isActive
-                      ? "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent"
-                      : "bg-surface-strong/40 text-muted dark:bg-surface-strong/40 dark:text-muted"
+                      ? "bg-accent/10 text-accent"
+                      : "bg-surface-strong/40 text-muted"
                   }`}
                 >
                   {isActive ? "Active" : "Inactive"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5 dark:border-surface-strong dark:bg-surface-strong/70">
-                <dt className="text-sm text-muted dark:text-muted">
+              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
+                <dt className="text-sm text-muted">
                   Days remaining
                 </dt>
-                <dd className="mt-2 text-base font-medium text-foreground dark:text-foreground">
+                <dd className="mt-2 text-base font-medium text-foreground">
                   {typeof daysRemaining === "number"
                     ? `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`
                     : "Not available"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5 dark:border-surface-strong dark:bg-surface-strong/70">
-                <dt className="text-sm text-muted dark:text-muted">
+              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
+                <dt className="text-sm text-muted">
                   Renewal date
                 </dt>
-                <dd className="mt-2 text-base font-medium text-foreground dark:text-foreground">
+                <dd className="mt-2 text-base font-medium text-foreground">
                   {formatDate(expiresAt)}
                 </dd>
               </div>
@@ -352,11 +352,11 @@ export default function SettingsPage() {
 
         </div>
 
-        <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm dark:border-surface-strong dark:bg-surface-strong">
-          <h2 className="text-xl font-semibold text-foreground dark:text-foreground">
+        <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm">
+          <h2 className="text-xl font-semibold text-foreground">
             Password &amp; security
           </h2>
-          <p className="mt-1 text-sm text-muted dark:text-muted">
+          <p className="mt-1 text-sm text-muted">
             Update your password to keep your workspace secure.
           </p>
 
@@ -365,8 +365,8 @@ export default function SettingsPage() {
               <div
                 className={`rounded-2xl border px-4 py-3 text-sm ${
                   status.type === "success"
-                    ? "border-accent/40 bg-accent/10 text-accent dark:border-accent/40/40 dark:bg-accent/10 dark:text-accent"
-                    : "border-surface-strong/60 bg-background text-accent dark:border-surface-strong dark:bg-surface-strong/40 dark:text-accent"
+                    ? "border-accent/40 bg-accent/10 text-accent"
+                    : "border-surface-strong/60 bg-background text-accent"
                 }`}
               >
                 {status.message}
@@ -376,7 +376,7 @@ export default function SettingsPage() {
             <div>
               <label
                 htmlFor="newPassword"
-                className="text-sm font-medium text-muted dark:text-foreground"
+                className="text-sm font-medium text-muted"
               >
                 New password
               </label>
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                   autoComplete="new-password"
                   value={passwordForm.newPassword}
                   onChange={handlePasswordChange}
-                  className="w-full rounded-2xl border border-surface-strong/60 bg-background px-4 py-3 text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-surface-strong dark:bg-surface-strong dark:text-foreground dark:focus:border-accent dark:focus:ring-accent/35"
+                  className="w-full rounded-2xl border border-surface-strong/60 bg-background px-4 py-3 text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30"
                   placeholder="Use a memorable passphrase"
                 />
               </div>
@@ -397,7 +397,7 @@ export default function SettingsPage() {
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="text-sm font-medium text-muted dark:text-foreground"
+                className="text-sm font-medium text-muted"
               >
                 Confirm password
               </label>
@@ -409,7 +409,7 @@ export default function SettingsPage() {
                   autoComplete="new-password"
                   value={passwordForm.confirmPassword}
                   onChange={handlePasswordChange}
-                  className="w-full rounded-2xl border border-surface-strong/60 bg-background px-4 py-3 text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30 dark:border-surface-strong dark:bg-surface-strong dark:text-foreground dark:focus:border-accent dark:focus:ring-accent/35"
+                  className="w-full rounded-2xl border border-surface-strong/60 bg-background px-4 py-3 text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30"
                   placeholder="Repeat your new password"
                 />
               </div>
@@ -418,25 +418,25 @@ export default function SettingsPage() {
             <button
               type="button"
               onClick={handleToggleVisibility}
-              className="text-sm font-medium text-accent hover:text-accent focus:outline-none dark:text-accent dark:hover:text-accent"
+              className="text-sm font-medium text-accent hover:text-accent focus:outline-none"
             >
               {passwordVisible ? "Hide passwords" : "Show passwords"}
             </button>
 
             <div>
-              <div className="flex items-center justify-between text-sm text-muted dark:text-muted">
+              <div className="flex items-center justify-between text-sm text-muted">
                 <span>Password strength</span>
                 <span className={`font-medium ${passwordStrength.textClass}`}>
                   {passwordStrength.label}
                 </span>
               </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface dark:bg-surface-strong">
+              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface">
                 <div
                   className={`h-full rounded-full ${passwordStrength.barClass} transition-all`}
                   style={{ width: `${passwordStrength.progress}%` }}
                 ></div>
               </div>
-              <p className="mt-2 text-xs text-muted dark:text-muted">
+              <p className="mt-2 text-xs text-muted">
                 {passwordStrength.helper}
               </p>
             </div>
@@ -445,7 +445,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-accent dark:focus:ring-offset-surface-strong"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-accent"
               >
                 {isSubmitting ? "Updating…" : "Update password"}
               </button>

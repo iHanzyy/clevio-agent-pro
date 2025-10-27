@@ -509,12 +509,12 @@ export default function AgentDetailPage() {
 
   const whatsAppStatusClasses = useMemo(() => {
     if (whatsAppSessionInfo.isActive) {
-      return "bg-accent text-accent-foreground dark:bg-accent dark:text-accent-foreground";
+      return "bg-accent text-accent-foreground";
     }
     if (whatsAppStatusLoading) {
-      return "bg-accent/20 text-accent dark:bg-accent/25 dark:text-accent";
+      return "bg-accent/20 text-accent";
     }
-    return "bg-surface-strong/50 text-muted dark:bg-surface-strong dark:text-muted";
+    return "bg-surface-strong/50 text-muted";
   }, [whatsAppSessionInfo.isActive, whatsAppStatusLoading]);
 
   const whatsAppQrIsImage = useMemo(
@@ -1077,19 +1077,19 @@ export default function AgentDetailPage() {
 
   const statusChipClasses =
     agent.status === "ACTIVE"
-      ? "bg-accent/15 text-accent dark:bg-accent/25 dark:text-accent"
-      : "bg-surface text-foreground dark:bg-surface-strong dark:text-foreground";
+      ? "bg-accent/15 text-accent"
+      : "bg-surface text-foreground";
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground dark:text-foreground">
+          <h1 className="text-3xl font-bold text-foreground">
             {agent.name}
           </h1>
-          <p className="mt-2 flex items-center gap-2 text-sm text-muted dark:text-muted">
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted">
             <span>Agent ID:</span>
-            <code className="px-2 py-1 rounded bg-surface dark:bg-surface-strong">
+            <code className="px-2 py-1 rounded bg-surface">
               {agent.id}
             </code>
           </p>
@@ -1100,7 +1100,7 @@ export default function AgentDetailPage() {
         <div className="flex items-center gap-2">
           <Link
             href={`/dashboard/agents/${agent.id}/edit`}
-            className="px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-medium text-muted dark:text-foreground hover:bg-surface dark:hover:bg-surface-strong"
+            className="px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface"
           >
             Edit
           </Link>
@@ -1184,75 +1184,75 @@ export default function AgentDetailPage() {
         </div>
       )}
 
-      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
+      <section className="bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">
           Configuration
         </h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               LLM Model
             </p>
-            <p className="text-sm text-foreground dark:text-foreground">
+            <p className="text-sm text-foreground">
               {agent.config?.model ||
                 agent.config?.llm_model ||
                 "Default"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               Temperature
             </p>
-            <p className="text-sm text-foreground dark:text-foreground">
+            <p className="text-sm text-foreground">
               {agent.config?.temperature ?? 0.7}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               Max Tokens
             </p>
-            <p className="text-sm text-foreground dark:text-foreground">
+            <p className="text-sm text-foreground">
               {agent.config?.max_tokens ?? 1000}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               Memory Type
             </p>
-            <p className="text-sm text-foreground dark:text-foreground">
+            <p className="text-sm text-foreground">
               {agent.config?.memory_type ?? "buffer"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               Reasoning Strategy
             </p>
-            <p className="text-sm text-foreground dark:text-foreground">
+            <p className="text-sm text-foreground">
               {agent.config?.reasoning_strategy ?? "react"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               Capabilities
             </p>
-            <p className="text-sm text-foreground dark:text-foreground">
+            <p className="text-sm text-foreground">
               {capabilitySummary}
             </p>
           </div>
         </div>
         {(agent.config?.system_message || agent.config?.system_prompt) && (
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted dark:text-muted mb-1">
+            <p className="text-xs uppercase tracking-wide text-muted mb-1">
               System Prompt
             </p>
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground dark:text-foreground bg-background dark:bg-surface-strong/60 border border-surface-strong/60 dark:border-surface-strong rounded-lg p-4">
+            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground bg-background border border-surface-strong/60 rounded-lg p-4">
               {agent.config.system_message || agent.config.system_prompt}
             </pre>
           </div>
         )}
-        <div className="border-t border-dashed border-surface-strong/60 dark:border-surface-strong pt-4 mt-4 space-y-3">
+        <div className="border-t border-dashed border-surface-strong/60 pt-4 mt-4 space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-medium text-foreground dark:text-foreground">
+              <p className="text-sm font-medium text-foreground">
                 WhatsApp Session
               </p>
               <span
@@ -1262,7 +1262,7 @@ export default function AgentDetailPage() {
               </span>
             </div>
             {whatsAppError && !showWhatsAppQr && (
-              <p className="text-xs text-red-600 dark:text-red-400">
+              <p className="text-xs text-red-600">
                 {whatsAppError}
               </p>
             )}
@@ -1283,22 +1283,22 @@ export default function AgentDetailPage() {
                 type="button"
                 onClick={refreshWhatsAppSession}
                 disabled={whatsAppStatusLoading || whatsAppLoading}
-                className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-semibold text-muted dark:text-foreground hover:bg-surface dark:hover:bg-surface-strong disabled:opacity-60"
+                className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
               >
                 {whatsAppStatusLoading ? "Refreshing..." : "Refresh Status"}
               </button>
             </div>
             {whatsAppSessionInfo.isActive && (
-              <p className="text-xs text-accent dark:text-accent">
+              <p className="text-xs text-accent">
                 WhatsApp session is active. Re-scan the QR if you need to link a
                 different device.
               </p>
             )}
             {showWhatsAppQr && (
-              <div className="rounded-lg border border-dashed border-accent/40 bg-accent/15 dark:bg-accent/25/20 p-4 space-y-3">
+              <div className="rounded-lg border border-dashed border-accent/40 bg-accent/15 p-4 space-y-3">
                 {whatsAppSessionInfo.isActive ? (
                   <div className="space-y-4 text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-accent dark:bg-accent/25 dark:text-accent">
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-accent">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
@@ -1314,15 +1314,15 @@ export default function AgentDetailPage() {
                       </svg>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-sm font-semibold text-accent dark:text-accent">
+                      <p className="text-sm font-semibold text-accent">
                         WhatsApp connected
                       </p>
-                      <p className="text-xs text-muted dark:text-muted">
+                      <p className="text-xs text-muted">
                         We detected the linked device. Messages can now be sent
                         through this agent.
                       </p>
                       {whatsAppSessionInfo.updatedAt && (
-                        <p className="text-xs text-muted dark:text-muted">
+                        <p className="text-xs text-muted">
                           Linked at {formatDateTime(whatsAppSessionInfo.updatedAt)}.
                         </p>
                       )}
@@ -1338,13 +1338,13 @@ export default function AgentDetailPage() {
                 ) : (
                   <>
                     {whatsAppLoading && (
-                      <p className="text-sm text-muted dark:text-foreground">
+                      <p className="text-sm text-muted">
                         Generating WhatsApp QR code…
                       </p>
                     )}
                     {!whatsAppLoading && whatsAppQr && (
                       <div className="space-y-4 text-center">
-                        <p className="text-sm text-muted dark:text-foreground">
+                        <p className="text-sm text-muted">
                           Open WhatsApp &gt; Linked Devices and scan this code
                           to connect the agent.
                         </p>
@@ -1373,8 +1373,8 @@ export default function AgentDetailPage() {
                           <p
                             className={`text-xs font-semibold ${
                               whatsAppQrExpired
-                                ? "text-red-600 dark:text-red-400"
-                                : "text-muted dark:text-muted"
+                                ? "text-red-600"
+                                : "text-muted"
                             }`}
                           >
                             {whatsAppQrExpired
@@ -1382,34 +1382,34 @@ export default function AgentDetailPage() {
                               : `QR expires in ${whatsAppQrCountdown}s`}
                           </p>
                         ) : (
-                          <p className="text-xs text-muted dark:text-muted">
+                          <p className="text-xs text-muted">
                             QR codes expire after about a minute. Regenerate if
                             the scan times out.
                           </p>
                         )}
-                        <ol className="mx-auto max-w-md space-y-1 text-left text-xs text-muted dark:text-muted">
+                        <ol className="mx-auto max-w-md space-y-1 text-left text-xs text-muted">
                           <li>
-                            <span className="font-semibold text-muted dark:text-foreground">
+                            <span className="font-semibold text-muted">
                               1.
                             </span>{" "}
                             Open WhatsApp on your phone.
                           </li>
                           <li>
-                            <span className="font-semibold text-muted dark:text-foreground">
+                            <span className="font-semibold text-muted">
                               2.
                             </span>{" "}
                             Tap <span className="font-medium">Linked Devices</span>{" "}
                             &gt; <span className="font-medium">Link a Device</span>.
                           </li>
                           <li>
-                            <span className="font-semibold text-muted dark:text-foreground">
+                            <span className="font-semibold text-muted">
                               3.
                             </span>{" "}
                             Point the camera at this QR before it expires.
                           </li>
                         </ol>
                         {whatsAppSessionInfo.updatedAt && (
-                          <p className="text-xs text-muted dark:text-muted">
+                          <p className="text-xs text-muted">
                             Last status update {formatDateTime(whatsAppSessionInfo.updatedAt)}.
                           </p>
                         )}
@@ -1428,14 +1428,14 @@ export default function AgentDetailPage() {
                             type="button"
                             onClick={refreshWhatsAppSession}
                             disabled={whatsAppStatusLoading || whatsAppLoading}
-                            className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 dark:border-surface-strong text-sm font-semibold text-muted dark:text-foreground hover:bg-surface dark:hover:bg-surface-strong disabled:opacity-60"
+                            className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
                           >
                             {whatsAppStatusLoading ? "Refreshing..." : "Refresh status"}
                           </button>
                           <button
                             type="button"
                             onClick={closeWhatsAppQrPreview}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-surface hover:bg-surface-strong/60 text-sm font-medium text-muted dark:bg-surface-strong dark:hover:bg-surface-strong/70 dark:text-foreground transition"
+                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-surface hover:bg-surface-strong/60 text-sm font-medium text-muted transition"
                           >
                             Close
                           </button>
@@ -1443,7 +1443,7 @@ export default function AgentDetailPage() {
                       </div>
                     )}
                     {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
-                      <p className="text-sm text-muted dark:text-foreground">
+                      <p className="text-sm text-muted">
                         QR code is being prepared. This can take a few seconds…
                       </p>
                     )}
@@ -1457,11 +1457,11 @@ export default function AgentDetailPage() {
         </div>
       </section>
 
-      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6">
-        <h2 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">
+      <section className="bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Next Steps
         </h2>
-        <ul className="space-y-2 text-sm text-muted dark:text-muted list-disc list-inside">
+        <ul className="space-y-2 text-sm text-muted list-disc list-inside">
           <li>
             Use the dashboard to execute this agent or integrate it into your
             workflows.
@@ -1482,12 +1482,12 @@ export default function AgentDetailPage() {
         </ul>
       </section>
 
-      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6 space-y-6">
+      <section className="bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-6 space-y-6">
         <div>
-          <h2 className="text-lg font-semibold text-foreground dark:text-foreground">
+          <h2 className="text-lg font-semibold text-foreground">
             Add Knowledge
           </h2>
-          <p className="mt-2 text-sm text-muted dark:text-muted">
+          <p className="mt-2 text-sm text-muted">
             Upload up to 10 documents (PDF, PPTX, DOCX, TXT), 20 MB per file, to
             enrich this agent&apos;s context.
           </p>
@@ -1513,7 +1513,7 @@ export default function AgentDetailPage() {
               multiple
               accept=".pdf,.pptx,.docx,.txt"
               onChange={handleKnowledgeFileChange}
-              className="flex-1 text-sm text-muted dark:text-foreground file:mr-4 file:rounded-md file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-foreground hover:file:bg-accent-hover"
+              className="flex-1 text-sm text-muted file:mr-4 file:rounded-md file:border-0 file:bg-accent file:px-4 file:py-2 file:text-sm file:font-semibold file:text-accent-foreground hover:file:bg-accent-hover"
               disabled={knowledgeUploading}
             />
             <button
@@ -1528,11 +1528,11 @@ export default function AgentDetailPage() {
             </button>
           </div>
           {selectedKnowledgeFiles.length > 0 && (
-            <div className="rounded-lg border border-dashed border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-3">
-              <p className="text-xs font-medium text-muted dark:text-muted mb-2">
+            <div className="rounded-lg border border-dashed border-surface-strong/60 bg-background p-3">
+              <p className="text-xs font-medium text-muted mb-2">
                 Files ready to upload:
               </p>
-              <ul className="space-y-1 text-xs text-muted dark:text-muted">
+              <ul className="space-y-1 text-xs text-muted">
                 {selectedKnowledgeFiles.map((file) => (
                   <li key={file.name}>
                     {file.name} · {formatBytes(file.size)}
@@ -1544,7 +1544,7 @@ export default function AgentDetailPage() {
         </div>
 
         <div>
-          <h3 className="text-sm font-semibold text-foreground dark:text-foreground mb-3">
+          <h3 className="text-sm font-semibold text-foreground mb-3">
             Upload History
           </h3>
           {knowledgeLoading ? (
@@ -1552,7 +1552,7 @@ export default function AgentDetailPage() {
               <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" />
             </div>
           ) : knowledge.length === 0 ? (
-            <p className="text-sm text-muted dark:text-muted">
+            <p className="text-sm text-muted">
               No knowledge documents uploaded yet.
             </p>
           ) : (
@@ -1560,14 +1560,14 @@ export default function AgentDetailPage() {
               {knowledge.map((doc) => (
                 <div
                   key={doc.id}
-                  className="rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-4"
+                  className="rounded-lg border border-surface-strong/60 bg-background p-4"
                 >
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between text-sm">
                     <div>
-                      <p className="font-medium text-foreground dark:text-foreground">
+                      <p className="font-medium text-foreground">
                         {doc.filename}
                       </p>
-                      <p className="text-xs text-muted dark:text-muted">
+                      <p className="text-xs text-muted">
                         Uploaded {formatDateTime(doc.createdAt || doc.created_at)}
                       </p>
                     </div>
@@ -1575,13 +1575,13 @@ export default function AgentDetailPage() {
                       <button
                         type="button"
                         onClick={() => handleKnowledgeDelete(doc)}
-                        className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:bg-red-100 dark:border-red-700 dark:bg-red-900/40 dark:text-red-200"
+                        className="inline-flex items-center rounded-md border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:bg-red-100"
                       >
                         Delete
                       </button>
                     </div>
                   </div>
-                  <div className="mt-2 grid md:grid-cols-4 gap-2 text-xs text-muted dark:text-muted">
+                  <div className="mt-2 grid md:grid-cols-4 gap-2 text-xs text-muted">
                     <span>Size: {formatBytes(doc.sizeBytes ?? doc.size_bytes)}</span>
                     <span>Chunks: {doc.chunkCount ?? doc.chunk_count ?? "—"}</span>
                     <span>Type: {doc.contentType || doc.content_type || "Unknown"}</span>
@@ -1594,18 +1594,18 @@ export default function AgentDetailPage() {
         </div>
       </section>
 
-      <section className="bg-surface dark:bg-surface-strong rounded-xl shadow-sm border border-surface-strong/60 dark:border-surface-strong p-6">
-        <h2 className="text-lg font-semibold text-foreground dark:text-foreground mb-4">
+      <section className="bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-6">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Test the Agent
         </h2>
-        <p className="text-sm text-muted dark:text-muted mb-4">
+        <p className="text-sm text-muted mb-4">
           Start a quick conversation to verify your configuration. Messages here
           use the live agent and tools you selected.
         </p>
         <div className="space-y-4">
-          <div className="h-72 overflow-y-auto rounded-lg border border-surface-strong/60 dark:border-surface-strong bg-background dark:bg-surface-strong/60 p-4 flex flex-col space-y-4">
+          <div className="h-72 overflow-y-auto rounded-lg border border-surface-strong/60 bg-background p-4 flex flex-col space-y-4">
             {chatMessages.length === 0 ? (
-              <div className="m-auto text-center text-sm text-muted dark:text-muted">
+              <div className="m-auto text-center text-sm text-muted">
                 <p className="font-medium">No messages yet</p>
                 <p className="mt-1">
                   Ask your agent something, for example:{" "}
@@ -1621,7 +1621,7 @@ export default function AgentDetailPage() {
                   ? "ml-auto bg-background0 text-accent-foreground"
                   : message.error
                   ? "mr-auto bg-red-100 text-red-700"
-                  : "mr-auto bg-surface text-foreground dark:bg-surface-strong dark:text-foreground";
+                  : "mr-auto bg-surface text-foreground";
 
                 return (
                   <div key={message.id} className="max-w-[80%]">
@@ -1632,7 +1632,7 @@ export default function AgentDetailPage() {
                         {message.text}
                       </p>
                     </div>
-                    <p className="mt-1 text-xs text-muted dark:text-muted">
+                    <p className="mt-1 text-xs text-muted">
                       {isUser ? "You" : "Agent"} ·{" "}
                       {formatTimestamp(message.timestamp)}
                     </p>
@@ -1655,7 +1655,7 @@ export default function AgentDetailPage() {
               value={chatInput}
               onChange={(event) => setChatInput(event.target.value)}
               placeholder="Type a message..."
-              className="flex-1 rounded-full border border-surface-strong/60 dark:border-surface-strong bg-surface dark:bg-surface-strong px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+              className="flex-1 rounded-full border border-surface-strong/60 bg-surface px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
               disabled={isSending}
             />
             <button

@@ -41,15 +41,15 @@ export const describeWhatsAppStatus = (session) => {
 
 export const toneToBadgeClasses = (tone, { loading = false } = {}) => {
   if (loading) {
-    return "bg-accent/20 text-accent dark:bg-accent/25 dark:text-accent";
+    return "bg-accent/20 text-accent";
   }
 
   switch (tone) {
     case "success":
-      return "bg-accent text-accent-foreground dark:bg-accent dark:text-accent-foreground";
+      return "bg-accent text-accent-foreground";
     case "warning":
-      return "bg-surface-strong/60 text-muted dark:bg-surface-strong dark:text-muted";
+      return "bg-surface-strong/60 text-muted";
     default:
-      return "bg-surface text-muted dark:bg-surface-strong dark:text-muted";
+      return "bg-surface text-muted";
   }
 };

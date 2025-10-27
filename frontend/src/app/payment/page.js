@@ -739,7 +739,6 @@ export default function Payment() {
                 <div>✅ Document Upload (RAG)</div>
                 <div>✅ Advanced Tools</div>
                 <div>✅ Priority Support</div>
-                <div>✅ Usage Analytics</div>
               </div>
             </div>
           </div>

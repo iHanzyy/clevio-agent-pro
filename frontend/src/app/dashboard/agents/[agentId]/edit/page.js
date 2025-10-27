@@ -157,10 +157,10 @@ export default function EditAgentPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground dark:text-accent-foreground">
+        <h1 className="text-3xl font-bold text-foreground">
           Edit Agent
         </h1>
-        <p className="mt-2 text-sm text-muted dark:text-muted">
+        <p className="mt-2 text-sm text-muted">
           Update the configuration, tools, and behaviour of this agent. Changes
           take effect immediately after saving.
         </p>

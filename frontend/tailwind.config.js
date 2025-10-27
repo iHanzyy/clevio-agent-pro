@@ -34,9 +34,5 @@ module.exports = {
     "bg-blue-900",
     "bg-purple-100",
     "bg-purple-900",
-    "dark:bg-indigo-900",
-    "dark:bg-green-900",
-    "dark:bg-blue-900",
-    "dark:bg-purple-900",
   ],
 };
