@@ -198,19 +198,25 @@ If you have access to an already activated user account, use that email/password
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
-          "name": "Research Assistant",
+          "name": "Research Assistant (MCP)",
           "tools": ["gmail"],
           "config": {
             "llm_model": "gpt-4o-mini",
-            "temperature": 0.7,
-            "max_tokens": 1000,
-            "memory_type": "buffer",
-            "reasoning_strategy": "react",
-            "system_prompt": "You are a helpful research aide. Remember the user's name and refer back to earlier answers when possible."
-          }
+            "temperature": 0.5,
+            "system_prompt": "You can call remote tools to calculate, fetch, or search information."
+          },
+          "mcp_servers": {
+            "langchain_mcp": {
+              "transport": "streamable_http",
+              "url": "http://localhost:8080/mcp/stream",
+              "headers": {"Authorization": "Bearer jango"}
+            }
+          },
+          "allowed_tools": ["web_search", "web_fetch", "pdf_generate", "docx_generate", "deep_research", "google_calendar", "send_reminder", "send_messages"]
         }'
   ```
-  Include Google tools only if you have already linked the relevant account, otherwise the response will return `auth_required: true` and an OAuth URL.
+
+  The response payload includes the stored MCP configuration. You can confirm the tools are available by running an execution that prompts the model to call one of the MCP tools (e.g., a calculator request) and checking the execution logs for tool usage.
 
 - **PUT /{agent_id}** update agent details
   ```bash
@@ -263,7 +269,7 @@ If you have access to an already activated user account, use that email/password
     -H "Content-Type: application/json" \
     -d '{
           "name": "Research Assistant (MCP)",
-          "tools": [],
+          "tools": ["gmail"],
           "config": {
             "llm_model": "gpt-4o-mini",
             "temperature": 0.5,
@@ -276,7 +282,7 @@ If you have access to an already activated user account, use that email/password
               "headers": {"Authorization": "Bearer jango"}
             }
           },
-          "allowed_tools": ["calculator", "web_fetch", "web_search", "pdf_generate"]
+          "allowed_tools": ["web_search", "web_fetch", "pdf_generate", "docx_generate", "deep_research", "google_calendar", "send_reminder", "send_messages"]
         }'
   ```
 

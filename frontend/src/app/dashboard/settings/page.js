@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
 const PLAN_LABELS = {
@@ -88,13 +88,6 @@ const formatDate = (value) => {
   }).format(date);
 };
 
-const truncateCredential = (credential) => {
-  if (!credential || credential.length <= 16) {
-    return credential || "—";
-  }
-  return `${credential.slice(0, 8)}…${credential.slice(-6)}`;
-};
-
 export default function SettingsPage() {
   const { user, loading, updatePassword } = useAuth();
   const [passwordForm, setPasswordForm] = useState({
@@ -104,16 +97,6 @@ export default function SettingsPage() {
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [status, setStatus] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [copyMessage, setCopyMessage] = useState("");
-  const copyTimeoutRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (copyTimeoutRef.current) {
-        clearTimeout(copyTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const subscription = user?.subscription || {};
   const planCode = subscription.plan_code || "NO_PLAN";
@@ -130,7 +113,6 @@ export default function SettingsPage() {
       : typeof subscription.daysRemaining === "number"
         ? subscription.daysRemaining
         : null;
-  const apiKey = subscription.api_key || null;
 
   const initials = useMemo(() => {
     if (!user?.email) return "U";
@@ -204,22 +186,6 @@ export default function SettingsPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleCopyApiKey = async () => {
-    if (!apiKey || typeof navigator === "undefined") {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(apiKey);
-      setCopyMessage("Copied to clipboard");
-    } catch (error) {
-      setCopyMessage("Copy failed");
-    }
-    if (copyTimeoutRef.current) {
-      clearTimeout(copyTimeoutRef.current);
-    }
-    copyTimeoutRef.current = setTimeout(() => setCopyMessage(""), 2200);
   };
 
   const handleToggleVisibility = () => {
@@ -384,52 +350,6 @@ export default function SettingsPage() {
             </dl>
           </section>
 
-          <section className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  API access
-                </h2>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                  Use your active API key to connect agents and applications.
-                </p>
-              </div>
-            </div>
-            <div className="mt-6 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 p-6 dark:border-indigo-700/50 dark:bg-indigo-500/10">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-sm font-medium text-indigo-700 dark:text-indigo-200">
-                    Current API key
-                  </p>
-                  <p className="mt-2 font-mono text-sm text-indigo-900 dark:text-indigo-100">
-                    {apiKey ? truncateCredential(apiKey) : "No active key"}
-                  </p>
-                  {copyMessage && (
-                    <p className="mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-300">
-                      {copyMessage}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-3 sm:items-end">
-                  <button
-                    type="button"
-                    onClick={handleCopyApiKey}
-                    disabled={!apiKey}
-                    className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium shadow-sm transition ${
-                      apiKey
-                        ? "bg-indigo-600 text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-                        : "cursor-not-allowed bg-indigo-300 text-indigo-100"
-                    }`}
-                  >
-                    Copy key
-                  </button>
-                  <p className="text-xs text-indigo-700/80 dark:text-indigo-200/80">
-                    Tip: rotate keys regularly and store them securely.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
         </div>
 
         <section className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
