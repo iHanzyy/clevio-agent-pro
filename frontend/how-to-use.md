@@ -15,8 +15,7 @@ export TOKEN="paste-your-access-token-here"
 The API now uses a two-step authentication process:
 
 1. **Register User Account**: Create a user account
-2. **Activate User**: User account needs to be activated (contact admin or check database)
-3. **Generate API Key**: Request an API key with specific plan and expiration
+2. **Generate API Key**: Request an API key with specific plan and expiration
 
 ### Example Flow
 
@@ -27,10 +26,7 @@ REGISTER_RESPONSE=$(curl -s -X POST "$BASE_URL$API_PREFIX/auth/register?email=ne
 USER_ID=$(echo $REGISTER_RESPONSE | jq -r '.user_id')
 echo "Registered user: $USER_ID"
 
-# Step 2: User needs to be activated (contact admin or check database status)
-# Note: Users are created as "inactive" by default and need activation
-
-# Step 3: Generate API key with PRO_M plan (30 days)
+# Step 2: Generate API key with PRO_M plan (30 days)
 API_KEY_RESPONSE=$(curl -s -X POST "$BASE_URL$API_PREFIX/auth/api-key" \
   -H "Content-Type: application/json" \
   -d '{
@@ -46,7 +42,7 @@ if echo "$API_KEY_RESPONSE" | jq -e '.access_token' > /dev/null 2>&1; then
     echo "Generated API key expires at: $EXPIRES_AT"
 
     # Use the token for authenticated requests
-    curl -H "Authorization: Bearer $TOKEN" "$BASE_URL$API_PREFIX/auth/me"
+    curl -H "Authorization: Bearer $JWT_TOKEN" "$BASE_URL$API_PREFIX/auth/me"
     # Response includes user profile fields, echoes the same token, and reports the plan code when an API key is used.
     # Example:
     # {
@@ -66,9 +62,9 @@ fi
 ### Troubleshooting Authentication
 
 **If you get "User account is inactive" error:**
+
 1. The user registration creates accounts with "inactive" status by default
-2. Contact your system administrator to activate the user account
-3. Or check if there's an activation endpoint available
+2. Or check if there's an activation endpoint available
 
 **Alternative: Use existing active user:**
 If you have access to an already activated user account, use that email/password for API key generation.
@@ -76,9 +72,11 @@ If you have access to an already activated user account, use that email/password
 ## Public Endpoints
 
 - **GET /**
+
   ```bash
   curl "$BASE_URL/"
   ```
+
   If the agent includes Google Workspace tools (e.g. `gmail`, `google_sheets`) and you haven't linked a Google account yet, the response will include `auth_required`, `auth_url`, and `auth_state`. Visit the URL to complete OAuth before executing the agent.
 
 - **GET /health**
@@ -89,27 +87,34 @@ If you have access to an already activated user account, use that email/password
 ## Authentication Routes (`$API_PREFIX/auth`)
 
 - **POST /login** (query parameters)
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/login?email=user@example.com&password=changeme"
   ```
+
   ```bash
   # Login with phone number (digits with optional +). identifier= takes precedence over email/phone.
   curl -X POST "$BASE_URL$API_PREFIX/auth/login?phone=%2B628123456789&password=changeme"
   ```
+
   The `password` query parameter accepts either a plaintext password or the stored bcrypt hash (prefix `$2b$12$` or legacy `$bcrypt-sha256$`). Passing the hash lets you authenticate without exposing the raw password when scripting.
   A successful login response returns a JSON payload containing `access_token` (the bearer credential) and `token_type`.
 
 - **POST /register** (query parameters)
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/register?email=newuser@example.com&password=changeme"
   ```
+
   ```bash
   # Register with a phone number by using phone= or identifier=
   curl -X POST "$BASE_URL$API_PREFIX/auth/register?phone=%2B628123456789&password=changeme"
   ```
+
   Returns user information without API key. Supply either `email`, `phone`, or `identifier` (email/phone string) along with the password. Phone numbers can include `+` and separators; the API normalizes them to digits only for storage. Use the API key generation endpoint to get access tokens.
 
 - **POST /api-key** (JSON body)
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/api-key" \
     -H "Content-Type: application/json" \
@@ -119,12 +124,15 @@ If you have access to an already activated user account, use that email/password
           "plan_code": "PRO_M"
         }'
   ```
+
   Generates API key with plan-based expiration:
+
   - `PRO_M`: 30 days expiration
   - `PRO_Y`: 365 days expiration
-  The `username` field accepts the email address or phone number used during registration.
-  The `password` field accepts either the plaintext value or an existing bcrypt hash using prefix `$2b$12$`. Supplying the stored hash allows you to avoid sending the raw password.
-  Older accounts might still have hashes starting with `$bcrypt-sha256$`; those are also accepted.
+    The `username` field accepts the email address or phone number used during registration.
+    The `password` field accepts either the plaintext value or an existing bcrypt hash using prefix `$2b$12$`. Supplying the stored hash allows you to avoid sending the raw password.
+    Older accounts might still have hashes starting with `$bcrypt-sha256$`; those are also accepted.
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/api-key" \
     -H "Content-Type: application/json" \
@@ -136,6 +144,7 @@ If you have access to an already activated user account, use that email/password
   ```
 
 - **POST /api-key/update** (JSON body)
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/api-key/update" \
     -H "Content-Type: application/json" \
@@ -146,10 +155,12 @@ If you have access to an already activated user account, use that email/password
           "plan_code": "PRO_M"
         }'
   ```
+
   Extends the selected plan’s expiration for an existing key and reactivates it if it was expired. Returns `true` on success. A bcrypt hash with prefix `$2b$12$` can be supplied in the `password` field as an alternative to the plaintext value.
   Hashes created before this change may use the `$bcrypt-sha256$` prefix and remain valid inputs.
 
 - **POST /user/update-password** (JSON body)
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/user/update-password" \
     -H "Authorization: Bearer $TOKEN" \
@@ -159,28 +170,35 @@ If you have access to an already activated user account, use that email/password
           "new_password": "newSecurePassword"
         }'
   ```
+
   Updates the authenticated user’s password. The `new_password` accepts plaintext or a bcrypt hash (preferred `$2b$12$…`, legacy `$bcrypt-sha256$…` still supported).
 
 - **GET /google**
+
   ```bash
   curl -X GET "$BASE_URL$API_PREFIX/auth/google" \
     -H "Authorization: Bearer $TOKEN"
   ```
+
   Initiates Google OAuth authentication or returns the latest token payload when already linked. No request body is required.
 
   **Note:** The system automatically handles scope changes from Google. When requesting `drive.file` scope, Google may add broader Drive scopes (`drive`, `drive.photos.readonly`, `drive.appdata`) which are accepted as long as all requested scopes are granted.
 
 - **GET /google/callback**
+
   ```bash
   curl "$BASE_URL$API_PREFIX/auth/google/callback?code=auth-code-from-google&state=state-token"
   ```
+
   Handles the OAuth callback from Google. The authorization token is not required for this endpoint.
 
 - **GET /me**
+
   ```bash
   curl "$BASE_URL$API_PREFIX/auth/me" \
     -H "Authorization: Bearer $JWT_TOKEN"
   ```
+
   Returns user metadata along with the JWT or API key that was supplied in the request. If the token matches an API key, the response also includes the associated `plan_code`, making it easy to confirm which credential and plan are active.
 
 - **GET /google**
@@ -193,6 +211,7 @@ If you have access to an already activated user account, use that email/password
 ## Agent Routes (`$API_PREFIX/agents`)
 
 - **POST /** create agent
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/agents/" \
     -H "Authorization: Bearer $TOKEN" \
@@ -219,6 +238,7 @@ If you have access to an already activated user account, use that email/password
   The response payload includes the stored MCP configuration. You can confirm the tools are available by running an execution that prompts the model to call one of the MCP tools (e.g., a calculator request) and checking the execution logs for tool usage.
 
 - **PUT /{agent_id}** update agent details
+
   ```bash
   curl -X PUT "$BASE_URL$API_PREFIX/agents/$AGENT_ID" \
     -H "Authorization: Bearer $TOKEN" \
@@ -232,6 +252,7 @@ If you have access to an already activated user account, use that email/password
           "tools": ["web_search", "calculator"]
         }'
   ```
+
   All fields are optional—omit anything you do not want to change. Providing only `config.system_prompt` updates the system message without resetting other LLM settings. `allowed_tools` controls which MCP/remote tools an agent may call at runtime, while `tools` updates the core LangChain tool list.
 
   If you want every agent to access tools hosted on your FastMCP server, declare the following environment variables before starting the API (see `mcp-server.md`). Streamable HTTP is preferred, with SSE as an optional fallback:
@@ -289,35 +310,28 @@ If you have access to an already activated user account, use that email/password
   The response payload includes the stored MCP configuration. You can confirm the tools are available by running an execution that prompts the model to call one of the MCP tools (e.g., a calculator request) and checking the execution logs for tool usage.
 
 - **GET /** list agents
+
   ```bash
   curl "$BASE_URL$API_PREFIX/agents/" \
     -H "Authorization: Bearer $TOKEN"
   ```
 
 - **GET /{agent_id}**
+
   ```bash
   curl "$BASE_URL$API_PREFIX/agents/AGENT_ID" \
     -H "Authorization: Bearer $TOKEN"
   ```
 
-- **PUT /{agent_id}**
-  ```bash
-  curl -X PUT "$BASE_URL$API_PREFIX/agents/AGENT_ID" \
-    -H "Authorization: Bearer $TOKEN" \
-    -H "Content-Type: application/json" \
-    -d '{
-          "name": "Updated Agent Name",
-          "status": "active"
-        }'
-  ```
-
 - **DELETE /{agent_id}**
+
   ```bash
   curl -X DELETE "$BASE_URL$API_PREFIX/agents/AGENT_ID" \
     -H "Authorization: Bearer $TOKEN"
   ```
 
 - **POST /{agent_id}/execute**
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/agents/AGENT_ID/execute" \
     -H "Authorization: Bearer $TOKEN" \
@@ -335,6 +349,7 @@ If you have access to an already activated user account, use that email/password
   Use the optional `session_id` field to partition memory (only executions sharing the same session id are replayed).
 
 - **GET /{agent_id}/executions**
+
   ```bash
   curl "$BASE_URL$API_PREFIX/agents/AGENT_ID/executions" \
     -H "Authorization: Bearer $TOKEN"
@@ -349,12 +364,14 @@ If you have access to an already activated user account, use that email/password
 ## Tool Routes (`$API_PREFIX/tools`)
 
 - **GET /** list tools (optional `tool_type`)
+
   ```bash
   curl "$BASE_URL$API_PREFIX/tools?tool_type=custom" \
     -H "Authorization: Bearer $TOKEN"
   ```
 
 - **POST /** create tool
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/tools" \
     -H "Authorization: Bearer $TOKEN" \
@@ -375,12 +392,14 @@ If you have access to an already activated user account, use that email/password
   ```
 
 - **GET /{tool_id}**
+
   ```bash
   curl "$BASE_URL$API_PREFIX/tools/TOOL_ID" \
     -H "Authorization: Bearer $TOKEN"
   ```
 
 - **PUT /{tool_id}**
+
   ```bash
   curl -X PUT "$BASE_URL$API_PREFIX/tools/TOOL_ID" \
     -H "Authorization: Bearer $TOKEN" \
@@ -399,6 +418,7 @@ If you have access to an already activated user account, use that email/password
   ```
 
 - **DELETE /{tool_id}**
+
   ```bash
   curl -X DELETE "$BASE_URL$API_PREFIX/tools/TOOL_ID" \
     -H "Authorization: Bearer $TOKEN"
@@ -439,10 +459,7 @@ Successful uploads return chunk statistics, embedding ids, and a unique `upload_
 {
   "message": "Document processed and embeddings stored.",
   "chunks": 18,
-  "embedding_ids": [
-    "d5e9d4f6-4f2d-4a3b-861a-6b5430a96a16",
-    "..."
-  ],
+  "embedding_ids": ["d5e9d4f6-4f2d-4a3b-861a-6b5430a96a16", "..."],
   "upload_id": "80b6ed2c-2d5d-4235-9e9f-9f9c1545b203"
 }
 ```
@@ -469,10 +486,7 @@ Response shape:
       "content_type": "application/pdf",
       "size_bytes": 482131,
       "chunk_count": 18,
-      "embedding_ids": [
-        "d5e9d4f6-4f2d-4a3b-861a-6b5430a96a16",
-        "..."
-      ],
+      "embedding_ids": ["d5e9d4f6-4f2d-4a3b-861a-6b5430a96a16", "..."],
       "details": {
         "chunk_size": 400,
         "chunk_overlap": 80,
@@ -502,6 +516,7 @@ curl -X DELETE "$BASE_URL$API_PREFIX/agents/$AGENT_ID/documents/$UPLOAD_ID" \
 The response echoes the upload record with `is_deleted` set to `true`. Embeddings created from the upload are removed inside the same transaction.
 
 - **GET /schemas/{tool_name}**
+
   ```bash
   curl "$BASE_URL$API_PREFIX/tools/schemas/gmail" \
     -H "Authorization: Bearer $TOKEN"
@@ -520,20 +535,25 @@ Replace placeholders (`AGENT_ID`, `TOOL_ID`, `TOKEN`, etc.) with real values fro
 ### Google OAuth Issues
 
 #### "Scope has changed" Error
+
 If you encounter this error during Google authentication:
+
 ```json
-{"detail":"Google authentication failed: Scope has changed from ..."}
+{ "detail": "Google authentication failed: Scope has changed from ..." }
 ```
 
 **This is normal behavior.** Google automatically adds broader scopes when certain scopes (like `drive.file`) are requested. The system now handles these changes gracefully.
 
 **Solution:** The authentication should work automatically now. If it still fails:
+
 1. Try re-authenticating by calling `/api/v1/auth/google` again
 2. Follow the OAuth flow completely
 3. The system will automatically handle scope differences
 
 #### Missing Google Scopes
+
 If you're missing required Google scopes, ensure you've enabled these APIs in Google Cloud Console:
+
 - Gmail API
 - Google Calendar API
 - Google Sheets API
@@ -541,6 +561,7 @@ If you're missing required Google scopes, ensure you've enabled these APIs in Go
 - Google Docs API
 
 #### Google OAuth Setup
+
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project
 3. Enable the required APIs listed above
@@ -551,7 +572,9 @@ If you're missing required Google scopes, ensure you've enabled these APIs in Go
 ### Agent Creation Issues
 
 #### Agent Creation Fails with Google Tools
+
 When creating an agent with Google Workspace tools:
+
 ```bash
 curl -X POST "$BASE_URL$API_PREFIX/agents/" \
   -H "Authorization: Bearer $TOKEN" \
@@ -564,6 +587,7 @@ curl -X POST "$BASE_URL$API_PREFIX/agents/" \
 ```
 
 If the response includes `"auth_required": true`, you need to complete Google OAuth:
+
 1. Visit the `auth_url` provided in the response
 2. Complete the OAuth flow
 3. The agent will then be able to use Google tools
@@ -571,18 +595,23 @@ If the response includes `"auth_required": true`, you need to complete Google OA
 ### API Key Issues
 
 #### API Key Expiration
+
 API keys have plan-based expiration:
+
 - `PRO_M`: 30 days
 - `PRO_Y`: 365 days
 
 To check when your key expires:
+
 ```bash
 curl "$BASE_URL$API_PREFIX/auth/me" \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $JWT_TOKEN"
 ```
+
 Review the `access_token` field in the response to double-check that you are inspecting the expected key.
 
 To generate a new key:
+
 ```bash
 curl -X POST "$BASE_URL$API_PREFIX/auth/api-key" \
   -H "Content-Type: application/json" \
@@ -596,14 +625,18 @@ curl -X POST "$BASE_URL$API_PREFIX/auth/api-key" \
 ### Document Ingestion Issues
 
 #### Unsupported File Types
+
 Only these file types are supported for document ingestion:
+
 - `application/pdf` (.pdf)
 - `application/vnd.openxmlformats-officedocument.wordprocessingml.document` (.docx)
 - `application/vnd.openxmlformats-officedocument.presentationml.presentation` (.pptx)
 - `text/plain` (.txt)
 
 #### Large Files
+
 For large files, consider adjusting these parameters:
+
 - `chunk_size`: Smaller chunks for better relevance (default: 400)
 - `chunk_overlap`: Overlap between chunks (default: 80)
 - `batch_size`: Number of chunks to process at once (default: 50)
@@ -611,12 +644,14 @@ For large files, consider adjusting these parameters:
 ### Performance Issues
 
 #### Slow Agent Execution
+
 - Use appropriate `max_tokens` limits
 - Adjust `temperature` for faster responses (lower = faster)
 - Use session IDs to maintain context and reduce repetition
 - Limit the number of tools per agent
 
 #### Database Performance
+
 - Ensure PostgreSQL is properly tuned
 - Use connection pooling
 - Consider read replicas for high-traffic deployments
@@ -624,13 +659,17 @@ For large files, consider adjusting these parameters:
 ### Common Error Messages
 
 #### "Required scopes not granted"
+
 This means Google didn't grant all the scopes your agent needs. Check:
+
 1. All required APIs are enabled in Google Cloud Console
 2. User has granted necessary permissions during OAuth
 3. OAuth consent screen is properly configured
 
 #### "Agent execution failed"
+
 Common causes:
+
 - Missing API keys (OpenAI, Google)
 - Insufficient permissions for Google services
 - Invalid agent configuration
