@@ -8,7 +8,7 @@ import { apiService } from "@/lib/api";
 import AnimatedHamburgerButton from "@/components/AnimatedHamburgerButton";
 import { motion, AnimatePresence } from "framer-motion";
 
-const SIDEBAR_W = 256; // 64 * 4 = 256px (w-64)
+const SIDEBAR_W = 256;
 
 export default function DashboardLayout({ children }) {
   const { user, loading, logout } = useAuth();
@@ -179,8 +179,45 @@ export default function DashboardLayout({ children }) {
   const isActive = (path) => pathname === path;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Hamburger Desktop - Posisi Fixed di Kiri Atas */}
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      {/* Dark Mode Toggle - Fixed position */}
+      <button
+        onClick={toggleDarkMode}
+        className="hidden lg:block fixed right-6 top-6 z-50 p-2.5 rounded-full bg-surface border border-surface-strong/60 hover:bg-surface-strong/40 transition-all duration-200 shadow-lg"
+        title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      >
+        {darkMode ? (
+          <svg
+            className="w-5 h-5 text-accent"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+            />
+          </svg>
+        ) : (
+          <svg
+            className="w-5 h-5 text-accent"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+            />
+          </svg>
+        )}
+      </button>
+
+      {/* Hamburger Desktop */}
       <div className="hidden lg:block fixed left-7 top-6 z-50">
         <AnimatedHamburgerButton
           initialOpen={sidebarOpen}
@@ -188,7 +225,7 @@ export default function DashboardLayout({ children }) {
         />
       </div>
 
-      {/* Logo Desktop - Muncul saat sidebar terbuka */}
+      {/* Logo Desktop */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -211,7 +248,7 @@ export default function DashboardLayout({ children }) {
         )}
       </AnimatePresence>
 
-      {/* Hamburger Mobile - Posisi Fixed di Kanan Atas */}
+      {/* Hamburger Mobile */}
       <motion.div
         initial={{ x: 50, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
@@ -225,7 +262,7 @@ export default function DashboardLayout({ children }) {
         />
       </motion.div>
 
-      {/* Logo Mobile - Muncul saat sidebar terbuka */}
+      {/* Logo Mobile */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -250,7 +287,7 @@ export default function DashboardLayout({ children }) {
 
       {/* Desktop Layout */}
       <div className="hidden lg:flex h-screen relative">
-        {/* Sidebar dengan AnimatePresence */}
+        {/* Sidebar */}
         <AnimatePresence>
           {sidebarOpen && (
             <motion.aside
@@ -263,7 +300,7 @@ export default function DashboardLayout({ children }) {
                 ease: "easeInOut",
               }}
               style={{ width: SIDEBAR_W }}
-              className="fixed inset-y-0 left-0 z-40 bg-surface border-r border-surface-strong/60"
+              className="fixed inset-y-0 left-0 z-40 bg-surface border-r border-surface-strong/30 shadow-xl"
             >
               <div className="flex flex-col h-full pt-20">
                 {/* Navigation */}
@@ -272,10 +309,10 @@ export default function DashboardLayout({ children }) {
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
+                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                         isActive(item.href)
-                          ? "bg-accent/10 text-accent"
-                          : "text-muted hover:bg-surface/70 hover:text-accent"
+                          ? "bg-accent/10 text-accent shadow-sm"
+                          : "text-muted hover:bg-surface-strong/40 hover:text-foreground"
                       }`}
                     >
                       <span className="mr-3">{item.icon}</span>
@@ -286,16 +323,16 @@ export default function DashboardLayout({ children }) {
 
                 {/* Subscription Status */}
                 {subscription && (
-                  <div className="px-6 py-4 border-t border-surface-strong/60">
+                  <div className="px-6 py-4 border-t border-surface-strong/30">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-muted">
+                      <span className="text-xs font-medium text-muted uppercase tracking-wide">
                         Plan
                       </span>
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        className={`px-3 py-1 text-xs font-semibold rounded-full ${
                           subscription.is_active
                             ? "bg-accent/15 text-accent"
-                            : "bg-surface text-foreground"
+                            : "bg-surface-strong/40 text-muted"
                         }`}
                       >
                         {formattedPlan}
@@ -311,11 +348,11 @@ export default function DashboardLayout({ children }) {
                 )}
 
                 {/* User Menu */}
-                <div className="px-6 py-4 border-t border-surface-strong/60">
+                <div className="px-6 py-4 border-t border-surface-strong/30 bg-surface-strong/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
-                      <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
-                        <span className="text-sm font-medium text-accent-foreground">
+                      <div className="w-9 h-9 bg-gradient-to-br from-accent to-accent-hover rounded-full flex items-center justify-center flex-shrink-0 shadow-lg">
+                        <span className="text-sm font-bold text-accent-foreground">
                           {user.email?.[0]?.toUpperCase() || "U"}
                         </span>
                       </div>
@@ -327,7 +364,7 @@ export default function DashboardLayout({ children }) {
                     </div>
                     <button
                       onClick={logout}
-                      className="p-2 text-muted hover:text-muted rounded-lg hover:bg-surface/70 flex-shrink-0"
+                      className="p-2 text-muted hover:text-accent rounded-lg hover:bg-surface-strong/40 flex-shrink-0 transition-all duration-200"
                       title="Logout"
                     >
                       <svg
@@ -351,7 +388,7 @@ export default function DashboardLayout({ children }) {
           )}
         </AnimatePresence>
 
-        {/* Content area - bergeser ketika sidebar muncul dengan padding yang lebih baik */}
+        {/* Content area */}
         <motion.div
           className="w-full h-screen overflow-y-auto"
           animate={{
@@ -365,7 +402,6 @@ export default function DashboardLayout({ children }) {
             ease: "easeInOut",
           }}
         >
-          {/* Wrapper dengan max-width dan padding yang lebih baik */}
           <div className="min-h-screen">
             <div
               className={`mx-auto ${
@@ -382,7 +418,6 @@ export default function DashboardLayout({ children }) {
 
       {/* Mobile Layout */}
       <div className="lg:hidden min-h-screen">
-        {/* Mobile Overlay */}
         <AnimatePresence>
           {sidebarOpen && (
             <motion.div
@@ -391,7 +426,7 @@ export default function DashboardLayout({ children }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-40 bg-black/50"
+              className="fixed inset-0 z-40 bg-overlay backdrop-blur-sm"
               onClick={() => setSidebarOpen(false)}
             >
               <motion.div
@@ -402,15 +437,15 @@ export default function DashboardLayout({ children }) {
                 className="mx-auto max-w-sm px-6 py-3 pt-20"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="flex flex-col gap-3 bg-surface rounded-2xl p-6 border border-surface-strong/60">
+                <div className="flex flex-col gap-3 bg-surface rounded-2xl p-6 border border-surface-strong/30 shadow-2xl">
                   {navigation.map((item) => (
                     <Link
                       key={item.name}
                       href={item.href}
-                      className={`inline-flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                      className={`inline-flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-200 ${
                         isActive(item.href)
-                          ? "bg-accent/15 text-accent"
-                          : "text-muted hover:bg-surface/70 hover:text-accent"
+                          ? "bg-accent/10 text-accent shadow-sm"
+                          : "text-muted hover:bg-surface-strong/40 hover:text-foreground"
                       }`}
                     >
                       {item.icon}
@@ -424,9 +459,9 @@ export default function DashboardLayout({ children }) {
                     onClick={logout}
                     className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3
                                text-foreground font-semibold
-                               bg-surface hover:bg-surface/70
-                               ring-1 ring-surface-strong/60
-                               transition"
+                               bg-surface-strong/40 hover:bg-surface-strong/60
+                               ring-1 ring-surface-strong/30
+                               transition-all duration-200"
                   >
                     <svg
                       className="w-5 h-5"
@@ -449,7 +484,6 @@ export default function DashboardLayout({ children }) {
           )}
         </AnimatePresence>
 
-        {/* Mobile Content dengan padding yang lebih baik */}
         <div className="pt-20 px-4 sm:px-6 pb-8">{children}</div>
       </div>
     </div>

@@ -8,9 +8,8 @@ const GOOGLE_AUTH_TOOL_OVERRIDES = {
   calendar: "Google Calendar",
 };
 
-const normalizeToolId = (value) => (typeof value === "string" ? value : "")
-  .trim()
-  .toLowerCase();
+const normalizeToolId = (value) =>
+  (typeof value === "string" ? value : "").trim().toLowerCase();
 
 const titleCase = (input) =>
   input
@@ -102,7 +101,7 @@ export default function AgentDetailPage() {
   const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
   const [whatsAppQrCountdown, setWhatsAppQrCountdown] = useState(null);
   const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
-    EMPTY_WHATSAPP_SESSION,
+    EMPTY_WHATSAPP_SESSION
   );
   const whatsAppPollRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
@@ -220,7 +219,7 @@ export default function AgentDetailPage() {
 
   const googleToolIds = useMemo(
     () => Array.from(agentToolIds).filter(isGoogleToolId),
-    [agentToolIds],
+    [agentToolIds]
   );
 
   const requiresGoogleAuth = googleToolIds.length > 0;
@@ -241,8 +240,8 @@ export default function AgentDetailPage() {
   const googleAuthAlertClasses = googleAuthConnected
     ? "border-accent/40 bg-background text-accent"
     : googleAuthError
-      ? "border-red-300 bg-red-50 text-red-800"
-      : "border-surface-strong/60 bg-background text-muted";
+    ? "border-red-300 bg-red-50 text-red-800"
+    : "border-surface-strong/60 bg-background text-muted";
 
   const clearGoogleAuthPoll = useCallback(() => {
     if (googleAuthPollRef.current) {
@@ -301,13 +300,9 @@ export default function AgentDetailPage() {
         agentId: agentIdParam,
         status: previous?.status === "connected" ? "connected" : "pending",
         authUrl:
-          previous?.status === "connected"
-            ? null
-            : previous?.authUrl || null,
+          previous?.status === "connected" ? null : previous?.authUrl || null,
         authState:
-          previous?.status === "connected"
-            ? null
-            : previous?.authState || null,
+          previous?.status === "connected" ? null : previous?.authState || null,
         tokens: previous?.status === "connected" ? previous.tokens : [],
         lastCheckedAt: Date.now(),
       }));
@@ -375,9 +370,8 @@ export default function AgentDetailPage() {
     () => () => {
       clearGoogleAuthPoll();
     },
-    [clearGoogleAuthPoll],
+    [clearGoogleAuthPoll]
   );
-
 
   const getApiKeyForWhatsApp = useCallback(async () => {
     let apiKey =
@@ -400,13 +394,16 @@ export default function AgentDetailPage() {
             ? apiService.getCurrentApiKey()
             : null;
       } catch (err) {
-        console.warn("Unable to auto-generate API key for WhatsApp session", err);
+        console.warn(
+          "Unable to auto-generate API key for WhatsApp session",
+          err
+        );
       }
     }
 
     if (!apiKey) {
       throw new Error(
-        "API key unavailable. Please refresh your session or generate an API key before linking WhatsApp.",
+        "API key unavailable. Please refresh your session or generate an API key before linking WhatsApp."
       );
     }
 
@@ -439,7 +436,7 @@ export default function AgentDetailPage() {
           !session.qrUrl &&
           (!nextStatus ||
             ["inactive", "not_linked", "not_found", "unknown"].includes(
-              nextStatus,
+              nextStatus
             ));
 
         nextSession = shouldPreserveActive
@@ -454,7 +451,11 @@ export default function AgentDetailPage() {
       });
 
       const qrValue =
-        nextSession.qrImage || nextSession.qrUrl || session.qrImage || session.qrUrl || null;
+        nextSession.qrImage ||
+        nextSession.qrUrl ||
+        session.qrImage ||
+        session.qrUrl ||
+        null;
       setWhatsAppQr(qrValue);
       setShowWhatsAppQr((prev) => prev && Boolean(qrValue));
       if (qrValue) {
@@ -463,7 +464,7 @@ export default function AgentDetailPage() {
     } catch (err) {
       setWhatsAppError(
         err?.message ||
-          "Unable to load WhatsApp session status right now. Please try again.",
+          "Unable to load WhatsApp session status right now. Please try again."
       );
       setWhatsAppSessionInfo((previous) => {
         const next = {
@@ -480,8 +481,9 @@ export default function AgentDetailPage() {
 
   const whatsAppStatusValue = useMemo(() => {
     const statusRaw =
-      (whatsAppSessionInfo.status ||
-        (whatsAppSessionInfo.isActive ? "active" : "inactive")) || "";
+      whatsAppSessionInfo.status ||
+      (whatsAppSessionInfo.isActive ? "active" : "inactive") ||
+      "";
     return statusRaw.toLowerCase();
   }, [whatsAppSessionInfo.status, whatsAppSessionInfo.isActive]);
 
@@ -521,7 +523,7 @@ export default function AgentDetailPage() {
     () =>
       typeof whatsAppQr === "string" &&
       (whatsAppQr.startsWith("data:image") || whatsAppQr.startsWith("http")),
-    [whatsAppQr],
+    [whatsAppQr]
   );
 
   const whatsAppQrExpiresAt = useMemo(() => {
@@ -554,8 +556,7 @@ export default function AgentDetailPage() {
   const whatsAppQrExpired =
     showWhatsAppQr &&
     !whatsAppSessionInfo.isActive &&
-    ((typeof whatsAppQrCountdown === "number" &&
-      whatsAppQrCountdown <= 0) ||
+    ((typeof whatsAppQrCountdown === "number" && whatsAppQrCountdown <= 0) ||
       ["expired", "qr_expired"].includes(whatsAppStatusValue));
 
   useEffect(() => {
@@ -654,7 +655,7 @@ export default function AgentDetailPage() {
     const updateCountdown = () => {
       const remainingSeconds = Math.max(
         0,
-        Math.ceil((whatsAppQrExpiresAt - Date.now()) / 1000),
+        Math.ceil((whatsAppQrExpiresAt - Date.now()) / 1000)
       );
       setWhatsAppQrCountdown(remainingSeconds);
     };
@@ -779,7 +780,7 @@ export default function AgentDetailPage() {
           !session.qrUrl &&
           (!statusValue ||
             ["inactive", "not_linked", "not_found", "unknown"].includes(
-              statusValue,
+              statusValue
             ));
 
         const nextSession = shouldPreserveActive
@@ -808,7 +809,7 @@ export default function AgentDetailPage() {
         setWhatsAppQr(null);
         setWhatsAppQrCountdown(null);
         setWhatsAppError(
-          "QR code unavailable right now. Please try again shortly.",
+          "QR code unavailable right now. Please try again shortly."
         );
       }
       if (session.isActive) {
@@ -820,7 +821,7 @@ export default function AgentDetailPage() {
       }
     } catch (error) {
       setWhatsAppError(
-        error?.message || "Unable to initialise WhatsApp session right now.",
+        error?.message || "Unable to initialise WhatsApp session right now."
       );
       setWhatsAppSessionInfo((previous) => {
         const next = previous || EMPTY_WHATSAPP_SESSION;
@@ -930,7 +931,7 @@ export default function AgentDetailPage() {
     }
 
     const confirmed = window.confirm(
-      `Remove \\"${document?.filename || "this document"}\\" from this agent?`,
+      `Remove \\"${document?.filename || "this document"}\\" from this agent?`
     );
     if (!confirmed) {
       return;
@@ -944,7 +945,7 @@ export default function AgentDetailPage() {
       await loadKnowledge();
     } catch (err) {
       setKnowledgeError(
-        err?.message || "Failed to delete knowledge document. Please try again.",
+        err?.message || "Failed to delete knowledge document. Please try again."
       );
     }
   };
@@ -983,7 +984,10 @@ export default function AgentDetailPage() {
         replyText = payload.output;
       } else if (payload?.result) {
         replyText = payload.result;
-      } else if (response?.message && response.message !== "Agent execution started") {
+      } else if (
+        response?.message &&
+        response.message !== "Agent execution started"
+      ) {
         replyText = response.message;
       } else {
         replyText =
@@ -1005,8 +1009,7 @@ export default function AgentDetailPage() {
       appendMessage({
         id: `assistant-error-${Date.now()}`,
         role: "assistant",
-        text:
-          "Sorry, I ran into an error while processing that request. Please try again.",
+        text: "Sorry, I ran into an error while processing that request. Please try again.",
         timestamp: Date.now(),
         error: true,
       });
@@ -1084,14 +1087,10 @@ export default function AgentDetailPage() {
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            {agent.name}
-          </h1>
+          <h1 className="text-3xl font-bold text-foreground">{agent.name}</h1>
           <p className="mt-2 flex items-center gap-2 text-sm text-muted">
             <span>Agent ID:</span>
-            <code className="px-2 py-1 rounded bg-surface">
-              {agent.id}
-            </code>
+            <code className="px-2 py-1 rounded bg-surface">{agent.id}</code>
           </p>
           {deleteError && (
             <p className="mt-2 text-sm text-red-600">{deleteError}</p>
@@ -1185,18 +1184,14 @@ export default function AgentDetailPage() {
       )}
 
       <section className="bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">
-          Configuration
-        </h2>
+        <h2 className="text-lg font-semibold text-foreground">Configuration</h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted mb-1">
               LLM Model
             </p>
             <p className="text-sm text-foreground">
-              {agent.config?.model ||
-                agent.config?.llm_model ||
-                "Default"}
+              {agent.config?.model || agent.config?.llm_model || "Default"}
             </p>
           </div>
           <div>
@@ -1235,9 +1230,7 @@ export default function AgentDetailPage() {
             <p className="text-xs uppercase tracking-wide text-muted mb-1">
               Capabilities
             </p>
-            <p className="text-sm text-foreground">
-              {capabilitySummary}
-            </p>
+            <p className="text-sm text-foreground">{capabilitySummary}</p>
           </div>
         </div>
         {(agent.config?.system_message || agent.config?.system_prompt) && (
@@ -1251,209 +1244,207 @@ export default function AgentDetailPage() {
           </div>
         )}
         <div className="border-t border-dashed border-surface-strong/60 pt-4 mt-4 space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="text-sm font-medium text-foreground">
-                WhatsApp Session
-              </p>
-              <span
-                className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${whatsAppStatusClasses}`}
-              >
-                {whatsAppStatusLoading ? "Checking..." : whatsAppStatusLabel}
-              </span>
-            </div>
-            {whatsAppError && !showWhatsAppQr && (
-              <p className="text-xs text-red-600">
-                {whatsAppError}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleWhatsAppQr}
-                disabled={whatsAppLoading}
-                className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60"
-              >
-                {whatsAppLoading
-                  ? "Requesting QR..."
-                  : whatsAppSessionInfo.isActive
-                  ? "Re-link WhatsApp"
-                  : "Scan WhatsApp QR"}
-              </button>
-              <button
-                type="button"
-                onClick={refreshWhatsAppSession}
-                disabled={whatsAppStatusLoading || whatsAppLoading}
-                className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
-              >
-                {whatsAppStatusLoading ? "Refreshing..." : "Refresh Status"}
-              </button>
-            </div>
-            {whatsAppSessionInfo.isActive && (
-              <p className="text-xs text-accent">
-                WhatsApp session is active. Re-scan the QR if you need to link a
-                different device.
-              </p>
-            )}
-            {showWhatsAppQr && (
-              <div className="rounded-lg border border-dashed border-accent/40 bg-accent/15 p-4 space-y-3">
-                {whatsAppSessionInfo.isActive ? (
-                  <div className="space-y-4 text-center">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-accent">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="h-10 w-10"
-                        aria-hidden="true"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 7.28a.75.75 0 0 0-1.06-1.06l-4.72 4.72-1.72-1.72a.75.75 0 1 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l5.25-5.25Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-accent">
-                        WhatsApp connected
-                      </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm font-medium text-foreground">
+              WhatsApp Session
+            </p>
+            <span
+              className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${whatsAppStatusClasses}`}
+            >
+              {whatsAppStatusLoading ? "Checking..." : whatsAppStatusLabel}
+            </span>
+          </div>
+          {whatsAppError && !showWhatsAppQr && (
+            <p className="text-xs text-red-600">{whatsAppError}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleWhatsAppQr}
+              disabled={whatsAppLoading}
+              className="inline-flex items-center px-4 py-2 rounded-lg bg-[#25D366] hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60"
+            >
+              {whatsAppLoading
+                ? "Requesting QR..."
+                : whatsAppSessionInfo.isActive
+                ? "Re-link WhatsApp"
+                : "Scan WhatsApp QR"}
+            </button>
+            <button
+              type="button"
+              onClick={refreshWhatsAppSession}
+              disabled={whatsAppStatusLoading || whatsAppLoading}
+              className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
+            >
+              {whatsAppStatusLoading ? "Refreshing..." : "Refresh Status"}
+            </button>
+          </div>
+          {whatsAppSessionInfo.isActive && (
+            <p className="text-xs text-accent">
+              WhatsApp session is active. Re-scan the QR if you need to link a
+              different device.
+            </p>
+          )}
+          {showWhatsAppQr && (
+            <div className="rounded-lg border border-dashed border-accent/40 bg-accent/15 p-4 space-y-3">
+              {whatsAppSessionInfo.isActive ? (
+                <div className="space-y-4 text-center">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-accent/15 text-accent">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-10 w-10"
+                      aria-hidden="true"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm4.28 7.28a.75.75 0 0 0-1.06-1.06l-4.72 4.72-1.72-1.72a.75.75 0 1 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.06 0l5.25-5.25Z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-accent">
+                      WhatsApp connected
+                    </p>
+                    <p className="text-xs text-muted">
+                      We detected the linked device. Messages can now be sent
+                      through this agent.
+                    </p>
+                    {whatsAppSessionInfo.updatedAt && (
                       <p className="text-xs text-muted">
-                        We detected the linked device. Messages can now be sent
-                        through this agent.
+                        Linked at{" "}
+                        {formatDateTime(whatsAppSessionInfo.updatedAt)}.
                       </p>
-                      {whatsAppSessionInfo.updatedAt && (
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeWhatsAppQrPreview}
+                    className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-sm font-semibold text-accent-foreground"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {whatsAppLoading && (
+                    <p className="text-sm text-muted">
+                      Generating WhatsApp QR code…
+                    </p>
+                  )}
+                  {!whatsAppLoading && whatsAppQr && (
+                    <div className="space-y-4 text-center">
+                      <p className="text-sm text-muted">
+                        Open WhatsApp &gt; Linked Devices and scan this code to
+                        connect the agent.
+                      </p>
+                      {whatsAppQrIsImage ? (
+                        <div className="mx-auto inline-flex rounded-md border border-surface-strong/60 bg-surface p-2">
+                          <Image
+                            src={whatsAppQr}
+                            alt="WhatsApp QR Code"
+                            width={216}
+                            height={216}
+                            unoptimized
+                            className="h-auto w-[216px]"
+                          />
+                        </div>
+                      ) : (
+                        <a
+                          href={whatsAppQr}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
+                        >
+                          Open WhatsApp Link
+                        </a>
+                      )}
+                      {typeof whatsAppQrCountdown === "number" ? (
+                        <p
+                          className={`text-xs font-semibold ${
+                            whatsAppQrExpired ? "text-red-600" : "text-muted"
+                          }`}
+                        >
+                          {whatsAppQrExpired
+                            ? "QR expired — generate a new code to continue."
+                            : `QR expires in ${whatsAppQrCountdown}s`}
+                        </p>
+                      ) : (
                         <p className="text-xs text-muted">
-                          Linked at {formatDateTime(whatsAppSessionInfo.updatedAt)}.
+                          QR codes expire after about a minute. Regenerate if
+                          the scan times out.
                         </p>
                       )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={closeWhatsAppQrPreview}
-                      className="inline-flex items-center px-3 py-1.5 rounded-md bg-accent hover:bg-accent-hover text-sm font-semibold text-accent-foreground"
-                    >
-                      Close
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    {whatsAppLoading && (
-                      <p className="text-sm text-muted">
-                        Generating WhatsApp QR code…
-                      </p>
-                    )}
-                    {!whatsAppLoading && whatsAppQr && (
-                      <div className="space-y-4 text-center">
-                        <p className="text-sm text-muted">
-                          Open WhatsApp &gt; Linked Devices and scan this code
-                          to connect the agent.
+                      <ol className="mx-auto max-w-md space-y-1 text-left text-xs text-muted">
+                        <li>
+                          <span className="font-semibold text-muted">1.</span>{" "}
+                          Open WhatsApp on your phone.
+                        </li>
+                        <li>
+                          <span className="font-semibold text-muted">2.</span>{" "}
+                          Tap{" "}
+                          <span className="font-medium">Linked Devices</span>{" "}
+                          &gt;{" "}
+                          <span className="font-medium">Link a Device</span>.
+                        </li>
+                        <li>
+                          <span className="font-semibold text-muted">3.</span>{" "}
+                          Point the camera at this QR before it expires.
+                        </li>
+                      </ol>
+                      {whatsAppSessionInfo.updatedAt && (
+                        <p className="text-xs text-muted">
+                          Last status update{" "}
+                          {formatDateTime(whatsAppSessionInfo.updatedAt)}.
                         </p>
-                        {whatsAppQrIsImage ? (
-                          <div className="mx-auto inline-flex rounded-md border border-surface-strong/60 bg-surface p-2">
-                            <Image
-                              src={whatsAppQr}
-                              alt="WhatsApp QR Code"
-                              width={216}
-                              height={216}
-                              unoptimized
-                              className="h-auto w-[216px]"
-                            />
-                          </div>
-                        ) : (
-                          <a
-                            href={whatsAppQr}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
-                          >
-                            Open WhatsApp Link
-                          </a>
-                        )}
-                        {typeof whatsAppQrCountdown === "number" ? (
-                          <p
-                            className={`text-xs font-semibold ${
-                              whatsAppQrExpired
-                                ? "text-red-600"
-                                : "text-muted"
-                            }`}
-                          >
-                            {whatsAppQrExpired
-                              ? "QR expired — generate a new code to continue."
-                              : `QR expires in ${whatsAppQrCountdown}s`}
-                          </p>
-                        ) : (
-                          <p className="text-xs text-muted">
-                            QR codes expire after about a minute. Regenerate if
-                            the scan times out.
-                          </p>
-                        )}
-                        <ol className="mx-auto max-w-md space-y-1 text-left text-xs text-muted">
-                          <li>
-                            <span className="font-semibold text-muted">
-                              1.
-                            </span>{" "}
-                            Open WhatsApp on your phone.
-                          </li>
-                          <li>
-                            <span className="font-semibold text-muted">
-                              2.
-                            </span>{" "}
-                            Tap <span className="font-medium">Linked Devices</span>{" "}
-                            &gt; <span className="font-medium">Link a Device</span>.
-                          </li>
-                          <li>
-                            <span className="font-semibold text-muted">
-                              3.
-                            </span>{" "}
-                            Point the camera at this QR before it expires.
-                          </li>
-                        </ol>
-                        {whatsAppSessionInfo.updatedAt && (
-                          <p className="text-xs text-muted">
-                            Last status update {formatDateTime(whatsAppSessionInfo.updatedAt)}.
-                          </p>
-                        )}
-                        <div className="flex flex-wrap items-center justify-center gap-3">
-                          {whatsAppQrExpired && (
-                            <button
-                              type="button"
-                              onClick={handleWhatsAppQr}
-                              disabled={whatsAppLoading}
-                              className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60"
-                            >
-                              {whatsAppLoading ? "Requesting..." : "Generate new QR"}
-                            </button>
-                          )}
+                      )}
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                        {whatsAppQrExpired && (
                           <button
                             type="button"
-                            onClick={refreshWhatsAppSession}
-                            disabled={whatsAppStatusLoading || whatsAppLoading}
-                            className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
+                            onClick={handleWhatsAppQr}
+                            disabled={whatsAppLoading}
+                            className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold disabled:opacity-60"
                           >
-                            {whatsAppStatusLoading ? "Refreshing..." : "Refresh status"}
+                            {whatsAppLoading
+                              ? "Requesting..."
+                              : "Generate new QR"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={closeWhatsAppQrPreview}
-                            className="inline-flex items-center px-3 py-1.5 rounded-md bg-surface hover:bg-surface-strong/60 text-sm font-medium text-muted transition"
-                          >
-                            Close
-                          </button>
-                        </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={refreshWhatsAppSession}
+                          disabled={whatsAppStatusLoading || whatsAppLoading}
+                          className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60"
+                        >
+                          {whatsAppStatusLoading
+                            ? "Refreshing..."
+                            : "Refresh status"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={closeWhatsAppQrPreview}
+                          className="inline-flex items-center px-3 py-1.5 rounded-md bg-surface hover:bg-surface-strong/60 text-sm font-medium text-muted transition"
+                        >
+                          Close
+                        </button>
                       </div>
-                    )}
-                    {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
-                      <p className="text-sm text-muted">
-                        QR code is being prepared. This can take a few seconds…
-                      </p>
-                    )}
-                    {!whatsAppLoading && whatsAppError && (
-                      <p className="text-sm text-red-600">{whatsAppError}</p>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
+                  {!whatsAppLoading && !whatsAppQr && !whatsAppError && (
+                    <p className="text-sm text-muted">
+                      QR code is being prepared. This can take a few seconds…
+                    </p>
+                  )}
+                  {!whatsAppLoading && whatsAppError && (
+                    <p className="text-sm text-red-600">{whatsAppError}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -1474,10 +1465,10 @@ export default function AgentDetailPage() {
             {googleAuthConnected
               ? "Run Google Workspace tasks immediately or connect additional tools at any time."
               : googleAuthPending
-                ? "Complete the Google authorization before running Google Workspace tasks."
-                : requiresGoogleAuth
-                  ? "Refresh the Google authorization status once the Google flow completes."
-                  : "Connect additional tools or adjust agent settings at any time."}
+              ? "Complete the Google authorization before running Google Workspace tasks."
+              : requiresGoogleAuth
+              ? "Refresh the Google authorization status once the Google flow completes."
+              : "Connect additional tools or adjust agent settings at any time."}
           </li>
         </ul>
       </section>
@@ -1568,7 +1559,8 @@ export default function AgentDetailPage() {
                         {doc.filename}
                       </p>
                       <p className="text-xs text-muted">
-                        Uploaded {formatDateTime(doc.createdAt || doc.created_at)}
+                        Uploaded{" "}
+                        {formatDateTime(doc.createdAt || doc.created_at)}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1582,9 +1574,15 @@ export default function AgentDetailPage() {
                     </div>
                   </div>
                   <div className="mt-2 grid md:grid-cols-4 gap-2 text-xs text-muted">
-                    <span>Size: {formatBytes(doc.sizeBytes ?? doc.size_bytes)}</span>
-                    <span>Chunks: {doc.chunkCount ?? doc.chunk_count ?? "—"}</span>
-                    <span>Type: {doc.contentType || doc.content_type || "Unknown"}</span>
+                    <span>
+                      Size: {formatBytes(doc.sizeBytes ?? doc.size_bytes)}
+                    </span>
+                    <span>
+                      Chunks: {doc.chunkCount ?? doc.chunk_count ?? "—"}
+                    </span>
+                    <span>
+                      Type: {doc.contentType || doc.content_type || "Unknown"}
+                    </span>
                     <span>ID: {doc.id || "—"}</span>
                   </div>
                 </div>
@@ -1642,14 +1640,9 @@ export default function AgentDetailPage() {
             )}
           </div>
 
-          {chatError && (
-            <p className="text-sm text-red-600">{chatError}</p>
-          )}
+          {chatError && <p className="text-sm text-red-600">{chatError}</p>}
 
-          <form
-            onSubmit={handleChatSubmit}
-            className="flex items-center gap-3"
-          >
+          <form onSubmit={handleChatSubmit} className="flex items-center gap-3">
             <input
               type="text"
               value={chatInput}
