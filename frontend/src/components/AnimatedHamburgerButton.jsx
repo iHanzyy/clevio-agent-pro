@@ -25,7 +25,7 @@ export default function AnimatedHamburgerButton({
         initial={false}
         animate={open ? "open" : "closed"}
         onClick={() => setOpen((o) => !o)}
-        className={`relative ${size} rounded-full bg-white/0 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${className}`}
+        className={`relative ${size} rounded-full bg-white/0 transition-colors hover:bg-surface/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${className}`}
       >
         {/* Top */}
         <motion.span

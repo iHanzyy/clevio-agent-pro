@@ -6,6 +6,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { apiService } from "@/lib/api";
 import AnimatedHamburgerButton from "@/components/AnimatedHamburgerButton";
+import { motion, AnimatePresence } from "framer-motion";
+
+const SIDEBAR_W = 256; // 64 * 4 = 256px (w-64)
 
 export default function DashboardLayout({ children }) {
   const { user, loading, logout } = useAuth();
@@ -19,7 +22,8 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
-        setSidebarOpen(true);
+        const saved = localStorage.getItem("dashSidebarOpen");
+        setSidebarOpen(saved === "1");
       } else {
         setSidebarOpen(false);
       }
@@ -29,6 +33,12 @@ export default function DashboardLayout({ children }) {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("dashSidebarOpen", sidebarOpen ? "1" : "0");
+    }
+  }, [sidebarOpen]);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -69,10 +79,6 @@ export default function DashboardLayout({ children }) {
 
   const toggleDarkMode = () => {
     setDarkMode((prev) => !prev);
-  };
-
-  const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
   };
 
   const formattedPlan = useMemo(() => {
@@ -174,146 +180,267 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-surface border-r border-surface-strong/60 transform transition-transform duration-200 ease-in-out ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center justify-between h-18 px-8 border-b border-surface-strong/60">
-            <Link href="/dashboard" className="flex items-center space-x-2">
+      {/* Hamburger Desktop - Posisi Fixed di Kiri Atas */}
+      <div className="hidden lg:block fixed left-7 top-6 z-50">
+        <AnimatedHamburgerButton
+          initialOpen={sidebarOpen}
+          onToggle={setSidebarOpen}
+        />
+      </div>
+
+      {/* Logo Desktop - Muncul saat sidebar terbuka */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ y: -8, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -8, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="hidden lg:block fixed left-20 top-4 z-50"
+          >
+            <Link href="/dashboard" className="flex items-center">
               <Image
                 src="/clevioAIAssistantsLogo.png"
                 alt="Clevio AI Assistants"
-                width={150}
-                height={150}
-                className="mb-0 ml-14"
+                width={120}
+                height={120}
+                className="mb-0"
               />
             </Link>
-          </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => {
-                  // Close sidebar on mobile after navigation
-                  if (window.innerWidth < 1024) {
-                    setSidebarOpen(false);
-                  }
-                }}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
-                  isActive(item.href)
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-surface/70 hover:text-accent"
-                }`}
-              >
-                <span className="mr-3">{item.icon}</span>
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Subscription Status */}
-          {subscription && (
-            <div className="px-6 py-4 border-t border-surface-strong/60">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-muted">Plan</span>
-                <span
-                  className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    subscription.is_active
-                      ? "bg-accent/15 text-accent"
-                      : "bg-surface text-foreground"
-                  }`}
-                >
-                  {formattedPlan}
-                </span>
-              </div>
-              {subscription.days_remaining !== null &&
-                subscription.days_remaining !== undefined && (
-                  <p className="text-xs text-muted">
-                    {subscription.days_remaining} days remaining
-                  </p>
-                )}
-            </div>
-          )}
-
-          {/* User Menu */}
-          <div className="px-6 py-4 border-t border-surface-strong/60">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-medium text-accent-foreground">
-                    {user.email?.[0]?.toUpperCase() || "U"}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {user.email}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={logout}
-                className="p-2 text-muted hover:text-muted rounded-lg hover:bg-surface/70 flex-shrink-0"
-                title="Logout"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div
-        className={`transition-all duration-200 ${
-          sidebarOpen ? "lg:ml-64" : "lg:ml-0"
-        }`}
+      {/* Hamburger Mobile - Posisi Fixed di Kanan Atas */}
+      <motion.div
+        initial={{ x: 50, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="lg:hidden fixed right-4 top-4 z-50"
       >
-        {/* Top Bar */}
-        <header className="sticky top-0 z-40 bg-surface border-b border-surface-strong/60 shadow-sm">
-          <div className="flex items-center justify-between h-16 px-6">
-            <AnimatedHamburgerButton
-              onToggle={(isOpen) => {
-                // Optional: sync state if needed
-                if (isOpen !== sidebarOpen) {
-                  setSidebarOpen(isOpen);
-                }
-              }}
-              initialOpen={sidebarOpen}
-              className="p-2"
-            />
-          </div>
-        </header>
+        <AnimatedHamburgerButton
+          key={`mobile-hamburger-${sidebarOpen}`} // Key berubah berdasarkan state, bukan pathname
+          initialOpen={sidebarOpen}
+          onToggle={setSidebarOpen}
+        />
+      </motion.div>
 
-        {/* Page Content */}
-        <main className="p-6">{children}</main>
+      {/* Logo Mobile - Muncul saat sidebar terbuka */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <motion.div
+            initial={{ y: -8, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -8, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="lg:hidden fixed left-4 top-4 z-50"
+          >
+            <Link href="/dashboard" className="flex items-center">
+              <Image
+                src="/clevioAIAssistantsLogo.png"
+                alt="Clevio AI Assistants"
+                width={100}
+                height={100}
+                className="mb-0"
+              />
+            </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Layout */}
+      <div className="hidden lg:flex h-screen relative">
+        {/* Sidebar dengan AnimatePresence */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.aside
+              key="sidebar"
+              initial={{ x: -SIDEBAR_W }}
+              animate={{ x: 0 }}
+              exit={{ x: -SIDEBAR_W }}
+              transition={{
+                duration: 0.4,
+                ease: "easeInOut",
+              }}
+              style={{ width: SIDEBAR_W }}
+              className="fixed inset-y-0 left-0 z-40 bg-surface border-r border-surface-strong/60"
+            >
+              <div className="flex flex-col h-full pt-20">
+                {/* Navigation */}
+                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-150 ${
+                        isActive(item.href)
+                          ? "bg-accent/10 text-accent"
+                          : "text-muted hover:bg-surface/70 hover:text-accent"
+                      }`}
+                    >
+                      <span className="mr-3">{item.icon}</span>
+                      {item.name}
+                    </Link>
+                  ))}
+                </nav>
+
+                {/* Subscription Status */}
+                {subscription && (
+                  <div className="px-6 py-4 border-t border-surface-strong/60">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-muted">
+                        Plan
+                      </span>
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          subscription.is_active
+                            ? "bg-accent/15 text-accent"
+                            : "bg-surface text-foreground"
+                        }`}
+                      >
+                        {formattedPlan}
+                      </span>
+                    </div>
+                    {subscription.days_remaining !== null &&
+                      subscription.days_remaining !== undefined && (
+                        <p className="text-xs text-muted">
+                          {subscription.days_remaining} days remaining
+                        </p>
+                      )}
+                  </div>
+                )}
+
+                {/* User Menu */}
+                <div className="px-6 py-4 border-t border-surface-strong/60">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-medium text-accent-foreground">
+                          {user.email?.[0]?.toUpperCase() || "U"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {user.email}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={logout}
+                      className="p-2 text-muted hover:text-muted rounded-lg hover:bg-surface/70 flex-shrink-0"
+                      title="Logout"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* Content area - bergeser ketika sidebar muncul */}
+        <motion.div
+          className="w-full h-screen overflow-y-auto"
+          animate={{
+            transform: sidebarOpen
+              ? `translateX(${SIDEBAR_W}px)`
+              : "translateX(0px)",
+            width: sidebarOpen ? `calc(100% - ${SIDEBAR_W}px)` : "100%",
+          }}
+          transition={{
+            duration: 0.4,
+            ease: "easeInOut",
+          }}
+        >
+          <div className="pb-10 pt-20">{children}</div>
+        </motion.div>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-          onClick={toggleSidebar}
-        ></div>
-      )}
+      {/* Mobile Layout */}
+      <div className="lg:hidden min-h-screen">
+        {/* Mobile Overlay */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.div
+              key="mobile-menu"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-40 bg-black/50"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <motion.div
+                initial={{ y: -8, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -8, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="mx-auto max-w-sm px-6 py-3 pt-20"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex flex-col gap-3 bg-surface rounded-2xl p-6 border border-surface-strong/60">
+                  {navigation.map((item) => (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      // HAPUS onClick={() => setSidebarOpen(false)} agar sidebar tidak tertutup saat navigasi
+                      className={`inline-flex items-center gap-3 rounded-xl px-4 py-3 transition ${
+                        isActive(item.href)
+                          ? "bg-accent/15 text-accent"
+                          : "text-muted hover:bg-surface/70 hover:text-accent"
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="font-semibold text-base">
+                        {item.name}
+                      </span>
+                    </Link>
+                  ))}
+
+                  <button
+                    onClick={logout}
+                    className="mt-2 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3
+                               text-foreground font-semibold
+                               bg-surface hover:bg-surface/70
+                               ring-1 ring-surface-strong/60
+                               transition"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                    Logout
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="pt-20">{children}</div>
+      </div>
     </div>
   );
 }
