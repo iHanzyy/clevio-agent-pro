@@ -69,42 +69,42 @@ export default function AgentTemplatesPage() {
     setError(null);
 
     try {
-      // Send template data to n8n webhook
+      // Send template data via proxy route (no more CORS!)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minute timeout
 
-      const response = await fetch(
-        "https://n8n-new.chiefaiofficer.id/webhook/templateAgent",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+      const response = await fetch("/api/n8n-webhook", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          session_id: `template-session-${Date.now()}`,
+          template_id: selectedTemplate.id,
+          template_data: {
+            name: selectedTemplate.name,
+            category: selectedTemplate.category,
+            description: selectedTemplate.description,
+            config: selectedTemplate.config,
+            allowed_tools: selectedTemplate.allowed_tools,
           },
-          body: JSON.stringify({
-            session_id: `template-session-${Date.now()}`,
-            template_id: selectedTemplate.id,
-            template_data: {
-              name: selectedTemplate.name,
-              category: selectedTemplate.category,
-              description: selectedTemplate.description,
-              config: selectedTemplate.config,
-              allowed_tools: selectedTemplate.allowed_tools,
-            },
-          }),
-          signal: controller.signal,
-        }
-      );
+        }),
+        signal: controller.signal,
+      });
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
         throw new Error(
-          `Failed to start interview: ${response.status} ${response.statusText}`
+          result.error ||
+            result.details ||
+            `Failed to start interview: ${response.status} ${response.statusText}`
         );
       }
 
-      const data = await response.json();
-      console.log("n8n response:", data);
+      console.log("n8n response:", result.data);
 
       // Redirect to chat page
       router.push(

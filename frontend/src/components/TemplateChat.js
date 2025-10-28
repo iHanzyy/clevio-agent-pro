@@ -22,9 +22,16 @@ export default function TemplateChat({
         setIsLoading(true);
         setError(null);
 
+        // Use environment variable or fallback
+        const webhookUrl =
+          process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ||
+          "https://n8n-new.chiefaiofficer.id/webhook/44e8e63d-ebf4-4278-bdf6-ff0f8e5955fb/chat";
+
+        console.log("[TemplateChat] Initializing with webhook:", webhookUrl);
+
         // Create n8n chat widget
         const chatInstance = createChat({
-          webhookUrl: "https://n8n-new.chiefaiofficer.id/webhook/templateAgent",
+          webhookUrl,
           initialMessages: [],
           mode: "embedded",
           target: chatContainerRef.current,
@@ -49,13 +56,25 @@ export default function TemplateChat({
         // Listen for messages from n8n
         if (chatInstance.on) {
           chatInstance.on("message", (message) => {
+            console.log("[TemplateChat] Received message:", message);
+
             // Check if interview is complete
             if (
               message?.metadata?.status === "completed" &&
               message?.metadata?.agent_data
             ) {
+              console.log(
+                "[TemplateChat] Interview completed!",
+                message.metadata.agent_data
+              );
               onInterviewComplete(message.metadata.agent_data);
             }
+          });
+
+          // Listen for errors
+          chatInstance.on("error", (err) => {
+            console.error("[TemplateChat] Chat error:", err);
+            setError("Connection error. Please refresh and try again.");
           });
         }
 
@@ -101,6 +120,12 @@ export default function TemplateChat({
           </h3>
           <p className="mt-2 text-sm text-muted">{error}</p>
         </div>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 rounded-xl bg-accent px-6 py-2 text-sm font-medium text-white hover:bg-accent/90"
+        >
+          Refresh Page
+        </button>
       </div>
     );
   }
