@@ -27,7 +27,6 @@ export default function TemplateChatPage() {
       return;
     }
 
-    // Get template from query params
     const templateId = searchParams.get("template");
     if (!templateId) {
       router.push("/dashboard/agents/templates");
@@ -44,13 +43,14 @@ export default function TemplateChatPage() {
   }, [authLoading, user, searchParams, router]);
 
   const handleInterviewComplete = (agentData) => {
+    console.log("[TemplateChatPage] Interview completed with data:", agentData);
     setIsRedirecting(true);
 
-    // Store agent data in sessionStorage for pre-filling form
     sessionStorage.setItem("pendingAgentData", JSON.stringify(agentData));
 
-    // Redirect to new agent page
-    router.push("/dashboard/agents/new?fromInterview=true");
+    setTimeout(() => {
+      router.push("/dashboard/agents/new?fromInterview=true");
+    }, 1000);
   };
 
   const handleBackToTemplates = () => {
@@ -65,7 +65,7 @@ export default function TemplateChatPage() {
 
   if (authLoading || !template) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           <p className="mt-4 text-muted">Loading interview...</p>
@@ -76,7 +76,7 @@ export default function TemplateChatPage() {
 
   if (isRedirecting) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
           <p className="mt-4 text-muted">
@@ -90,7 +90,7 @@ export default function TemplateChatPage() {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
-      <header className="border-b border-surface-strong/60 bg-surface px-6 py-4">
+      <header className="flex-shrink-0 border-b border-surface-strong/60 bg-surface px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -131,15 +131,13 @@ export default function TemplateChatPage() {
 
       {/* Chat Container */}
       <main className="flex-1 overflow-hidden">
-        <div className="mx-auto h-full max-w-5xl p-6">
-          <div className="h-full overflow-hidden rounded-2xl border border-surface-strong/60 bg-surface shadow-lg">
-            <TemplateChat
-              template={template}
-              sessionId={sessionId}
-              onInterviewComplete={handleInterviewComplete}
-            />
-          </div>
-        </div>
+        {template && sessionId && (
+          <TemplateChat
+            template={template}
+            sessionId={sessionId}
+            onInterviewComplete={handleInterviewComplete}
+          />
+        )}
       </main>
     </div>
   );

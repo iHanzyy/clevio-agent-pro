@@ -69,61 +69,16 @@ export default function AgentTemplatesPage() {
     setError(null);
 
     try {
-      // Send template data via proxy route (no more CORS!)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minute timeout
+      // Langsung redirect ke chat page tanpa POST terlebih dahulu
+      // Template data akan dikirim dari chat widget langsung
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Small delay for UX
 
-      const response = await fetch("/api/n8n-webhook", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          session_id: `template-session-${Date.now()}`,
-          template_id: selectedTemplate.id,
-          template_data: {
-            name: selectedTemplate.name,
-            category: selectedTemplate.category,
-            description: selectedTemplate.description,
-            config: selectedTemplate.config,
-            allowed_tools: selectedTemplate.allowed_tools,
-          },
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(
-          result.error ||
-            result.details ||
-            `Failed to start interview: ${response.status} ${response.statusText}`
-        );
-      }
-
-      console.log("n8n response:", result.data);
-
-      // Redirect to chat page
       router.push(
         `/dashboard/agents/templates/chat?template=${selectedTemplate.id}`
       );
     } catch (err) {
       console.error("Failed to start interview:", err);
-
-      if (err.name === "AbortError") {
-        setError(
-          "Request timed out. Please check your connection and try again."
-        );
-      } else {
-        setError(
-          err.message ||
-            "Failed to start interview. Please try again or contact support."
-        );
-      }
-
+      setError(err.message || "Failed to start interview.");
       setIsLoading(false);
       setShowConfirmDialog(false);
     }
