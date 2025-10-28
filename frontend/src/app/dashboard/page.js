@@ -266,33 +266,15 @@ export default function Dashboard() {
       <section className="rounded-3xl border border-surface-strong/60 bg-surface shadow-sm">
         <div className="flex flex-col gap-2 border-b border-surface-strong/60 p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                Your agents
-              </h2>
-              <p className="text-sm text-muted">
-                A quick view of the latest assistants and their WhatsApp status.
-              </p>
-            </div>
-            <Link
-              href="/dashboard/agents"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accent"
+            <h2 className="text-2xl font-semibold text-foreground">
+              Recent Agents
+            </h2>
+            <button
+              onClick={() => router.push("/dashboard/agents/templates")}
+              className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent/90 hover:shadow-accent/40"
             >
-              View all
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </Link>
+              + Create Agent
+            </button>
           </div>
         </div>
 
