@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import TemplateChat from "@/components/TemplateChat";
-import templatesData from "@/data/agent-templates.json";
+import agentTemplates from "@/data/agent-templates.json";
+import AiAssistat from "@/components/ui/ai-assistat";
 
 export default function TemplateChatPage() {
   const router = useRouter();
@@ -22,18 +22,13 @@ export default function TemplateChatPage() {
       return;
     }
 
-    if (!user.subscription?.is_active) {
-      router.push("/payment");
-      return;
-    }
-
     const templateId = searchParams.get("template");
     if (!templateId) {
       router.push("/dashboard/agents/templates");
       return;
     }
 
-    const foundTemplate = templatesData.find((t) => t.id === templateId);
+    const foundTemplate = agentTemplates.find((t) => t.id === templateId);
     if (!foundTemplate) {
       router.push("/dashboard/agents/templates");
       return;
@@ -44,31 +39,35 @@ export default function TemplateChatPage() {
 
   const handleInterviewComplete = (agentData) => {
     console.log("[TemplateChatPage] Interview completed with data:", agentData);
+
     setIsRedirecting(true);
 
-    sessionStorage.setItem("pendingAgentData", JSON.stringify(agentData));
+    // Store agent data in sessionStorage
+    sessionStorage.setItem(
+      "prefilled_agent_data",
+      JSON.stringify({
+        ...agentData,
+        template_id: template.id,
+        template_name: template.name,
+      })
+    );
 
+    // Redirect to create agent page
     setTimeout(() => {
-      router.push("/dashboard/agents/new?fromInterview=true");
+      router.push("/dashboard/agents/new?prefilled=true");
     }, 1000);
   };
 
   const handleBackToTemplates = () => {
-    if (
-      confirm(
-        "Are you sure you want to leave? Your interview progress will be lost."
-      )
-    ) {
-      router.push("/dashboard/agents/templates");
-    }
+    router.push("/dashboard/agents/templates");
   };
 
   if (authLoading || !template) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <p className="mt-4 text-muted">Loading interview...</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+          <p className="text-sm font-medium text-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -77,10 +76,10 @@ export default function TemplateChatPage() {
   if (isRedirecting) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
-          <p className="mt-4 text-muted">
-            Interview complete! Redirecting to agent form...
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-green-500 border-t-transparent" />
+          <p className="text-sm font-medium text-foreground">
+            Interview completed! Redirecting...
           </p>
         </div>
       </div>
@@ -90,9 +89,9 @@ export default function TemplateChatPage() {
   return (
     <div className="flex h-screen flex-col bg-background">
       {/* Header */}
-      <header className="flex-shrink-0 border-b border-surface-strong/60 bg-surface px-6 py-4">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-4">
+      <div className="border-b border-surface-strong/60 bg-surface">
+        <div className="mx-auto max-w-7xl px-6 py-4">
+          <div className="flex items-center justify-between">
             <button
               onClick={handleBackToTemplates}
               className="flex h-10 w-10 items-center justify-center rounded-lg border border-surface-strong/60 text-muted transition-colors hover:bg-surface-strong/60"
@@ -117,28 +116,41 @@ export default function TemplateChatPage() {
               </h1>
               <p className="text-sm text-muted">Customizing: {template.name}</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-sm font-bold text-accent">
-              {template.name.charAt(0)}
+            <div className="flex items-center gap-2">
+              <span className="inline-block rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
+                {template.category}
+              </span>
             </div>
-            <span className="inline-block rounded-full border border-accent/20 bg-accent/5 px-3 py-1 text-xs font-medium text-accent">
-              {template.category}
-            </span>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* Chat Container */}
-      <main className="flex-1 overflow-hidden">
-        {template && sessionId && (
-          <TemplateChat
-            template={template}
-            sessionId={sessionId}
-            onInterviewComplete={handleInterviewComplete}
-          />
-        )}
-      </main>
+      {/* Chat Interface */}
+      <div className="flex-1 overflow-hidden">
+        <AiAssistat
+          title={`Configure ${template.name}`}
+          description="Answer a few questions to customize your AI agent"
+          webhookUrl="https://n8n-new.chiefaiofficer.id/webhook/templateAgent"
+          sessionId={sessionId}
+          metadata={{
+            session_id: sessionId,
+            template_id: template.id,
+            template_name: template.name,
+            template_category: template.category,
+            template_data: {
+              name: template.name,
+              category: template.category,
+              description: template.description,
+              config: template.config,
+              allowed_tools: template.allowed_tools,
+            },
+          }}
+          onMessageReceived={(data) => {
+            console.log("[TemplateChatPage] Message received:", data);
+          }}
+          onComplete={handleInterviewComplete}
+        />
+      </div>
     </div>
   );
 }
