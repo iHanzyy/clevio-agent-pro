@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import templatesData from "@/data/agent-templates.json";
+import TemplateConfirmationDialog from "@/components/TemplateConfirmationDialog";
 
 const CATEGORIES = [
   { id: "all", label: "All" },
@@ -20,6 +21,9 @@ export default function AgentTemplatesPage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [error, setError] = useState(null);
 
   const filteredTemplates = useMemo(() => {
     let filtered = templatesData;
@@ -52,11 +56,83 @@ export default function AgentTemplatesPage() {
     return templatesData.filter((t) => t.category === selectedCategory).length;
   }, [selectedCategory]);
 
-  const handleUseTemplate = (templateId) => {
+  const handleUseTemplate = (template) => {
+    setSelectedTemplate(template);
+    setShowConfirmDialog(true);
+    setError(null);
+  };
+
+  const handleConfirmInterview = async () => {
+    if (!selectedTemplate) return;
+
     setIsLoading(true);
-    // TODO: Nanti akan diarahkan ke chatbot n8n
-    console.log("Using template:", templateId);
-    // router.push(`/dashboard/agents/new?template=${templateId}`);
+    setError(null);
+
+    try {
+      // Send template data to n8n webhook
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minute timeout
+
+      const response = await fetch(
+        "https://n8n-new.chiefaiofficer.id/webhook/templateAgent",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session_id: `template-session-${Date.now()}`,
+            template_id: selectedTemplate.id,
+            template_data: {
+              name: selectedTemplate.name,
+              category: selectedTemplate.category,
+              description: selectedTemplate.description,
+              config: selectedTemplate.config,
+              allowed_tools: selectedTemplate.allowed_tools,
+            },
+          }),
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to start interview: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      console.log("n8n response:", data);
+
+      // Redirect to chat page
+      router.push(
+        `/dashboard/agents/templates/chat?template=${selectedTemplate.id}`
+      );
+    } catch (err) {
+      console.error("Failed to start interview:", err);
+
+      if (err.name === "AbortError") {
+        setError(
+          "Request timed out. Please check your connection and try again."
+        );
+      } else {
+        setError(
+          err.message ||
+            "Failed to start interview. Please try again or contact support."
+        );
+      }
+
+      setIsLoading(false);
+      setShowConfirmDialog(false);
+    }
+  };
+
+  const handleCancelDialog = () => {
+    setShowConfirmDialog(false);
+    setSelectedTemplate(null);
+    setIsLoading(false);
   };
 
   const handleCreateFromScratch = () => {
@@ -84,6 +160,47 @@ export default function AgentTemplatesPage() {
               + Create Agent
             </button>
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+              <div className="flex items-start gap-3">
+                <svg
+                  className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-red-900">
+                    Failed to Start Interview
+                  </h3>
+                  <p className="mt-1 text-sm text-red-700">{error}</p>
+                </div>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-red-400 hover:text-red-600"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Search Bar */}
           <div className="relative mb-6">
@@ -142,30 +259,7 @@ export default function AgentTemplatesPage() {
         </div>
 
         {/* Templates Grid */}
-        {isLoading ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-3xl border border-surface-strong/60 bg-surface p-6"
-              >
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-surface-strong/60" />
-                  <div className="flex-1">
-                    <div className="h-6 bg-surface-strong/60 rounded mb-2 w-3/4" />
-                    <div className="h-4 bg-surface-strong/60 rounded w-1/2" />
-                  </div>
-                </div>
-                <div className="space-y-2 mb-4">
-                  <div className="h-4 bg-surface-strong/60 rounded" />
-                  <div className="h-4 bg-surface-strong/60 rounded" />
-                  <div className="h-4 bg-surface-strong/60 rounded w-5/6" />
-                </div>
-                <div className="h-10 bg-surface-strong/60 rounded-xl" />
-              </div>
-            ))}
-          </div>
-        ) : filteredTemplates.length === 0 ? (
+        {filteredTemplates.length === 0 ? (
           <div className="text-center py-16">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-surface-strong/60 mb-4">
               <svg
@@ -210,6 +304,15 @@ export default function AgentTemplatesPage() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog */}
+      <TemplateConfirmationDialog
+        isOpen={showConfirmDialog}
+        template={selectedTemplate}
+        onConfirm={handleConfirmInterview}
+        onCancel={handleCancelDialog}
+        isLoading={isLoading}
+      />
     </div>
   );
 }
@@ -273,7 +376,7 @@ function TemplateCard({ template, onUseTemplate }) {
 
       {/* Use Template Button */}
       <button
-        onClick={() => onUseTemplate(template.id)}
+        onClick={() => onUseTemplate(template)}
         className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent/90 hover:shadow-accent/40"
       >
         PAKAI TEMPLATE INI
