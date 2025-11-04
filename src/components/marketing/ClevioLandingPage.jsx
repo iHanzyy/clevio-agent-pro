@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Check,
   ChevronDown,
@@ -26,7 +26,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import confetti from "canvas-confetti";
 import NumberFlow from "@number-flow/react";
 import { cn } from "@/lib/utils";
 
@@ -42,12 +41,13 @@ const Button = forwardRef(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+      "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold tracking-tight ring-offset-background transition-all duration-200 ease-out shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-60 motion-safe:hover:-translate-y-0.5 motion-safe:active:translate-y-0";
     const variants = {
-      default: "bg-primary text-primary-foreground hover:bg-primary/90",
+      default:
+        "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90",
       outline:
-        "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-      ghost: "hover:bg-accent hover:text-accent-foreground",
+        "border border-border bg-background text-primary hover:bg-primary/10",
+      ghost: "text-foreground hover:bg-accent/10 hover:text-primary",
     };
     const sizes = {
       default: "h-10 px-4 py-2",
@@ -67,36 +67,11 @@ const Button = forwardRef(
 );
 Button.displayName = "Button";
 
-const Switch = forwardRef(
-  ({ checked = false, onCheckedChange, className, ...props }, ref) => (
-    <button
-      ref={ref}
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onCheckedChange?.(!checked)}
-      className={cn(
-        "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
-        checked ? "bg-primary" : "bg-input",
-        className
-      )}
-      {...props}
-    >
-      <span
-        className={cn(
-          "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform",
-          checked ? "translate-x-5" : "translate-x-0"
-        )}
-      />
-    </button>
-  )
-);
-Switch.displayName = "Switch";
-
 const Card = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
+      "rounded-2xl border border-border bg-card text-card-foreground shadow-lg shadow-primary/5 transition-all duration-300 ease-out",
       className
     )}
     {...props}
@@ -104,22 +79,34 @@ const Card = forwardRef(({ className, ...props }, ref) => (
 ));
 Card.displayName = "Card";
 
-const fadeUpVariants = {
-  hidden: { opacity: 0, y: 10 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", duration: 0.8 } },
+const MotionCard = motion(Card);
+
+const FADE_UP_VARIANTS = {
+  hidden: { opacity: 0, y: 24, filter: "blur(8px)" },
+  show: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.6, ease: "easeOut" },
+  },
 };
 
-const staggerContainerVariants = {
+const STAGGER_CONTAINER_VARIANTS = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.12,
+      delayChildren: 0.05,
     },
   },
 };
 
 const translations = {
+  hero_tagline: {
+    en: "WhatsApp-ready automation for Indonesian SMEs",
+    id: "Otomasi WhatsApp untuk UMKM Indonesia",
+  },
   hero_title: {
     en: "AI Agents Automate Your Sales & Operations",
     id: "Agen AI Otomatiskan Penjualan & Operasi Anda",
@@ -136,13 +123,17 @@ const translations = {
     en: "See Live Demo",
     id: "Lihat Demo Langsung",
   },
-  cta_sales: {
-    en: "Contact Sales",
-    id: "Hubungi Sales",
-  },
   cta_pricing: {
-    en: "Pricing",
-    id: "Harga",
+    en: "Explore Pricing",
+    id: "Lihat Harga",
+  },
+  nav_login: {
+    en: "Login",
+    id: "Masuk",
+  },
+  nav_register: {
+    en: "Register",
+    id: "Daftar",
   },
   benefit_1: {
     en: "Deploy AI agents in minutes, not months",
@@ -228,6 +219,14 @@ const translations = {
     en: "Choose the plan that fits your business. All plans include WhatsApp integration and agent templates.",
     id: "Pilih paket yang sesuai dengan bisnis Anda. Semua paket termasuk integrasi WhatsApp dan template agen.",
   },
+  pricing_plan_note: {
+    en: "Perfect for small businesses getting started with AI automation",
+    id: "Sempurna untuk bisnis kecil yang memulai otomasi AI",
+  },
+  pricing_free: {
+    en: "Free",
+    id: "Gratis",
+  },
   pricing_monthly: {
     en: "Monthly",
     id: "Bulanan",
@@ -236,9 +235,37 @@ const translations = {
     en: "Yearly",
     id: "Tahunan",
   },
-  pricing_plan_note: {
-    en: "Perfect for small businesses getting started with AI automation",
-    id: "Sempurna untuk bisnis kecil yang memulai otomasi AI",
+  pricing_free_desc: {
+    en: "Experience core automation and launch your first WhatsApp agent.",
+    id: "Rasakan otomasi inti dan luncurkan agen WhatsApp pertama Anda.",
+  },
+  pricing_monthly_desc: {
+    en: "Grow your team with advanced templates, analytics, and support.",
+    id: "Kembangkan tim Anda dengan template, analitik, dan dukungan lanjutan.",
+  },
+  pricing_yearly_desc: {
+    en: "Scale confidently with unlimited agents and dedicated guidance.",
+    id: "Skalakan dengan percaya diri dengan agen tanpa batas dan pendampingan khusus.",
+  },
+  pricing_badge_popular: {
+    en: "Most popular",
+    id: "Paling populer",
+  },
+  pricing_yearly_bonus: {
+    en: "2 months free",
+    id: "Gratis 2 bulan",
+  },
+  pricing_cta_start: {
+    en: "Get started",
+    id: "Mulai sekarang",
+  },
+  pricing_cta_upgrade: {
+    en: "Upgrade now",
+    id: "Upgrade sekarang",
+  },
+  pricing_cta_scale: {
+    en: "Scale with us",
+    id: "Berkembang bersama kami",
   },
   testimonials_title: {
     en: "What Our Customers Say",
@@ -368,10 +395,6 @@ const translations = {
     en: "Pricing",
     id: "Harga",
   },
-  footer_copyright: {
-    en: "© 2024 Clevio AI Employees. All rights reserved.",
-    id: "© 2024 Clevio AI Employees. Semua hak dilindungi.",
-  },
   footer_privacy: {
     en: "Privacy Policy",
     id: "Kebijakan Privasi",
@@ -380,13 +403,9 @@ const translations = {
     en: "Terms of Service",
     id: "Syarat Layanan",
   },
-  nav_login: {
-    en: "Login",
-    id: "Masuk",
-  },
-  nav_register: {
-    en: "Register",
-    id: "Daftar",
+  footer_tagline: {
+    en: "AI Employees for Indonesian SMEs",
+    id: "Karyawan AI untuk UMKM Indonesia",
   },
 };
 
@@ -396,7 +415,10 @@ const LanguageToggle = ({ language, setLanguage }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setOpen(false);
       }
     };
@@ -419,24 +441,18 @@ const LanguageToggle = ({ language, setLanguage }) => {
       <button
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-          "bg-white/60 dark:bg-neutral-900/90 backdrop-blur-md shadow-sm",
-          "border-gray-200 dark:border-neutral-700",
-          "text-gray-800 dark:text-neutral-200",
-          "hover:bg-gray-50 dark:hover:bg-neutral-800 transition-all"
+          "flex items-center gap-2 rounded-full border border-border/70 bg-card/90 px-3 py-1.5 text-sm text-foreground shadow-sm backdrop-blur transition-all duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-md"
         )}
       >
         <span>{selected?.flag}</span>
         <span className="hidden sm:inline">{selected?.label}</span>
-        <ChevronDown className="h-4 w-4" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </button>
 
       {open && (
         <div
           className={cn(
-            "absolute right-0 mt-2 w-48 rounded-xl overflow-hidden z-50",
-            "bg-white/90 dark:bg-neutral-900/95 backdrop-blur-xl",
-            "shadow-lg border border-gray-200 dark:border-neutral-700"
+            "absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-border bg-card/95 shadow-lg backdrop-blur"
           )}
         >
           {languages.map((lang) => (
@@ -447,16 +463,16 @@ const LanguageToggle = ({ language, setLanguage }) => {
                 setOpen(false);
               }}
               className={cn(
-                "flex items-center gap-2 w-full px-3 py-2 text-sm text-left transition-colors",
+                "flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors",
                 selected?.code === lang.code
-                  ? "font-semibold text-blue-600 dark:text-blue-400"
-                  : "text-gray-800 dark:text-neutral-200 hover:bg-gray-100 dark:hover:bg-neutral-800"
+                  ? "font-semibold text-primary bg-primary/10"
+                  : "text-foreground hover:bg-primary/5"
               )}
             >
               <span>{lang.flag}</span>
               <span className="flex-1">{lang.label}</span>
               {selected?.code === lang.code && (
-                <Check className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                <Check className="h-4 w-4 text-primary" />
               )}
             </button>
           ))}
@@ -468,38 +484,11 @@ const LanguageToggle = ({ language, setLanguage }) => {
 
 export default function ClevioLandingPage() {
   const [language, setLanguage] = useState("en");
-  const [isYearly, setIsYearly] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const switchRef = useRef(null);
+  const prefersReducedMotion = useReducedMotion();
+  const canAnimate = !prefersReducedMotion;
 
-  const t = useCallback(
-    (key) => translations[key]?.[language] ?? key,
-    [language]
-  );
-
-  const handleToggle = (checked) => {
-    setIsYearly(checked);
-    if (checked && switchRef.current) {
-      const rect = switchRef.current.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
-
-      confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: {
-          x: x / window.innerWidth,
-          y: y / window.innerHeight,
-        },
-        colors: ["#1c2974", "#3b82f6", "#60a5fa", "#93c5fd"],
-        ticks: 200,
-        gravity: 1.2,
-        decay: 0.94,
-        startVelocity: 30,
-        shapes: ["circle"],
-      });
-    }
-  };
+  const t = useCallback((key) => translations[key]?.[language] ?? key, [language]);
 
   const socialLinks = useMemo(
     () => [
@@ -511,401 +500,608 @@ export default function ClevioLandingPage() {
     []
   );
 
+  const featureItems = useMemo(
+    () => [
+      {
+        icon: Sparkles,
+        titleKey: "feature_1_title",
+        descriptionKey: "feature_1_desc",
+      },
+      {
+        icon: QrCode,
+        titleKey: "feature_2_title",
+        descriptionKey: "feature_2_desc",
+      },
+      {
+        icon: LayoutTemplate,
+        titleKey: "feature_3_title",
+        descriptionKey: "feature_3_desc",
+      },
+    ],
+    []
+  );
+
+  const howItWorksSteps = useMemo(
+    () => [
+      { step: 1, titleKey: "step_1_title", descriptionKey: "step_1_desc" },
+      { step: 2, titleKey: "step_2_title", descriptionKey: "step_2_desc" },
+      { step: 3, titleKey: "step_3_title", descriptionKey: "step_3_desc" },
+    ],
+    []
+  );
+
+  const pricingPlans = useMemo(
+    () => [
+      {
+        id: "free",
+        title: t("pricing_free"),
+        description: t("pricing_free_desc"),
+        priceDisplay: language === "en" ? "Free" : "Gratis",
+        priceSuffix: "",
+        cta: t("pricing_cta_start"),
+        variant: "outline",
+        features:
+          language === "en"
+            ? [
+                "1 AI agent",
+                "WhatsApp QR connect",
+                "Starter templates",
+                "Community email support",
+              ]
+            : [
+                "1 Agen AI",
+                "Koneksi QR WhatsApp",
+                "Template dasar",
+                "Dukungan email komunitas",
+              ],
+      },
+      {
+        id: "monthly",
+        title: t("pricing_monthly"),
+        description: t("pricing_monthly_desc"),
+        price: 499000,
+        priceSuffix: language === "en" ? "/ month" : "/ bulan",
+        badge: t("pricing_badge_popular"),
+        cta: t("pricing_cta_upgrade"),
+        variant: "default",
+        features:
+          language === "en"
+            ? [
+                "Up to 5 AI agents",
+                "Advanced templates & analytics",
+                "Priority chat support",
+                "Workflow automations",
+              ]
+            : [
+                "Hingga 5 agen AI",
+                "Template & analitik lanjutan",
+                "Dukungan chat prioritas",
+                "Automasi alur kerja",
+              ],
+      },
+      {
+        id: "yearly",
+        title: t("pricing_yearly"),
+        description: t("pricing_yearly_desc"),
+        price: 4990000,
+        priceSuffix: language === "en" ? "/ year" : "/ tahun",
+        badge: t("pricing_yearly_bonus"),
+        cta: t("pricing_cta_scale"),
+        variant: "outline",
+        features:
+          language === "en"
+            ? [
+                "Unlimited AI agents",
+                "Dedicated onboarding",
+                "Custom integrations",
+                "Success manager support",
+              ]
+            : [
+                "Agen AI tanpa batas",
+                "Onboarding khusus",
+                "Integrasi kustom",
+                "Dukungan success manager",
+              ],
+      },
+    ],
+    [language, t]
+  );
+
+  const heroMotion = canAnimate
+    ? { initial: "hidden", animate: "show" }
+    : {};
+
+  const sectionMotion = canAnimate
+    ? {
+        initial: "hidden",
+        whileInView: "show",
+        viewport: { once: true, amount: 0.2 },
+      }
+    : {};
+
+  const cardMotionProps = canAnimate
+    ? { whileHover: { y: -8, scale: 1.01 }, whileTap: { scale: 0.99 } }
+    : {};
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-4">
-          <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-6 w-6" style={{ color: "#1c2974" }} />
-              <span className="text-xl font-bold">Clevio AI</span>
-            </div>
+    <div className="relative min-h-screen bg-background text-foreground">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[640px] bg-gradient-to-b from-primary/20 via-accent-sky/10 to-transparent blur-3xl"
+      />
 
-            <div className="hidden md:flex items-center gap-4">
-              <LanguageToggle language={language} setLanguage={setLanguage} />
-              <Button variant="ghost" asChild>
-                <a href="/login">{t("nav_login")}</a>
-              </Button>
-              <Button asChild style={{ backgroundColor: "#1c2974" }}>
-                <a href="/register">{t("nav_register")}</a>
-              </Button>
-            </div>
-
-            <div className="flex md:hidden items-center gap-2">
-              <LanguageToggle language={language} setLanguage={setLanguage} />
-              <button
-                onClick={() => setMobileMenuOpen((prev) => !prev)}
-                className="p-2"
-                aria-label="Toggle menu"
-              >
-                {mobileMenuOpen ? (
-                  <X className="h-6 w-6" />
-                ) : (
-                  <Menu className="h-6 w-6" />
-                )}
-              </button>
-            </div>
+      <nav className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <span className="text-lg font-semibold tracking-tight">
+              Clevio AI
+            </span>
           </div>
 
-          {mobileMenuOpen && (
-            <div className="md:hidden py-4 space-y-2">
+          <div className="hidden items-center gap-4 md:flex">
+            <LanguageToggle language={language} setLanguage={setLanguage} />
+            <Button variant="ghost" asChild>
+              <a href="/login">{t("nav_login")}</a>
+            </Button>
+            <Button asChild>
+              <a href="/register">{t("nav_register")}</a>
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2 md:hidden">
+            <LanguageToggle language={language} setLanguage={setLanguage} />
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="rounded-full border border-border bg-card/80 p-2 text-foreground shadow-sm transition-colors hover:bg-primary/10"
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {mobileMenuOpen && (
+          <div className="border-t border-border/60 bg-background/95 px-4 py-4 shadow-sm md:hidden">
+            <div className="space-y-2">
               <Button variant="ghost" className="w-full" asChild>
                 <a href="/login">{t("nav_login")}</a>
               </Button>
-              <Button
-                className="w-full"
-                asChild
-                style={{ backgroundColor: "#1c2974" }}
-              >
+              <Button className="w-full" asChild>
                 <a href="/register">{t("nav_register")}</a>
               </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </nav>
 
-      <motion.section
-        initial="hidden"
-        animate="show"
-        variants={staggerContainerVariants}
-        className="container mx-auto px-4 py-16 sm:py-24"
-      >
-        <div className="mx-auto max-w-4xl text-center">
-          <motion.h1
-            variants={fadeUpVariants}
-            className="text-4xl font-bold tracking-tight sm:text-6xl"
-            style={{ color: "#1c2974" }}
-          >
-            {t("hero_title")}
-          </motion.h1>
+      <main>
+        <motion.section
+          {...heroMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="container mx-auto px-4 pb-24 pt-20 sm:pt-28"
+        >
+          <div className="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-card via-card to-accent-sky/10 px-6 py-16 shadow-xl shadow-primary/10 sm:px-12">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -left-24 top-8 h-48 w-48 rounded-full bg-accent/10 blur-3xl"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-20 bottom-12 h-56 w-56 rounded-full bg-primary/15 blur-3xl"
+            />
 
-          <motion.p
-            variants={fadeUpVariants}
-            className="mt-6 text-lg leading-8 text-muted-foreground"
-          >
-            {t("hero_subtitle")}
-          </motion.p>
+            <motion.span
+              variants={FADE_UP_VARIANTS}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-xs font-medium uppercase tracking-wide text-primary"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {t("hero_tagline")}
+            </motion.span>
 
-          <motion.div
-            variants={fadeUpVariants}
-            className="mt-10 flex flex-wrap gap-4 justify-center"
-          >
-            <Button size="lg" style={{ backgroundColor: "#1c2974" }}>
-              {t("cta_trial")}
-            </Button>
-            <Button size="lg" variant="outline">
-              {t("cta_demo")}
-            </Button>
-            <Button size="lg" variant="outline">
-              {t("cta_sales")}
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <a href="#pricing">{t("cta_pricing")}</a>
-            </Button>
-          </motion.div>
+            <motion.h1
+              variants={FADE_UP_VARIANTS}
+              className="mt-6 max-w-3xl text-4xl font-bold tracking-tight text-primary sm:text-5xl lg:text-6xl"
+            >
+              {t("hero_title")}
+            </motion.h1>
 
-          <motion.div
-            variants={fadeUpVariants}
-            className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6"
-          >
-            <div className="flex items-center gap-3 text-left">
-              <Zap className="h-5 w-5 flex-shrink-0" style={{ color: "#1c2974" }} />
-              <span className="text-sm">{t("benefit_1")}</span>
-            </div>
-            <div className="flex items-center gap-3 text-left">
-              <MessageSquare
-                className="h-5 w-5 flex-shrink-0"
-                style={{ color: "#1c2974" }}
-              />
-              <span className="text-sm">{t("benefit_2")}</span>
-            </div>
-            <div className="flex items-center gap-3 text-left">
-              <Shield className="h-5 w-5 flex-shrink-0" style={{ color: "#1c2974" }} />
-              <span className="text-sm">{t("benefit_3")}</span>
-            </div>
-          </motion.div>
-        </div>
-      </motion.section>
+            <motion.p
+              variants={FADE_UP_VARIANTS}
+              className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground sm:text-xl"
+            >
+              {t("hero_subtitle")}
+            </motion.p>
 
-      <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            {t("features_title")}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            <Card className="p-6">
-              <div
-                className="h-12 w-12 rounded-lg flex items-center justify-center mb-4"
-                style={{ backgroundColor: "#1c2974" }}
-              >
-                <Sparkles className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">
-                {t("feature_1_title")}
-              </h3>
-              <p className="text-muted-foreground">{t("feature_1_desc")}</p>
-            </Card>
+            <motion.div
+              variants={FADE_UP_VARIANTS}
+              className="mt-10 flex flex-wrap items-center gap-4"
+            >
+              <Button size="lg">{t("cta_trial")}</Button>
+              <Button size="lg" variant="outline">
+                {t("cta_demo")}
+              </Button>
+              <Button size="lg" variant="ghost" asChild>
+                <a href="#pricing">{t("cta_pricing")}</a>
+              </Button>
+            </motion.div>
 
-            <Card className="p-6">
-              <div
-                className="h-12 w-12 rounded-lg flex items-center justify-center mb-4"
-                style={{ backgroundColor: "#1c2974" }}
-              >
-                <QrCode className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">
-                {t("feature_2_title")}
-              </h3>
-              <p className="text-muted-foreground">{t("feature_2_desc")}</p>
-            </Card>
-
-            <Card className="p-6">
-              <div
-                className="h-12 w-12 rounded-lg flex items-center justify-center mb-4"
-                style={{ backgroundColor: "#1c2974" }}
-              >
-                <LayoutTemplate className="h-6 w-6 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">
-                {t("feature_3_title")}
-              </h3>
-              <p className="text-muted-foreground">{t("feature_3_desc")}</p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            {t("how_it_works_title")}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {[1, 2, 3].map((step) => (
-              <div key={step} className="text-center">
+            <motion.div
+              variants={FADE_UP_VARIANTS}
+              className="mt-16 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {[
+                { icon: Zap, text: t("benefit_1") },
+                { icon: MessageSquare, text: t("benefit_2") },
+                { icon: Shield, text: t("benefit_3") },
+              ].map(({ icon: Icon, text }) => (
                 <div
-                  className="h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold"
-                  style={{ backgroundColor: "#1c2974" }}
+                  key={text}
+                  className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card/90 p-4 shadow-sm transition-colors hover:border-accent/60 hover:bg-primary/5"
                 >
-                  {step}
+                  <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm text-foreground">{text}</span>
                 </div>
-                <h3 className="text-xl font-semibold mb-2">
-                  {t(`step_${step}_title`)}
+              ))}
+            </motion.div>
+          </div>
+        </motion.section>
+
+        <motion.section
+          {...sectionMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="container mx-auto px-4 pb-20"
+        >
+          <motion.div
+            variants={FADE_UP_VARIANTS}
+            className="mx-auto max-w-xl text-center"
+          >
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+              {t("features_title")}
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              {t("pricing_plan_note")}
+            </p>
+          </motion.div>
+
+          <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3">
+            {featureItems.map(({ icon: Icon, titleKey, descriptionKey }) => (
+              <MotionCard
+                key={titleKey}
+                variants={FADE_UP_VARIANTS}
+                {...cardMotionProps}
+                className="h-full border-border/60 bg-card/95 p-6 hover:border-primary/60 hover:shadow-xl"
+              >
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/40">
+                  <Icon className="h-6 w-6" />
+                </span>
+                <h3 className="mt-6 text-xl font-semibold text-foreground">
+                  {t(titleKey)}
                 </h3>
-                <p className="text-muted-foreground">{t(`step_${step}_desc`)}</p>
-              </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {t(descriptionKey)}
+                </p>
+              </MotionCard>
             ))}
           </div>
-        </div>
-      </section>
+        </motion.section>
 
-      <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4 text-center max-w-3xl">
-          <MessageSquare
-            className="h-16 w-16 mx-auto mb-6"
-            style={{ color: "#1c2974" }}
-          />
-          <h2 className="text-3xl font-bold mb-4">
-            {t("integrations_title")}
-          </h2>
-          <p className="text-lg text-muted-foreground">{t("integrations_desc")}</p>
-        </div>
-      </section>
+        <motion.section
+          {...sectionMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="container mx-auto px-4 pb-20"
+        >
+          <motion.div
+            variants={FADE_UP_VARIANTS}
+            className="mx-auto max-w-xl text-center"
+          >
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+              {t("how_it_works_title")}
+            </h2>
+          </motion.div>
 
-      <section id="pricing" className="py-20">
-        <div className="container mx-auto px-4">
-          <div className="text-center space-y-4 mb-12">
-            <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">
+          <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
+            {howItWorksSteps.map(({ step, titleKey, descriptionKey }) => (
+              <MotionCard
+                key={titleKey}
+                variants={FADE_UP_VARIANTS}
+                {...cardMotionProps}
+                className="flex h-full flex-col items-center border-border/60 bg-card/95 p-8 text-center hover:border-accent/60"
+              >
+                <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xl font-semibold shadow-lg shadow-primary/40">
+                  {step}
+                </span>
+                <h3 className="mt-5 text-xl font-semibold text-foreground">
+                  {t(titleKey)}
+                </h3>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {t(descriptionKey)}
+                </p>
+              </MotionCard>
+            ))}
+          </div>
+        </motion.section>
+
+        <motion.section
+          {...sectionMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="bg-primary/5 py-20"
+        >
+          <div className="container mx-auto px-4">
+            <motion.div
+              variants={FADE_UP_VARIANTS}
+              className="mx-auto max-w-2xl text-center"
+            >
+              <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/40">
+                <MessageSquare className="h-7 w-7" />
+              </span>
+              <h2 className="mt-6 text-3xl font-bold text-foreground sm:text-4xl">
+                {t("integrations_title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("integrations_desc")}
+              </p>
+            </motion.div>
+          </div>
+        </motion.section>
+
+        <motion.section
+          id="pricing"
+          {...sectionMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="container mx-auto px-4 py-20"
+        >
+          <motion.div
+            variants={FADE_UP_VARIANTS}
+            className="mx-auto max-w-2xl text-center"
+          >
+            <h2 className="text-4xl font-bold text-foreground sm:text-5xl">
               {t("pricing_title")}
             </h2>
-            <p className="text-muted-foreground text-lg">
+            <p className="mt-4 text-muted-foreground">
               {t("pricing_subtitle")}
             </p>
-          </div>
+          </motion.div>
 
-          <div className="flex justify-center mb-10 items-center gap-2">
-            <span className="text-sm font-medium">{t("pricing_monthly")}</span>
-            <Switch
-              ref={switchRef}
-              checked={isYearly}
-              onCheckedChange={handleToggle}
-            />
-            <span className="text-sm font-medium">{t("pricing_yearly")}</span>
-          </div>
+          <div className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            {pricingPlans.map(
+              ({
+                id,
+                title,
+                description,
+                price,
+                priceSuffix,
+                priceDisplay,
+                cta,
+                features,
+                badge,
+                variant,
+              }) => (
+                <MotionCard
+                  key={id}
+                  variants={FADE_UP_VARIANTS}
+                  {...cardMotionProps}
+                  className={cn(
+                    "flex h-full flex-col border-border/60 bg-card/95 p-8 hover:border-primary/60",
+                    variant === "default"
+                      ? "border-primary/60 bg-primary text-primary-foreground shadow-xl shadow-primary/30"
+                      : ""
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground md:text-primary-foreground/80">
+                        {title}
+                      </p>
+                      <p
+                        className={cn(
+                          "mt-3 text-sm",
+                          variant === "default"
+                            ? "text-primary-foreground/80"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        {description}
+                      </p>
+                    </div>
+                    {badge && (
+                      <span
+                        className={cn(
+                          "rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide",
+                          variant === "default"
+                            ? "bg-primary-foreground/10 text-primary-foreground"
+                            : "bg-primary/10 text-primary"
+                        )}
+                      >
+                        {badge}
+                      </span>
+                    )}
+                  </div>
 
-          <div className="max-w-md mx-auto">
-            <Card
-              className="p-6 text-center border-2"
-              style={{ borderColor: "#1c2974" }}
+                  <div className="mt-8 flex items-baseline gap-2">
+                    {price !== undefined ? (
+                      <>
+                        <span className="text-5xl font-bold tracking-tight">
+                          <NumberFlow
+                            value={price}
+                            format={{
+                              style: "currency",
+                              currency: "IDR",
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 0,
+                            }}
+                            formatter={(value) =>
+                              `Rp${Number(value).toLocaleString("id-ID")}`
+                            }
+                            transformTiming={{
+                              duration: 600,
+                              easing: "ease-out",
+                            }}
+                            willChange={canAnimate}
+                          />
+                        </span>
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            variant === "default"
+                              ? "text-primary-foreground/80"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          {priceSuffix}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-5xl font-bold tracking-tight">
+                        {priceDisplay}
+                      </span>
+                    )}
+                  </div>
+
+                  <ul
+                    className={cn(
+                      "mt-8 flex flex-1 flex-col gap-3 text-sm",
+                      variant === "default"
+                        ? "text-primary-foreground/90"
+                        : "text-foreground"
+                    )}
+                  >
+                    {features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <span
+                          className={cn(
+                            "mt-1 inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full",
+                            variant === "default"
+                              ? "bg-primary-foreground/20 text-primary-foreground"
+                              : "bg-primary/10 text-primary"
+                          )}
+                        >
+                          <Check className="h-3 w-3" />
+                        </span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    variant={variant}
+                    className={cn(
+                      "mt-8 w-full",
+                      variant === "default"
+                        ? "bg-primary-foreground text-primary shadow-none hover:bg-primary-foreground/80"
+                        : ""
+                    )}
+                  >
+                    {cta}
+                  </Button>
+                </MotionCard>
+              )
+            )}
+          </div>
+        </motion.section>
+
+        <motion.section
+          {...sectionMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="bg-primary/5 py-20"
+        >
+          <div className="container mx-auto px-4">
+            <motion.div
+              variants={FADE_UP_VARIANTS}
+              className="mx-auto max-w-xl text-center"
             >
-              <p className="text-base font-semibold text-muted-foreground">
-                Starter
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-x-2">
-                <span className="text-5xl font-bold tracking-tight">
-                  <NumberFlow
-                    value={isYearly ? 1000000 : 100000}
-                    format={{
-                      style: "currency",
-                      currency: "IDR",
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    }}
-                    formatter={(value) =>
-                      `Rp${Number(value).toLocaleString("id-ID")}`
-                    }
-                    transformTiming={{
-                      duration: 500,
-                      easing: "ease-out",
-                    }}
-                    willChange
-                  />
-                </span>
-                <span className="text-sm font-semibold leading-6 tracking-wide text-muted-foreground">
-                  /{" "}
-                  {isYearly
-                    ? language === "en"
-                      ? "year"
-                      : "tahun"
-                    : language === "en"
-                    ? "month"
-                    : "bulan"}
-                </span>
-              </div>
+              <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+                {t("testimonials_title")}
+              </h2>
+            </motion.div>
 
-              <p className="text-xs leading-5 text-muted-foreground mt-2">
-                {isYearly
-                  ? language === "en"
-                    ? "billed annually"
-                    : "ditagih tahunan"
-                  : language === "en"
-                  ? "billed monthly"
-                  : "ditagih bulanan"}
-              </p>
-
-              <ul className="mt-8 gap-3 flex flex-col text-left">
-                <li className="flex items-start gap-2">
-                  <Check
-                    className="h-4 w-4 mt-1 flex-shrink-0"
-                    style={{ color: "#1c2974" }}
-                  />
-                  <span className="text-sm">
-                    {language === "en" ? "1 AI Agent" : "1 Agen AI"}
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check
-                    className="h-4 w-4 mt-1 flex-shrink-0"
-                    style={{ color: "#1c2974" }}
-                  />
-                  <span className="text-sm">
-                    {language === "en"
-                      ? "WhatsApp QR Connect"
-                      : "Koneksi QR WhatsApp"}
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check
-                    className="h-4 w-4 mt-1 flex-shrink-0"
-                    style={{ color: "#1c2974" }}
-                  />
-                  <span className="text-sm">
-                    {language === "en"
-                      ? "Template Library Access"
-                      : "Akses Perpustakaan Template"}
-                  </span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check
-                    className="h-4 w-4 mt-1 flex-shrink-0"
-                    style={{ color: "#1c2974" }}
-                  />
-                  <span className="text-sm">
-                    {language === "en" ? "Email Support" : "Dukungan Email"}
-                  </span>
-                </li>
-              </ul>
-
-              <Button
-                className="w-full mt-8"
-                size="lg"
-                style={{ backgroundColor: "#1c2974" }}
-              >
-                {t("cta_trial")}
-              </Button>
-              <p className="mt-4 text-xs leading-5 text-muted-foreground">
-                {t("pricing_plan_note")}
-              </p>
-            </Card>
+            <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
+              {[1, 2, 3].map((index) => (
+                <MotionCard
+                  key={index}
+                  variants={FADE_UP_VARIANTS}
+                  {...cardMotionProps}
+                  className="border-border/60 bg-card/95 p-6 text-left hover:border-primary/60"
+                >
+                  <p className="text-sm text-muted-foreground">
+                    &ldquo;{t(`testimonial_${index}`)}&rdquo;
+                  </p>
+                  <div className="mt-4 font-semibold text-foreground">
+                    {t(`testimonial_${index}_name`)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {t(`testimonial_${index}_role`)}
+                  </div>
+                </MotionCard>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </motion.section>
 
-      <section className="py-16 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            {t("testimonials_title")}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {[1, 2, 3].map((index) => (
-              <Card key={index} className="p-6">
-                <p className="text-muted-foreground mb-4">
-                  &quot;{t(`testimonial_${index}`)}&quot;
-                </p>
-                <div className="font-semibold">
-                  {t(`testimonial_${index}_name`)}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {t(`testimonial_${index}_role`)}
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
+        <motion.section
+          {...sectionMotion}
+          variants={STAGGER_CONTAINER_VARIANTS}
+          className="container mx-auto px-4 py-20"
+        >
+          <motion.div
+            variants={FADE_UP_VARIANTS}
+            className="mx-auto max-w-2xl text-center"
+          >
+            <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+              {t("faq_title")}
+            </h2>
+          </motion.div>
 
-      <section className="py-16">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            {t("faq_title")}
-          </h2>
-          <div className="space-y-4">
+          <div className="mt-12 space-y-4">
             {[1, 2, 3, 4, 5, 6, 7].map((num) => (
-              <details
+              <motion.details
                 key={num}
-                className="group rounded-lg border p-4 hover:bg-muted/50"
+                variants={FADE_UP_VARIANTS}
+                className="group overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm transition-all duration-200 hover:border-primary/60"
               >
-                <summary className="flex cursor-pointer items-center justify-between font-semibold">
-                  {t(`faq_${num}_q`)}
-                  <ChevronDown className="h-5 w-5 transition-transform group-open:rotate-180" />
+                <summary className="flex cursor-pointer items-center justify-between gap-4 text-left text-sm font-semibold text-foreground">
+                  <span>{t(`faq_${num}_q`)}</span>
+                  <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
                 </summary>
-                <p className="mt-4 text-muted-foreground">{t(`faq_${num}_a`)}</p>
-              </details>
+                <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                  {t(`faq_${num}_a`)}
+                </p>
+              </motion.details>
             ))}
           </div>
-        </div>
-      </section>
+        </motion.section>
+      </main>
 
-      <footer className="border-t py-12">
+      <footer className="border-t border-border/70 bg-background/90 py-14">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            <div className="col-span-1 md:col-span-2">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles className="h-6 w-6" style={{ color: "#1c2974" }} />
-                <span className="text-xl font-bold">Clevio AI</span>
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
+            <div className="md:col-span-2">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                </span>
+                <span className="text-lg font-semibold tracking-tight">
+                  Clevio AI
+                </span>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                {language === "en"
-                  ? "AI Employees for Indonesian SMEs"
-                  : "Karyawan AI untuk UMKM Indonesia"}
+              <p className="mt-4 max-w-md text-sm text-muted-foreground">
+                {t("footer_tagline")}
               </p>
-              <div className="flex gap-4">
+              <div className="mt-6 flex gap-4">
                 {socialLinks.map(({ id, icon: Icon }) => (
                   <a
                     key={id}
                     href="#"
-                    className="text-muted-foreground hover:text-foreground"
                     aria-label={id}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/90 text-muted-foreground transition-colors hover:border-primary/60 hover:text-primary"
                   >
                     <Icon className="h-5 w-5" />
                   </a>
@@ -914,21 +1110,17 @@ export default function ClevioLandingPage() {
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">{t("footer_company")}</h3>
-              <ul className="space-y-2 text-sm">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("footer_company")}
+              </h3>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
                 <li>
-                  <a
-                    href="#"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
+                  <a className="transition-colors hover:text-primary" href="#">
                     {t("footer_about")}
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="#"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
+                  <a className="transition-colors hover:text-primary" href="#">
                     {t("footer_contact")}
                   </a>
                 </li>
@@ -936,28 +1128,30 @@ export default function ClevioLandingPage() {
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">{t("footer_resources")}</h3>
-              <ul className="space-y-2 text-sm">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("footer_resources")}
+              </h3>
+              <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
                 <li>
                   <a
+                    className="transition-colors hover:text-primary"
                     href="/login"
-                    className="text-muted-foreground hover:text-foreground"
                   >
                     {t("footer_login")}
                   </a>
                 </li>
                 <li>
                   <a
+                    className="transition-colors hover:text-primary"
                     href="/register"
-                    className="text-muted-foreground hover:text-foreground"
                   >
                     {t("footer_register")}
                   </a>
                 </li>
                 <li>
                   <a
+                    className="transition-colors hover:text-primary"
                     href="#pricing"
-                    className="text-muted-foreground hover:text-foreground"
                   >
                     {t("footer_pricing")}
                   </a>
@@ -966,13 +1160,13 @@ export default function ClevioLandingPage() {
             </div>
           </div>
 
-          <div className="border-t pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>{t("footer_copyright")}</p>
+          <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground md:flex-row">
+            <p>© {new Date().getFullYear()} Clevio AI Employees. All rights reserved.</p>
             <div className="flex gap-4">
-              <a href="#" className="hover:text-foreground">
+              <a className="transition-colors hover:text-primary" href="#">
                 {t("footer_privacy")}
               </a>
-              <a href="#" className="hover:text-foreground">
+              <a className="transition-colors hover:text-primary" href="#">
                 {t("footer_terms")}
               </a>
             </div>
