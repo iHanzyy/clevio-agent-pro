@@ -9,6 +9,7 @@ import {
 } from "react";
 import { apiService } from "@/lib/api";
 const AuthContext = createContext();
+const AUTH_SESSION_STORAGE_KEY = "authSession";
 
 const isNonEmptyString = (value) =>
   typeof value === "string" && value.trim().length > 0;
@@ -228,8 +229,8 @@ export function AuthProvider({ children }) {
     [persistUser],
   );
 
-  const startTrialSession = useCallback(
-    (details = {}) => {
+const startTrialSession = useCallback(
+  (details = {}) => {
       const {
         apiKey,
         planCode = "TRIAL",
@@ -257,18 +258,82 @@ export function AuthProvider({ children }) {
               metadata,
             }),
           );
+          window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
         } catch (error) {
           console.warn("Unable to persist trial session", error);
         }
       }
 
       setLoading(false);
-    },
-    [applyTrialState],
-  );
+  },
+  [applyTrialState],
+);
+
+  const restoreTrialSessionFromStorage = useCallback(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    try {
+      const stored = window.sessionStorage.getItem("trialSession");
+      if (!stored) {
+        return null;
+      }
+      const parsed = JSON.parse(stored);
+      if (!parsed?.apiKey) {
+        return null;
+      }
+      if (!apiService.hasSessionToken()) {
+        trialSessionRef.current = true;
+        applyTrialState({
+          apiKey: parsed.apiKey,
+          planCode: parsed.planCode,
+          expiresAt: parsed.expiresAt,
+          ipAddress: parsed.ipAddress,
+          metadata: parsed.metadata,
+        });
+      }
+      return parsed;
+    } catch (error) {
+      console.warn("Unable to restore trial session from storage", error);
+      return null;
+    }
+  }, [applyTrialState]);
 
   const checkAuth = useCallback(async () => {
     try {
+      if (
+        !trialSessionRef.current &&
+        !apiService.hasSessionToken() &&
+        !apiService.hasApiKey()
+      ) {
+        if (typeof window !== "undefined") {
+          try {
+            const stored = window.sessionStorage.getItem(
+              AUTH_SESSION_STORAGE_KEY,
+            );
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (parsed?.sessionToken) {
+                apiService.setSessionToken(parsed.sessionToken);
+              }
+              if (parsed?.apiKey) {
+                apiService.setApiKey(parsed.apiKey);
+              }
+              if (parsed?.planCode) {
+                apiService.setPlanCode(parsed.planCode);
+              }
+            }
+          } catch (error) {
+            console.warn("Failed to restore persisted auth session", error);
+          }
+        }
+        const restored = restoreTrialSessionFromStorage();
+        if (restored && apiService.hasApiKey() && !apiService.hasSessionToken()) {
+          setLoading(false);
+          return;
+        }
+      }
+
       if (
         trialSessionRef.current &&
         apiService.hasApiKey() &&
@@ -435,6 +500,29 @@ export function AuthProvider({ children }) {
         };
       });
 
+      if (typeof window !== "undefined") {
+        try {
+          const authSnapshot = {
+            sessionToken: apiService.getAuthToken?.({ primary: "session" }),
+            apiKey: apiService.getAuthToken?.({
+              primary: "apiKey",
+              fallback: "session",
+            }),
+            planCode:
+              apiService.getPlanCode?.() ||
+              inferredPlanCode ||
+              planCodeFromSources ||
+              null,
+          };
+          window.sessionStorage.setItem(
+            AUTH_SESSION_STORAGE_KEY,
+            JSON.stringify(authSnapshot),
+          );
+        } catch (error) {
+          console.warn("Unable to persist auth session snapshot", error);
+        }
+      }
+
       if (!apiService.hasApiKey()) {
         const fallbackPlanCode =
           inferredPlanCode || apiService.getPlanCode?.() || null;
@@ -463,7 +551,30 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [persistUser]);
+  }, [persistUser, restoreTrialSessionFromStorage]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const stored = window.sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.sessionToken) {
+          apiService.setSessionToken(parsed.sessionToken);
+        }
+        if (parsed?.apiKey) {
+          apiService.setApiKey(parsed.apiKey);
+        }
+        if (parsed?.planCode) {
+          apiService.setPlanCode(parsed.planCode);
+        }
+      }
+    } catch (error) {
+      console.warn("Unable to restore persisted auth tokens", error);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -471,26 +582,14 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const stored = window.sessionStorage.getItem("trialSession");
-      if (!stored) {
-        return;
-      }
-      const parsed = JSON.parse(stored);
-      if (parsed?.apiKey) {
-        trialSessionRef.current = true;
-        applyTrialState({
-          apiKey: parsed.apiKey,
-          planCode: parsed.planCode,
-          expiresAt: parsed.expiresAt,
-          ipAddress: parsed.ipAddress,
-          metadata: parsed.metadata,
-        });
+      const restored = restoreTrialSessionFromStorage();
+      if (restored) {
         setLoading(false);
       }
     } catch (error) {
       console.warn("Unable to restore trial session", error);
     }
-  }, [applyTrialState]);
+  }, [restoreTrialSessionFromStorage]);
 
   useEffect(() => {
     void checkAuth();
@@ -653,6 +752,29 @@ export function AuthProvider({ children }) {
         api_key: nextUser.subscription.api_key,
       });
 
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(
+            AUTH_SESSION_STORAGE_KEY,
+            JSON.stringify({
+              sessionToken,
+              apiKey: apiService.getAuthToken?.({
+                primary: "apiKey",
+                fallback: "session",
+              }),
+              planCode:
+                nextUser.subscription.plan_code ||
+                planCodeFromSources ||
+                null,
+            }),
+          );
+          window.sessionStorage.removeItem("trialSession");
+          trialSessionRef.current = false;
+        } catch (error) {
+          console.warn("Unable to persist login session", error);
+        }
+      }
+
       if (!apiService.hasApiKey()) {
         const fallbackPlanCode =
           nextUser.subscription.plan_code ||
@@ -722,6 +844,14 @@ export function AuthProvider({ children }) {
     apiService.clearAllTokens();
     apiService.clearLastOrderId();
     persistUser(null);
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+        window.sessionStorage.removeItem("trialSession");
+      } catch (error) {
+        console.warn("Unable to clear stored auth session", error);
+      }
+    }
   };
 
   const updateSubscription = async () => {
