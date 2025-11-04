@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import NumberFlow from "@number-flow/react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 const Button = forwardRef(
   (
@@ -415,10 +416,7 @@ const LanguageToggle = ({ language, setLanguage }) => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setOpen(false);
       }
     };
@@ -488,7 +486,10 @@ export default function ClevioLandingPage() {
   const prefersReducedMotion = useReducedMotion();
   const canAnimate = !prefersReducedMotion;
 
-  const t = useCallback((key) => translations[key]?.[language] ?? key, [language]);
+  const t = useCallback(
+    (key) => translations[key]?.[language] ?? key,
+    [language]
+  );
 
   const socialLinks = useMemo(
     () => [
@@ -607,9 +608,7 @@ export default function ClevioLandingPage() {
     [language, t]
   );
 
-  const heroMotion = canAnimate
-    ? { initial: "hidden", animate: "show" }
-    : {};
+  const heroMotion = canAnimate ? { initial: "hidden", animate: "show" } : {};
 
   const sectionMotion = canAnimate
     ? {
@@ -632,13 +631,15 @@ export default function ClevioLandingPage() {
 
       <nav className="sticky top-0 z-50 border-b border-border/70 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <span className="text-lg font-semibold tracking-tight">
-              Clevio AI
-            </span>
+          <div className="flex items-center">
+            <Image
+              src="/clevioAIAssistantsLogo.png"
+              alt="Clevio AI Assistants"
+              width={150}
+              height={50}
+              className="h-auto w-[150px]"
+              priority
+            />
           </div>
 
           <div className="hidden items-center gap-4 md:flex">
@@ -1084,13 +1085,14 @@ export default function ClevioLandingPage() {
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Sparkles className="h-5 w-5" />
-                </span>
-                <span className="text-lg font-semibold tracking-tight">
-                  Clevio AI
-                </span>
+              <div className="flex items-center">
+                <Image
+                  src="/clevioAIAssistantsLogo.png"
+                  alt="Clevio AI Assistants"
+                  width={180}
+                  height={60}
+                  className="h-auto w-[180px]"
+                />
               </div>
               <p className="mt-4 max-w-md text-sm text-muted-foreground">
                 {t("footer_tagline")}
@@ -1161,7 +1163,10 @@ export default function ClevioLandingPage() {
           </div>
 
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground md:flex-row">
-            <p>© {new Date().getFullYear()} Clevio AI Employees. All rights reserved.</p>
+            <p>
+              © {new Date().getFullYear()} Clevio AI Employees. All rights
+              reserved.
+            </p>
             <div className="flex gap-4">
               <a className="transition-colors hover:text-primary" href="#">
                 {t("footer_privacy")}
