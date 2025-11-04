@@ -169,7 +169,7 @@ const translations = {
     id: "Pindai kode QR dan agen Anda langsung aktif di WhatsApp dalam hitungan detik. Jangkau pelanggan Anda di tempat mereka berada, tanpa pengaturan teknis.",
   },
   feature_3_title: {
-    en: "Template Agent",
+    en: "Template Agents",
     id: "Agen Template",
   },
   feature_3_desc: {
@@ -253,8 +253,8 @@ const translations = {
     id: "Paling populer",
   },
   pricing_yearly_bonus: {
-    en: "2 months free",
-    id: "Gratis 2 bulan",
+    en: "Most Cheap",
+    id: "Paling Hemat",
   },
   pricing_cta_start: {
     en: "Get started",
@@ -265,8 +265,8 @@ const translations = {
     id: "Upgrade sekarang",
   },
   pricing_cta_scale: {
-    en: "Scale with us",
-    id: "Berkembang bersama kami",
+    en: "Buy now",
+    id: "Beli sekarang",
   },
   testimonials_title: {
     en: "What Our Customers Say",
@@ -560,7 +560,7 @@ export default function ClevioLandingPage() {
         id: "monthly",
         title: t("pricing_monthly"),
         description: t("pricing_monthly_desc"),
-        price: 499000,
+        price: 100000,
         priceSuffix: language === "en" ? "/ month" : "/ bulan",
         badge: t("pricing_badge_popular"),
         cta: t("pricing_cta_upgrade"),
@@ -584,7 +584,7 @@ export default function ClevioLandingPage() {
         id: "yearly",
         title: t("pricing_yearly"),
         description: t("pricing_yearly_desc"),
-        price: 4990000,
+        price: 1000000,
         priceSuffix: language === "en" ? "/ year" : "/ tahun",
         badge: t("pricing_yearly_bonus"),
         cta: t("pricing_cta_scale"),
@@ -697,14 +697,6 @@ export default function ClevioLandingPage() {
               aria-hidden
               className="pointer-events-none absolute -right-20 bottom-12 h-56 w-56 rounded-full bg-primary/15 blur-3xl"
             />
-
-            <motion.span
-              variants={FADE_UP_VARIANTS}
-              className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-1 text-xs font-medium uppercase tracking-wide text-primary"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              {t("hero_tagline")}
-            </motion.span>
 
             <motion.h1
               variants={FADE_UP_VARIANTS}
