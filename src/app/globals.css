@@ -193,6 +193,13 @@ html {
   transition: opacity 0.2s ease;
 }
 
+.lab-bg::before {
+  overflow: hidden;
+  max-width: 100vw;
+  max-height: 100vh;
+  box-sizing: border-box;
+}
+
 .tour-overlay-piece:hover {
   opacity: 0.92;
 }

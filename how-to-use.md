@@ -143,6 +143,20 @@ If you have access to an already activated user account, use that email/password
         }'
   ```
 
+- **POST /api-key/trial** (JSON body)
+
+  Issues a 14-day API key without requiring credentials. The service records the caller’s public IP and returns an existing active trial key for that IP when available.
+
+  ```bash
+  curl -X POST "$BASE_URL$API_PREFIX/auth/api-key/trial" \
+    -H "Content-Type: application/json" \
+    -d '{
+          "ip_user": "203.0.113.5"
+        }'
+  ```
+
+  Successful responses mirror the standard API key payload with `plan_code` set to `TRIAL` and include an expiration timestamp. When the trial window ends, the key is revoked automatically.
+
 - **POST /api-key/update** (JSON body)
 
   ```bash

@@ -121,6 +121,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const logoutRequestedRef = useRef(false);
+  const trialSessionRef = useRef(false);
 
   const persistUser = useCallback((updater) => {
     setUser((prev) => {
@@ -180,8 +181,103 @@ export function AuthProvider({ children }) {
     [persistUser],
   );
 
+  const applyTrialState = useCallback(
+    ({
+      apiKey,
+      planCode = "TRIAL",
+      expiresAt = null,
+      ipAddress = null,
+      metadata = null,
+    } = {}) => {
+      if (!apiKey) {
+        console.warn("applyTrialState called without apiKey");
+        return;
+      }
+
+      apiService.setApiKey(apiKey);
+      if (planCode) {
+        apiService.setPlanCode(planCode);
+      }
+
+      persistUser((prev) => {
+        const base = prev || {};
+        const nextSubscription = {
+          ...(base.subscription || {}),
+          is_active: true,
+          plan_code: planCode,
+          api_key: apiKey,
+          expires_at: expiresAt || base.subscription?.expires_at || null,
+          metadata: metadata || base.subscription?.metadata || null,
+        };
+
+        return {
+          ...base,
+          email: base.email || null,
+          is_active: true,
+          is_trial: true,
+          trial: {
+            ...(base.trial || {}),
+            ip_address: ipAddress || base.trial?.ip_address || null,
+            started_at:
+              base.trial?.started_at || new Date().toISOString(),
+          },
+          subscription: nextSubscription,
+        };
+      });
+    },
+    [persistUser],
+  );
+
+  const startTrialSession = useCallback(
+    (details = {}) => {
+      const {
+        apiKey,
+        planCode = "TRIAL",
+        expiresAt = null,
+        ipAddress = null,
+        metadata = null,
+      } = details || {};
+
+      if (!apiKey) {
+        throw new Error("Trial session requires an API key");
+      }
+
+      trialSessionRef.current = true;
+      applyTrialState({ apiKey, planCode, expiresAt, ipAddress, metadata });
+
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(
+            "trialSession",
+            JSON.stringify({
+              apiKey,
+              planCode,
+              expiresAt,
+              ipAddress,
+              metadata,
+            }),
+          );
+        } catch (error) {
+          console.warn("Unable to persist trial session", error);
+        }
+      }
+
+      setLoading(false);
+    },
+    [applyTrialState],
+  );
+
   const checkAuth = useCallback(async () => {
     try {
+      if (
+        trialSessionRef.current &&
+        apiService.hasApiKey() &&
+        !apiService.hasSessionToken()
+      ) {
+        setLoading(false);
+        return;
+      }
+
       if (logoutRequestedRef.current) {
         logoutRequestedRef.current = false;
         persistUser(null);
@@ -368,6 +464,33 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   }, [persistUser]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      const stored = window.sessionStorage.getItem("trialSession");
+      if (!stored) {
+        return;
+      }
+      const parsed = JSON.parse(stored);
+      if (parsed?.apiKey) {
+        trialSessionRef.current = true;
+        applyTrialState({
+          apiKey: parsed.apiKey,
+          planCode: parsed.planCode,
+          expiresAt: parsed.expiresAt,
+          ipAddress: parsed.ipAddress,
+          metadata: parsed.metadata,
+        });
+        setLoading(false);
+      }
+    } catch (error) {
+      console.warn("Unable to restore trial session", error);
+    }
+  }, [applyTrialState]);
 
   useEffect(() => {
     void checkAuth();
@@ -642,6 +765,7 @@ export function AuthProvider({ children }) {
     checkAuth,
     updateSubscription,
     applySubscription,
+    startTrialSession,
     updatePassword,
   };
 

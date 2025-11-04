@@ -10,6 +10,7 @@ import {
 } from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { motion, useReducedMotion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import {
   Check,
   ChevronDown,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import NumberFlow from "@number-flow/react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 import Image from "next/image";
 
 const Button = forwardRef(
@@ -481,8 +483,13 @@ const LanguageToggle = ({ language, setLanguage }) => {
 };
 
 export default function ClevioLandingPage() {
+  const router = useRouter();
+  const { startTrialSession } = useAuth();
   const [language, setLanguage] = useState("en");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [trialLoading, setTrialLoading] = useState(false);
+  const [trialError, setTrialError] = useState("");
+  const [publicIp, setPublicIp] = useState(null);
   const prefersReducedMotion = useReducedMotion();
   const canAnimate = !prefersReducedMotion;
 
@@ -608,6 +615,61 @@ export default function ClevioLandingPage() {
     [language, t]
   );
 
+  useEffect(() => {
+    let active = true;
+    const loadIp = async () => {
+      try {
+        const response = await fetch("/api/ip", { cache: "no-store" });
+        if (!active) return;
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.ip) {
+            setPublicIp(data.ip);
+          }
+        }
+      } catch (error) {
+        console.warn("[ClevioLandingPage] Unable to determine client IP", error);
+      }
+    };
+    loadIp();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleStartTrial = async () => {
+    if (trialLoading) {
+      return;
+    }
+    setTrialLoading(true);
+    setTrialError("");
+    try {
+      const response = await fetch("/api/trial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ip_user: publicIp }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.success === false) {
+        throw new Error(data?.error || "Unable to start trial");
+      }
+
+      startTrialSession?.({
+        apiKey: data.apiKey,
+        planCode: data.planCode,
+        expiresAt: data.expiresAt,
+        ipAddress: data.ip,
+        metadata: data.raw,
+      });
+
+      router.push("/dashboard/agents/templates");
+    } catch (error) {
+      setTrialError(error.message || "Unable to start trial");
+    } finally {
+      setTrialLoading(false);
+    }
+  };
+
   const heroMotion = canAnimate ? { initial: "hidden", animate: "show" } : {};
 
   const sectionMotion = canAnimate
@@ -716,7 +778,19 @@ export default function ClevioLandingPage() {
               variants={FADE_UP_VARIANTS}
               className="mt-10 flex flex-wrap items-center gap-4"
             >
-              <Button size="lg">{t("cta_trial")}</Button>
+              <Button
+                type="button"
+                size="lg"
+                onClick={handleStartTrial}
+                disabled={trialLoading}
+                aria-busy={trialLoading}
+              >
+                {trialLoading
+                  ? language === "en"
+                    ? "Starting…"
+                    : "Memulai…"
+                  : t("cta_trial")}
+              </Button>
               <Button size="lg" variant="outline">
                 {t("cta_demo")}
               </Button>
@@ -724,6 +798,15 @@ export default function ClevioLandingPage() {
                 <a href="#pricing">{t("cta_pricing")}</a>
               </Button>
             </motion.div>
+
+            {trialError && (
+              <motion.p
+                variants={FADE_UP_VARIANTS}
+                className="mt-4 text-sm font-medium text-destructive"
+              >
+                {trialError}
+              </motion.p>
+            )}
 
             <motion.div
               variants={FADE_UP_VARIANTS}
