@@ -501,6 +501,16 @@ export default function ClevioLandingPage() {
     }
   };
 
+  const socialLinks = useMemo(
+    () => [
+      { id: "facebook", icon: Facebook },
+      { id: "instagram", icon: Instagram },
+      { id: "twitter", icon: Twitter },
+      { id: "linkedin", icon: Linkedin },
+    ],
+    []
+  );
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -890,12 +900,12 @@ export default function ClevioLandingPage() {
                   : "Karyawan AI untuk UMKM Indonesia"}
               </p>
               <div className="flex gap-4">
-                {[Facebook, Instagram, Twitter, Linkedin].map((Icon, index) => (
+                {socialLinks.map(({ id, icon: Icon }) => (
                   <a
-                    key={Icon.name}
+                    key={id}
                     href="#"
                     className="text-muted-foreground hover:text-foreground"
-                    aria-label={`Social link ${index + 1}`}
+                    aria-label={id}
                   >
                     <Icon className="h-5 w-5" />
                   </a>
