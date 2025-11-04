@@ -133,63 +133,15 @@ Textarea.displayName = "Textarea";
 
 export function AnimatedAIChat() {
   const [value, setValue] = useState("");
-  const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [activeSuggestion, setActiveSuggestion] = useState(-1);
-  const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [recentCommand, setRecentCommand] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [inputFocused, setInputFocused] = useState(false);
-  const commandPaletteRef = useRef<HTMLDivElement>(null);
 
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 60,
     maxHeight: 200,
   });
-
-  const commandSuggestions = useMemo<CommandSuggestion[]>(
-    () => [
-      {
-        icon: <ImageIcon className="h-4 w-4" />,
-        label: "Clone UI",
-        description: "Generate a UI from a screenshot",
-        prefix: "/clone",
-      },
-      {
-        icon: <Figma className="h-4 w-4" />,
-        label: "Import Figma",
-        description: "Import a design from Figma",
-        prefix: "/figma",
-      },
-      {
-        icon: <MonitorIcon className="h-4 w-4" />,
-        label: "Create Page",
-        description: "Generate a new web page",
-        prefix: "/page",
-      },
-      {
-        icon: <Sparkles className="h-4 w-4" />,
-        label: "Improve",
-        description: "Improve existing UI design",
-        prefix: "/improve",
-      },
-    ],
-    []
-  );
-
-  useEffect(() => {
-    if (value.startsWith("/") && !value.includes(" ")) {
-      setShowCommandPalette(true);
-
-      const matchingSuggestionIndex = commandSuggestions.findIndex((cmd) =>
-        cmd.prefix.startsWith(value)
-      );
-      setActiveSuggestion(matchingSuggestionIndex >= 0 ? matchingSuggestionIndex : -1);
-    } else {
-      setShowCommandPalette(false);
-    }
-  }, [commandSuggestions, value]);
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -205,11 +157,7 @@ export function AnimatedAIChat() {
       const target = event.target as Node;
       const commandButton = document.querySelector("[data-command-button]");
 
-      if (
-        commandPaletteRef.current &&
-        !commandPaletteRef.current.contains(target) &&
-        !commandButton?.contains(target)
-      ) {
+      if (commandButton?.contains(target)) {
         setShowCommandPalette(false);
       }
     };
@@ -244,27 +192,7 @@ export function AnimatedAIChat() {
   }, []);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (showCommandPalette) {
-      if (event.key === "ArrowDown") {
-        event.preventDefault();
-        setActiveSuggestion((prev) =>
-          prev < commandSuggestions.length - 1 ? prev + 1 : 0
-        );
-      } else if (event.key === "ArrowUp") {
-        event.preventDefault();
-        setActiveSuggestion((prev) =>
-          prev > 0 ? prev - 1 : commandSuggestions.length - 1
-        );
-      } else if (event.key === "Tab" || event.key === "Enter") {
-        event.preventDefault();
-        if (activeSuggestion >= 0) {
-          selectCommandSuggestion(activeSuggestion);
-        }
-      } else if (event.key === "Escape") {
-        event.preventDefault();
-        setShowCommandPalette(false);
-      }
-    } else if (event.key === "Enter" && !event.shiftKey) {
+    if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       if (value.trim()) {
         handleSendMessage();
@@ -287,26 +215,52 @@ export function AnimatedAIChat() {
     });
   };
 
-  const handleAttachFile = () => {
-    const mockFileName = `file-${Math.floor(Math.random() * 1000)}.pdf`;
-    setAttachments((prev) => [...prev, mockFileName]);
-  };
-
-  const removeAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
-  };
-
-  const selectCommandSuggestion = (index: number) => {
-    const selectedCommand = commandSuggestions[index];
-    setValue(`${selectedCommand.prefix} `);
-    setShowCommandPalette(false);
-
-    setRecentCommand(selectedCommand.label);
-    setTimeout(() => setRecentCommand(null), 2000);
+  const handleConnectWhatsApp = () => {
+    window.location.href = "/payment";
   };
 
   return (
     <div className="lab-bg relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-transparent p-6 text-white">
+      {/* Button WhatsApp di pojok kanan atas */}
+      <motion.button
+        type="button"
+        onClick={handleConnectWhatsApp}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        className="fixed right-6 top-6 z-50 flex items-center gap-2 rounded-lg bg-[#25D366] px-5 py-2.5 text-sm font-semibold text-white shadow-xl transition-all hover:bg-[#128c7e]"
+        style={{
+          boxShadow:
+            "0 0 30px rgba(37, 211, 102, 0.4), 0 0 60px rgba(37, 211, 102, 0.3)",
+        }}
+      >
+        <svg
+          className="h-5 w-5"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+        </svg>
+        <span>Connect to WhatsApp</span>
+        <motion.span
+          className="absolute inset-0 rounded-lg"
+          animate={{
+            boxShadow: [
+              "0 0 30px rgba(37, 211, 102, 0.4)",
+              "0 0 50px rgba(37, 211, 102, 0.6)",
+              "0 0 30px rgba(37, 211, 102, 0.4)",
+            ],
+          }}
+          transition={{
+            duration: 2.5,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      </motion.button>
+
       <div className="absolute inset-0 h-full w-full overflow-hidden">
         <div className="absolute left-1/4 top-0 h-96 w-96 animate-pulse rounded-full bg-violet-500/10 blur-[128px]" />
         <div className="absolute bottom-0 right-1/4 h-96 w-96 animate-pulse rounded-full bg-indigo-500/10 blur-[128px] delay-700" />
@@ -328,7 +282,7 @@ export function AnimatedAIChat() {
               transition={{ delay: 0.2, duration: 0.5 }}
             >
               <h1 className="bg-gradient-to-r from-white/90 to-white/40 bg-clip-text text-3xl font-medium tracking-tight text-transparent">
-                How can I help today?
+                Clevio AI Employees
               </h1>
               <motion.div
                 className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"
@@ -353,46 +307,6 @@ export function AnimatedAIChat() {
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
           >
-            <AnimatePresence>
-              {showCommandPalette && (
-                <motion.div
-                  ref={commandPaletteRef}
-                  className="absolute bottom-full left-4 right-4 z-50 mb-2 overflow-hidden rounded-lg border border-white/10 bg-black/90 shadow-lg backdrop-blur-xl"
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 5 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <div className="bg-black/95 py-1">
-                    {commandSuggestions.map((suggestion, index) => (
-                      <motion.button
-                        key={suggestion.prefix}
-                        type="button"
-                        className={cn(
-                          "flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors",
-                          activeSuggestion === index
-                            ? "bg-white/10 text-white"
-                            : "text-white/70 hover:bg-white/5"
-                        )}
-                        onClick={() => selectCommandSuggestion(index)}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: index * 0.03 }}
-                      >
-                        <span className="flex h-5 w-5 items-center justify-center text-white/60">
-                          {suggestion.icon}
-                        </span>
-                        <span className="font-medium">{suggestion.label}</span>
-                        <span className="ml-1 text-xs text-white/40">
-                          {suggestion.prefix}
-                        </span>
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             <div className="p-4">
               <Textarea
                 ref={textareaRef}
@@ -404,7 +318,7 @@ export function AnimatedAIChat() {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="Ask zap a question..."
+                placeholder="Ask a Agent Question..."
                 containerClassName="w-full"
                 className={cn(
                   "min-h-[60px] w-full resize-none border-none bg-transparent px-4 py-3 text-sm text-white/90",
@@ -416,71 +330,7 @@ export function AnimatedAIChat() {
               />
             </div>
 
-            <AnimatePresence>
-              {attachments.length > 0 && (
-                <motion.div
-                  className="flex flex-wrap gap-2 px-4 pb-3"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  {attachments.map((file, index) => (
-                    <motion.div
-                      key={`${file}-${index}`}
-                      className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs text-white/70"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                    >
-                      <span>{file}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeAttachment(index)}
-                        className="text-white/40 transition-colors hover:text-white"
-                      >
-                        <XIcon className="h-3 w-3" />
-                      </button>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="flex items-center justify-between gap-4 border-t border-white/[0.05] p-4">
-              <div className="flex items-center gap-3">
-                <motion.button
-                  type="button"
-                  onClick={handleAttachFile}
-                  whileTap={{ scale: 0.94 }}
-                  className="group relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90"
-                >
-                  <Paperclip className="h-4 w-4" />
-                  <motion.span
-                    className="absolute inset-0 rounded-lg bg-white/[0.05] opacity-0 transition-opacity group-hover:opacity-100"
-                    layoutId="button-highlight"
-                  />
-                </motion.button>
-                <motion.button
-                  type="button"
-                  data-command-button
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setShowCommandPalette((prev) => !prev);
-                  }}
-                  whileTap={{ scale: 0.94 }}
-                  className={cn(
-                    "group relative rounded-lg p-2 text-white/40 transition-colors hover:text-white/90",
-                    showCommandPalette && "bg-white/10 text-white/90"
-                  )}
-                >
-                  <Command className="h-4 w-4" />
-                  <motion.span
-                    className="absolute inset-0 rounded-lg bg-white/[0.05] opacity-0 transition-opacity group-hover:opacity-100"
-                    layoutId="button-highlight"
-                  />
-                </motion.button>
-              </div>
-
+            <div className="flex items-center justify-end gap-4 border-t border-white/[0.05] p-4">
               <motion.button
                 type="button"
                 onClick={handleSendMessage}
@@ -503,44 +353,8 @@ export function AnimatedAIChat() {
               </motion.button>
             </div>
           </motion.div>
-
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {commandSuggestions.map((suggestion, index) => (
-              <motion.button
-                key={suggestion.prefix}
-                type="button"
-                onClick={() => selectCommandSuggestion(index)}
-                className="group relative flex items-center gap-2 rounded-lg bg-white/[0.02] px-3 py-2 text-sm text-white/60 transition-all hover:bg-white/[0.05] hover:text-white/90"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                {suggestion.icon}
-                <span>{suggestion.label}</span>
-                <motion.div
-                  className="absolute inset-0 rounded-lg border border-white/[0.05]"
-                  initial={false}
-                  animate={{ opacity: [0, 1], scale: [0.98, 1] }}
-                  transition={{ duration: 0.3, ease: "easeOut" }}
-                />
-              </motion.button>
-            ))}
-          </div>
         </motion.div>
       </div>
-
-      <AnimatePresence>
-        {recentCommand && (
-          <motion.div
-            className="fixed bottom-24 left-1/2 z-20 -translate-x-1/2 rounded-full border border-white/10 bg-black/70 px-4 py-2 text-sm text-white shadow-lg backdrop-blur"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-          >
-            {recentCommand} command queued
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {isTyping && (
@@ -551,9 +365,6 @@ export function AnimatedAIChat() {
             exit={{ opacity: 0, y: 20 }}
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-7 w-8 items-center justify-center rounded-full bg-white/[0.05] text-center">
-                <span className="mb-0.5 text-xs font-medium text-white/90">zap</span>
-              </div>
               <div className="flex items-center gap-2 text-sm text-white/70">
                 <span>Thinking</span>
                 <TypingDots />
@@ -570,7 +381,12 @@ export function AnimatedAIChat() {
             x: mousePosition.x - 400,
             y: mousePosition.y - 400,
           }}
-          transition={{ type: "spring", damping: 25, stiffness: 150, mass: 0.5 }}
+          transition={{
+            type: "spring",
+            damping: 25,
+            stiffness: 150,
+            mass: 0.5,
+          }}
         />
       )}
     </div>
@@ -586,7 +402,12 @@ function TypingDots() {
           className="mx-0.5 h-1.5 w-1.5 rounded-full bg-white/90"
           initial={{ opacity: 0.3 }}
           animate={{ opacity: [0.3, 0.9, 0.3], scale: [0.85, 1.1, 0.85] }}
-          transition={{ duration: 1.2, repeat: Infinity, delay: dot * 0.15, ease: "easeInOut" }}
+          transition={{
+            duration: 1.2,
+            repeat: Infinity,
+            delay: dot * 0.15,
+            ease: "easeInOut",
+          }}
           style={{ boxShadow: "0 0 4px rgba(255, 255, 255, 0.3)" }}
         />
       ))}

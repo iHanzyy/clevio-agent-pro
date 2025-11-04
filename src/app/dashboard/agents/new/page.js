@@ -154,6 +154,11 @@ export default function NewAgentPage() {
     return null;
   }
 
+  const isTrialUser =
+    user?.is_trial ||
+    user?.subscription?.plan_code?.toLowerCase?.() === "trial" ||
+    false;
+
   const handleCreate = async (payload) => {
     setIsSubmitting(true);
     try {
@@ -171,11 +176,31 @@ export default function NewAgentPage() {
         }
       }
 
-      router.push(
-        params.toString()
-          ? `/dashboard/agents/${agent.id}?${params.toString()}`
-          : `/dashboard/agents/${agent.id}`
-      );
+      if (isTrialUser) {
+        try {
+          sessionStorage.setItem(
+            "trialAgentContext",
+            JSON.stringify({
+              agentId: agent.id,
+              name: agent.name,
+              createdAt: new Date().toISOString(),
+            })
+          );
+        } catch (error) {
+          console.warn("Failed to persist trial agent context", error);
+        }
+        router.push(
+          params.toString()
+            ? `/trial/chat?agentId=${agent.id}&${params.toString()}`
+            : `/trial/chat?agentId=${agent.id}`
+        );
+      } else {
+        router.push(
+          params.toString()
+            ? `/dashboard/agents/${agent.id}?${params.toString()}`
+            : `/dashboard/agents/${agent.id}`
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }
