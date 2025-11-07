@@ -146,7 +146,7 @@ flowchart LR
 1. When a visitor clicks “Start Free Trial” on the marketing page, the frontend calls `/api/trial`. The route resolves the caller’s public IP (`/api/ip` fallback) and proxies `POST /auth/api-key/trial` to `SC_BACKEND`, returning a `TRIAL` plan API key.
 2. `AuthContext.startTrialSession` stores the key, plan code, and IP metadata in memory and `sessionStorage.trialSession`, tagging the user as `is_trial`. On reload, `restoreTrialSessionFromStorage` runs only when no authenticated session token is present; otherwise the persisted full session (`sessionStorage.authSession`) takes precedence so paid accounts stay signed in.
 3. Trial users can run through the template → interview → agent form flow, but after submitting the form the app captures the new agent id (`sessionStorage.trialAgentContext`) and redirects them to `/trial/chat` instead of the full dashboard.
-4. The `/trial/chat` route renders the animated sandbox (`Demo` → `AnimatedAIChat`) and blocks access for non-trial accounts by redirecting to `/dashboard`.
+4. The `/trial/chat` route now mirrors the dashboard “Test the Agent” console: it loads the trial agent, calls `executeAgent(agentId, …)` for every prompt, and reveals intermediate steps for debugging while still blocking non-trial accounts via a redirect to `/dashboard`.
 
 ## Agent detail operations
 
