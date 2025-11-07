@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import agentTemplates from "@/data/agent-templates.json";
@@ -56,10 +56,9 @@ export default function TemplateChatPage() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("session", newSessionId);
 
-    router.replace(
-      `/dashboard/agents/templates/chat?${params.toString()}`,
-      { scroll: false }
-    );
+    router.replace(`/dashboard/agents/templates/chat?${params.toString()}`, {
+      scroll: false,
+    });
     setSessionId(newSessionId);
   }, [template, searchParams, router]);
 
@@ -164,43 +163,45 @@ export default function TemplateChatPage() {
     return {
       ...agentData,
       allowed_tools: Array.from(allowedTools),
-      mcp_tools: Array.isArray(agentData.mcp_tools)
-        ? agentData.mcp_tools
-        : [],
+      mcp_tools: Array.isArray(agentData.mcp_tools) ? agentData.mcp_tools : [],
     };
   };
 
-  const handleInterviewComplete = (rawAgentData) => {
-    if (completionHandledRef.current) {
-      return;
-    }
+  const handleInterviewComplete = useCallback(
+    (rawAgentData) => {
+      if (completionHandledRef.current) {
+        return;
+      }
 
-    const agentData = normalizeAgentData(rawAgentData);
-    if (!agentData) {
-      console.warn("[TemplateChatPage] Interview completed without agent data");
-      return;
-    }
+      const agentData = normalizeAgentData(rawAgentData);
+      if (!agentData) {
+        console.warn(
+          "[TemplateChatPage] Interview completed without agent data"
+        );
+        return;
+      }
 
-    completionHandledRef.current = true;
-    console.log("[TemplateChatPage] Interview completed with data:", agentData);
+      completionHandledRef.current = true;
+      console.log(
+        "[TemplateChatPage] Interview completed with data:",
+        agentData
+      );
 
-    setIsRedirecting(true);
+      setIsRedirecting(true);
 
-    // Store agent data in sessionStorage
-    sessionStorage.setItem(
-      "pendingAgentData",
-      JSON.stringify({
-        ...agentData,
-        template_id: template.id,
-        template_name: template.name,
-      })
-    );
+      sessionStorage.setItem(
+        "pendingAgentData",
+        JSON.stringify({
+          ...agentData,
+          fromTemplate: true,
+          templateId: template?.id,
+        })
+      );
 
-    // Redirect to create agent page
-    setTimeout(() => {
       router.push("/dashboard/agents/new?fromInterview=true");
-    }, 1000);
-  };
+    },
+    [normalizeAgentData, router, template?.id]
+  );
 
   useEffect(() => {
     if (!sessionId || !template || completionHandledRef.current) {
@@ -250,7 +251,7 @@ export default function TemplateChatPage() {
       active = false;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [sessionId, template]);
+  }, [sessionId, template, handleInterviewComplete]);
 
   const handleBackToTemplates = () => {
     router.push("/dashboard/agents/templates");

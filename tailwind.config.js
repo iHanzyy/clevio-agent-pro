@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  darkMode: "class", // Enable class-based dark mode
+export default {
+  darkMode: ["class"], // Pindah ke sini dari dalam config
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -56,15 +56,4 @@ module.exports = {
     },
   },
   plugins: [],
-  safelist: [
-    // Add color classes that are dynamically generated
-    "bg-indigo-100",
-    "bg-indigo-900",
-    "bg-green-100",
-    "bg-green-900",
-    "bg-blue-100",
-    "bg-blue-900",
-    "bg-purple-100",
-    "bg-purple-900",
-  ],
 };
