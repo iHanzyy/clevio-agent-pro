@@ -35,6 +35,14 @@ export default function TemplateChatPage() {
   }, [sessionQuery]);
 
   useEffect(() => {
+    if (!sessionQuery && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("session", sessionId);
+      window.history.replaceState(null, "", `?${params.toString()}`);
+    }
+  }, [sessionQuery, sessionId]);
+
+  useEffect(() => {
     if (!template) {
       router.push("/dashboard/agents/templates");
       return;
@@ -189,10 +197,11 @@ export default function TemplateChatPage() {
   );
 
   useEffect(() => {
-    if (sessionQuery && sessionQuery === sessionId && template) {
-      console.log("[TemplateChatPage] Session validated:", {
+    if (sessionId && template) {
+      console.log("[TemplateChatPage] Session ready:", {
         sessionId,
         template: template.name,
+        source: sessionQuery ? "query" : "generated",
       });
     }
   }, [sessionId, sessionQuery, template]);
