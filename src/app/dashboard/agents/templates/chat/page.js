@@ -13,16 +13,26 @@ export default function TemplateChatPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const completionHandledRef = useRef(false);
 
-  const templateId = searchParams.get("templateId");
+  const templateQuery =
+    searchParams.get("template") ?? searchParams.get("templateId");
   const template = useMemo(
-    () => agentTemplates.find((t) => t.id === templateId),
-    [templateId]
+    () =>
+      templateQuery
+        ? agentTemplates.find((t) => t.id === templateQuery)
+        : undefined,
+    [templateQuery],
   );
 
-  const sessionId = useMemo(
-    () => `template_chat_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-    []
-  );
+  const sessionQuery = searchParams.get("session");
+  const sessionId = useMemo(() => {
+    if (sessionQuery && sessionQuery.trim()) {
+      return sessionQuery;
+    }
+    if (typeof window !== "undefined" && window.crypto?.randomUUID) {
+      return `template-session-${window.crypto.randomUUID()}`;
+    }
+    return `template-session-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }, [sessionQuery]);
 
   useEffect(() => {
     if (!template) {
@@ -179,14 +189,13 @@ export default function TemplateChatPage() {
   );
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("session") === sessionId && template) {
+    if (sessionQuery && sessionQuery === sessionId && template) {
       console.log("[TemplateChatPage] Session validated:", {
         sessionId,
         template: template.name,
       });
     }
-  }, [sessionId, template]);
+  }, [sessionId, sessionQuery, template]);
 
   if (!template) {
     return null;
