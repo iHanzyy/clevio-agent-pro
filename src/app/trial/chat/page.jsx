@@ -1,12 +1,38 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiService } from "@/lib/api";
 import { Demo } from "@/components/ui/demo";
 
 export default function TrialChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+            <p className="text-sm text-muted-foreground">
+              Loading trial workspace…
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <TrialChatContent />
+    </Suspense>
+  );
+}
+
+function TrialChatContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();

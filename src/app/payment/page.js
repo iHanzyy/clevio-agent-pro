@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { apiService } from "@/lib/api";
@@ -10,7 +10,24 @@ const PLAN_OPTIONS = [
   { code: "PRO_Y", name: "Pro Yearly", price: "1000000", duration_days: 365 },
 ];
 
-export default function Payment() {
+export default function PaymentPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-surface text-foreground">
+          <div className="text-center space-y-2">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent mx-auto" />
+            <p className="text-sm text-muted">Loading payment details…</p>
+          </div>
+        </div>
+      }
+    >
+      <PaymentContent />
+    </Suspense>
+  );
+}
+
+function PaymentContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryPlan = searchParams?.get("plan") || "";

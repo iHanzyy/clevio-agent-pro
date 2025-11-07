@@ -219,6 +219,10 @@ flowchart LR
 - Authentication helpers post credentials exclusively in the request body, keeping URLs, referrers, and server logs free of plaintext passwords.
 - `updatePassword` now requires an authenticated session; API-key-only contexts can no longer rotate user credentials.
 
+# TypeScript build settings
+
+- The root `tsconfig.json` enables `strictNullChecks` and `exactOptionalPropertyTypes` (while leaving other `strict` flags opt-in) so Next.js 15’s default type checking pipeline runs without the `TS5053` error that occurs when exact optional properties are used without null checking. Keep these flags in place whenever adding new configs or extending the project.
+
 # Templates & interview chat
 
 - `AiAssistat` (`src/components/ui/ai-assistat.jsx`) is a bespoke chat widget built for template interviews:

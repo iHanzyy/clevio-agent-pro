@@ -135,6 +135,24 @@ interface ChatMessage {
   details?: unknown;
 }
 
+const formatDetails = (details: unknown): string | null => {
+  if (details === null || details === undefined) {
+    return null;
+  }
+  if (
+    typeof details === "string" ||
+    typeof details === "number" ||
+    typeof details === "boolean"
+  ) {
+    return String(details);
+  }
+  try {
+    return JSON.stringify(details, null, 2);
+  } catch (_err) {
+    return String(details);
+  }
+};
+
 export interface AnimatedAIChatProps {
   heading?: string;
   subheading?: string;
@@ -254,8 +272,8 @@ export function AnimatedAIChat({
           role: "assistant",
           text: assistantText,
           timestamp: Date.now(),
-          error: reply?.error,
-          details: reply?.details,
+          ...(reply?.error !== undefined ? { error: reply.error } : {}),
+          ...(reply?.details !== undefined ? { details: reply.details } : {}),
         });
 
         if (reply?.error && assistantText) {
@@ -386,6 +404,7 @@ export function AnimatedAIChat({
               <div className="max-h-[360px] space-y-4 overflow-y-auto pr-2">
                 {messages.map((message) => {
                   const isUser = message.role === "user";
+                  const formattedDetails = formatDetails(message.details);
                   const bubbleClasses = isUser
                     ? "ml-auto bg-blue-600 text-white shadow-lg shadow-blue-600/30"
                     : message.error
@@ -408,13 +427,13 @@ export function AnimatedAIChat({
                           minute: "2-digit",
                         })}
                       </p>
-                      {message.details && (
+                      {formattedDetails && (
                         <details className="mt-2 rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2 text-xs text-slate-300">
                           <summary className="cursor-pointer font-semibold text-blue-300 hover:text-blue-200">
                             View intermediate steps
                           </summary>
                           <pre className="mt-2 whitespace-pre-wrap text-[11px] text-slate-400">
-                            {JSON.stringify(message.details, null, 2)}
+                            {formattedDetails}
                           </pre>
                         </details>
                       )}
