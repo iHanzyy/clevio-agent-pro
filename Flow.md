@@ -216,7 +216,7 @@ flowchart LR
 # Security defaults
 
 - `apiService` only emits verbose request/response logging when `NEXT_PUBLIC_API_DEBUG=1` (the flag defaults to enabled in development and disabled in production) so bearer/session tokens never show up in customer consoles by accident.
-- Authentication helpers post credentials exclusively in the request body, keeping URLs, referrers, and server logs free of plaintext passwords.
+- Authentication helpers still send credentials in the POST payload, but they also append email/password to the query string to satisfy the legacy FastAPI contract. (The backend currently ignores body-only submissions.) Consider migrating the backend to read the body so the query fallback can be removed later.
 - `updatePassword` now requires an authenticated session; API-key-only contexts can no longer rotate user credentials.
 
 # TypeScript build settings

@@ -478,14 +478,19 @@ class ApiService {
   // Auth endpoints
   async register(identifier, password, extraParams = {}) {
     const payload = { ...extraParams };
+    const params = new URLSearchParams();
     if (identifier !== undefined && identifier !== null) {
       payload.email = identifier;
+      params.set("email", String(identifier));
     }
     if (password !== undefined && password !== null) {
       payload.password = password;
+      params.set("password", String(password));
     }
 
-    return this.request("/auth/register", {
+    const query = params.toString();
+
+    return this.request(`/auth/register${query ? `?${query}` : ""}`, {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -500,9 +505,11 @@ class ApiService {
       params.set("password", String(password));
     }
 
-    return this.request("/auth/login", {
+    const serialized = params.toString();
+
+    return this.request(`/auth/login${serialized ? `?${serialized}` : ""}`, {
       method: "POST",
-      body: params.toString(),
+      body: serialized,
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
