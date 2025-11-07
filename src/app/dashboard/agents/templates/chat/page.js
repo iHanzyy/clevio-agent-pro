@@ -51,19 +51,19 @@ export default function TemplateChatPage() {
 
   useEffect(() => {
     const registerSession = async () => {
+      if (!sessionId || !template?.id) {
+        return;
+      }
       try {
-        await fetch("/api/chat-sessions", {
-          method: "POST",
+        await fetch("/api/webhook/n8n-template", {
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
             sessionId,
-            metadata: {
-              template_id: template?.id,
-              template_name: template?.name,
-              user_id: user?.user_id,
-            },
+            templateId: template.id,
+            userId: user?.user_id || null,
           }),
         });
       } catch (error) {
@@ -72,7 +72,7 @@ export default function TemplateChatPage() {
     };
 
     registerSession();
-  }, [sessionId, template, user?.user_id]);
+  }, [sessionId, template?.id, user?.user_id]);
 
   const metadata = useMemo(() => {
     if (!template) return null;
@@ -205,6 +205,52 @@ export default function TemplateChatPage() {
       });
     }
   }, [sessionId, sessionQuery, template]);
+
+  useEffect(() => {
+    if (!sessionId || completionHandledRef.current) {
+      return;
+    }
+
+    let active = true;
+
+    const pollForCompletion = async () => {
+      if (!active || completionHandledRef.current) {
+        return;
+      }
+      try {
+        const response = await fetch(
+          `/api/webhook/n8n-template?session=${encodeURIComponent(sessionId)}`,
+          { cache: "no-store" },
+        );
+
+        if (!response.ok) {
+          if (response.status !== 404) {
+            console.warn(
+              "[TemplateChatPage] Polling failed:",
+              response.status,
+              response.statusText,
+            );
+          }
+          return;
+        }
+
+        const data = await response.json();
+        if (data?.success && data.agentData) {
+          handleInterviewComplete(data.agentData);
+        }
+      } catch (error) {
+        console.warn("[TemplateChatPage] Polling error:", error);
+      }
+    };
+
+    const interval = setInterval(pollForCompletion, 4000);
+    void pollForCompletion();
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [sessionId, handleInterviewComplete]);
 
   if (!template) {
     return null;
