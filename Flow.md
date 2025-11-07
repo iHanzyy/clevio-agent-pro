@@ -38,7 +38,7 @@ flowchart LR
     order -->|no redirect| pollStart[(start status polling)]
 ```
 
-1. `Register` page calls `apiService.register(email, password)` → `/api/proxy/auth/register`. The response is normalised to extract `user_id` & `email`.
+1. `Register` page calls `apiService.register(email, password)` → `/api/proxy/auth/register` (credentials now live solely in the POST payload to avoid leaking into query strings). The response is normalised to extract `user_id` & `email`.
 2. On success the UI clears any stale payment state (`apiService.clearLastOrderId`) and pushes the browser to `/payment?user_id=…&email=…`.
 3. The payment screen initialises `ApiService` with the plan coming from the query string, restores pending registration info, and waits for the user to pick a plan.
 4. Submitting a plan invokes `apiService.notifyPaymentWebhook`, which POSTs `{user_id, email, plan_code, charge, order_suffix}` to `N8N_MAIN/webhook/pembayaranMidtrans`.
@@ -213,6 +213,12 @@ flowchart LR
 3. While pending, the page polls every 5 s; when tokens arrive it stops polling, clears query params, and marks the connector as ready.
 4. Operators can manually refresh the status if an auth URL remains valid but tokens haven’t landed yet.
 
+# Security defaults
+
+- `apiService` only emits verbose request/response logging when `NEXT_PUBLIC_API_DEBUG=1` (the flag defaults to enabled in development and disabled in production) so bearer/session tokens never show up in customer consoles by accident.
+- Authentication helpers post credentials exclusively in the request body, keeping URLs, referrers, and server logs free of plaintext passwords.
+- `updatePassword` now requires an authenticated session; API-key-only contexts can no longer rotate user credentials.
+
 # Templates & interview chat
 
 - `AiAssistat` (`src/components/ui/ai-assistat.jsx`) is a bespoke chat widget built for template interviews:
@@ -226,6 +232,7 @@ flowchart LR
 | Variable | Purpose |
 | --- | --- |
 | `NEXT_PUBLIC_API_BASE_URL=/api/proxy` | Makes all browser fetches route through the proxy (points to `SC_BACKEND`). |
+| `NEXT_PUBLIC_API_DEBUG` (optional) | When set to `1`, forces verbose `apiService` logging even outside development; set to `0` to silence logs locally. |
 | `BACKEND_BASE_URL` | Server-side default for the proxy route. |
 | `NEXT_PUBLIC_MCP_SERVER_URL` | Injected into agent payloads as the default MCP SSE endpoint. |
 | `N8N_WEBHOOK_URL`, `NEXT_PUBLIC_N8N_WEBHOOK_URL` | Chat/interview webhook defaults (used by `AiAssistat` and legacy chat). |

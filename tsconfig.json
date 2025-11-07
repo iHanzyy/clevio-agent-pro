@@ -48,7 +48,7 @@
     "allowJs": true,
     "noEmit": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "plugins": [
       {

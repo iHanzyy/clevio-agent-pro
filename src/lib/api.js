@@ -1,5 +1,19 @@
 const DEFAULT_API_BASE_URL = "/api/proxy";
 const WHATSAPP_SESSIONS_URL = "/api/whatsapp-sessions";
+const isProductionEnv =
+  typeof process !== "undefined" && process.env.NODE_ENV === "production";
+const API_DEBUG_ENABLED =
+  (typeof process !== "undefined" &&
+    process.env.NEXT_PUBLIC_API_DEBUG === "1") ||
+  (!isProductionEnv &&
+    (typeof process === "undefined" ||
+      process.env.NEXT_PUBLIC_API_DEBUG !== "0"));
+
+const debugLog = (...args) => {
+  if (API_DEBUG_ENABLED) {
+    console.log(...args);
+  }
+};
 const resolveWhatsAppStatusBaseUrl = () => {
   if (typeof process === "undefined") {
     return null;
@@ -133,16 +147,16 @@ class ApiService {
     this.initialized = false;
     this.lastOrderId = null;
     this.lastPlanCode = null;
-    console.log("🔑 ApiService initialized");
+    debugLog("🔑 ApiService initialized");
   }
 
   setBaseUrl(url) {
     this.baseUrl = url && url.trim() ? url.trim() : DEFAULT_API_BASE_URL;
-    console.log("🌐 API base URL set to:", this.baseUrl);
+    debugLog("🌐 API base URL set to:", this.baseUrl);
   }
 
   setSessionToken(token) {
-    console.log(
+    debugLog(
       "🔑 Setting session token:",
       token ? "***" + token.slice(-10) : "null"
     );
@@ -155,7 +169,7 @@ class ApiService {
       console.warn("⚠️ Ignoring API key that matches session token");
       return;
     }
-    console.log(
+    debugLog(
       "🆔 Setting API key:",
       token ? "***" + token.slice(-10) : "null"
     );
@@ -171,12 +185,12 @@ class ApiService {
   }
 
   clearSessionToken() {
-    console.log("🗑️ Clearing session token");
+    debugLog("🗑️ Clearing session token");
     this.sessionToken = null;
   }
 
   clearApiKey() {
-    console.log("🗑️ Clearing API key");
+    debugLog("🗑️ Clearing API key");
     this.apiKeyToken = null;
   }
 
@@ -203,7 +217,7 @@ class ApiService {
   }
 
   setPlanCode(planCode) {
-    console.log("📦 Setting plan code", planCode);
+    debugLog("📦 Setting plan code", planCode);
     this.lastPlanCode = planCode || null;
   }
 
@@ -340,7 +354,7 @@ class ApiService {
       if (authType === "apiKey") {
         headers["X-API-Key"] = token;
       }
-      console.log("📤 Request with auth header", {
+      debugLog("📤 Request with auth header", {
         type: authType || "auto",
         tokenPreview: token ? `***${token.slice(-8)}` : "",
       });
@@ -369,7 +383,7 @@ class ApiService {
     const includeContentType =
       !skipContentType && fetchOptions.body !== undefined;
 
-    console.log(`🌐 API Request: ${fetchOptions.method || "GET"} ${endpoint}`, {
+    debugLog(`🌐 API Request: ${fetchOptions.method || "GET"} ${endpoint}`, {
       baseUrl: this.baseUrl,
       hasSessionToken: !!this.sessionToken,
       hasApiKey: !!this.apiKeyToken,
@@ -392,12 +406,12 @@ class ApiService {
     };
 
     try {
-      console.log("🧾 Fetch options", { endpoint, options: config });
-      console.log("🚀 Fetching:", url);
-      console.log("📋 Config:", config);
+      debugLog("🧾 Fetch options", { endpoint, options: config });
+      debugLog("🚀 Fetching:", url);
+      debugLog("📋 Config:", config);
 
       const response = await fetch(url, config);
-      console.log(`📥 Response: ${response.status} ${response.statusText}`);
+      debugLog(`📥 Response: ${response.status} ${response.statusText}`);
 
       let data = null;
       const contentType = response.headers.get("content-type");
@@ -412,7 +426,7 @@ class ApiService {
         }
       }
 
-      console.log("📬 API response", {
+      debugLog("📬 API response", {
         status: response.status,
         statusText: response.statusText,
         headers: Object.fromEntries(response.headers.entries()),
@@ -463,15 +477,17 @@ class ApiService {
 
   // Auth endpoints
   async register(identifier, password, extraParams = {}) {
-    const query = new URLSearchParams({ email: identifier, password });
+    const payload = { ...extraParams };
+    if (identifier !== undefined && identifier !== null) {
+      payload.email = identifier;
+    }
+    if (password !== undefined && password !== null) {
+      payload.password = password;
+    }
 
-    return this.request(`/auth/register?${query.toString()}`, {
+    return this.request("/auth/register", {
       method: "POST",
-      body: JSON.stringify({
-        email: identifier,
-        password,
-        ...extraParams,
-      }),
+      body: JSON.stringify(payload),
     });
   }
 
@@ -484,11 +500,9 @@ class ApiService {
       params.set("password", String(password));
     }
 
-    const serialized = params.toString();
-
-    return this.request(`/auth/login${serialized ? `?${serialized}` : ""}`, {
+    return this.request("/auth/login", {
       method: "POST",
-      body: serialized,
+      body: params.toString(),
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -822,7 +836,6 @@ class ApiService {
       method: "POST",
       body: payload,
       authType: "session",
-      authFallback: "apiKey",
     });
   }
 
@@ -919,7 +932,7 @@ class ApiService {
   }
 
   async createAgent(payload) {
-    console.log("🔐 Using auth header", {
+    debugLog("🔐 Using auth header", {
       hasApiKey: this.hasApiKey(),
       planCode: this.getPlanCode?.(),
     });
