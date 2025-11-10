@@ -308,7 +308,7 @@ export function AnimatedAIChat({
   };
 
   const handleConnectWhatsApp = () => {
-    window.location.href = "/payment";
+    window.location.href = "/register";
   };
 
   const sendEnabled = !disabled && value.trim().length > 0 && !isTyping;
