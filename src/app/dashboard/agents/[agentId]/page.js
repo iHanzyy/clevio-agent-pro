@@ -112,6 +112,7 @@ export default function AgentDetailPage() {
   const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
     EMPTY_WHATSAPP_SESSION
   );
+  const qrPollAbortRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
   // ⭐ TAMBAH: Flag untuk mencegah auto-close
   const whatsAppQrUserClosedRef = useRef(false);
@@ -504,7 +505,14 @@ export default function AgentDetailPage() {
     setKnowledgeError("");
     try {
       const docs = await apiService.getAgentDocuments(agent.id);
-      setKnowledge(Array.isArray(docs) ? docs : []);
+      const items = Array.isArray(docs)
+        ? docs
+        : Array.isArray(docs?.items)
+        ? docs.items
+        : Array.isArray(docs?.data)
+        ? docs.data
+        : [];
+      setKnowledge(items);
     } catch (err) {
       setKnowledge([]);
       setKnowledgeError(
