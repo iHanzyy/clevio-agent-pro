@@ -62,6 +62,32 @@ const buildWhatsAppUrl = (agentId = null) => {
   }
   return base;
 };
+
+const buildWhatsAppQrUrl = (agentId = null) => {
+  const base =
+    typeof WHATSAPP_SESSIONS_URL === "string" &&
+    WHATSAPP_SESSIONS_URL.length > 0
+      ? WHATSAPP_SESSIONS_URL
+      : "/api/whatsapp-sessions";
+
+  const normalizeBase = (value) =>
+    value.endsWith("/") ? value.slice(0, -1) : value;
+
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    const url = new URL(normalizeBase(base) + "/qr");
+    if (agentId) {
+      url.searchParams.set("agentId", agentId);
+    }
+    return url.toString();
+  }
+
+  const qrPath = `${normalizeBase(base)}/qr`;
+  if (agentId) {
+    const separator = qrPath.includes("?") ? "&" : "?";
+    return `${qrPath}${separator}agentId=${encodeURIComponent(agentId)}`;
+  }
+  return qrPath;
+};
 const joinBaseAndEndpoint = (base, endpoint) => {
   if (!base) return endpoint || "";
   if (!endpoint) return base;
@@ -93,6 +119,24 @@ const normalizeEndpoint = (endpoint) => {
   }
 
   return `/${trimmed}`;
+};
+
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const looksLikeEmail = (value) => emailPattern.test(value);
+const normalizePhoneIdentifier = (value) => {
+  if (typeof value !== "string") {
+    return "";
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const hasPlusPrefix = trimmed.startsWith("+");
+  const digitsOnly = trimmed.replace(/[^\d]/g, "");
+  if (!digitsOnly) {
+    return "";
+  }
+  return hasPlusPrefix ? `+${digitsOnly}` : digitsOnly;
 };
 
 const pickApiKeyFromCollection = (input) => {
@@ -498,8 +542,22 @@ class ApiService {
 
   async login(identifier, password) {
     const params = new URLSearchParams();
-    if (identifier !== undefined && identifier !== null) {
-      params.set("email", String(identifier));
+    const normalizedIdentifier =
+      typeof identifier === "string"
+        ? identifier.trim()
+        : identifier != null
+          ? String(identifier)
+          : "";
+    if (normalizedIdentifier) {
+      params.set("identifier", normalizedIdentifier);
+      if (looksLikeEmail(normalizedIdentifier)) {
+        params.set("email", normalizedIdentifier);
+      } else {
+        const normalizedPhone = normalizePhoneIdentifier(normalizedIdentifier);
+        if (normalizedPhone) {
+          params.set("phone", normalizedPhone);
+        }
+      }
     }
     if (password !== undefined && password !== null) {
       params.set("password", String(password));
@@ -1189,7 +1247,77 @@ class ApiService {
       };
     }
 
-    const session = Array.isArray(data) ? data[0] || {} : data;
+    const rawInput = Array.isArray(data) ? data[0] || {} : data;
+    const mergeNestedSessionPayload = (input) => {
+      if (!input || typeof input !== "object") {
+        return input;
+      }
+      const merged = { ...input };
+      if (Array.isArray(merged.results) && merged.results.length > 0) {
+        const nestedResult = merged.results.find(
+          (entry) => entry && typeof entry === "object",
+        );
+        if (nestedResult) {
+          Object.assign(merged, nestedResult);
+        }
+      }
+      if (
+        merged.data &&
+        typeof merged.data === "object" &&
+        !Array.isArray(merged.data)
+      ) {
+        Object.assign(merged, merged.data);
+      }
+      return merged;
+    };
+
+    const session =
+      rawInput && typeof rawInput === "object"
+        ? mergeNestedSessionPayload(rawInput)
+        : {};
+
+    if (
+      session &&
+      typeof session === "object" &&
+      typeof session.base64 === "string"
+    ) {
+      const compactBase64 = session.base64.replace(/\s+/g, "");
+      if (!session.qr || typeof session.qr !== "object") {
+        session.qr = { base64: compactBase64 };
+      } else if (!session.qr.base64) {
+        session.qr.base64 = compactBase64;
+      }
+      if (!session.qr_base64) {
+        session.qr_base64 = compactBase64;
+      }
+      if (!session.qrBase64) {
+        session.qrBase64 = compactBase64;
+      }
+    }
+
+    if (
+      session &&
+      typeof session === "object" &&
+      typeof session.contentType === "string" &&
+      session.contentType.trim()
+    ) {
+      const normalizedContentType = session.contentType.trim();
+      if (!session.qr_content_type) {
+        session.qr_content_type = normalizedContentType;
+      }
+      if (!session.qrContentType) {
+        session.qrContentType = normalizedContentType;
+      }
+    }
+
+    if (
+      session &&
+      typeof session === "object" &&
+      typeof session.qrUpdatedAt === "string" &&
+      !session.qr_updated_at
+    ) {
+      session.qr_updated_at = session.qrUpdatedAt;
+    }
 
     const toIsoString = (input) => {
       if (!input && input !== 0) {
@@ -1255,6 +1383,8 @@ class ApiService {
       normalizedStatus === "active" ||
       normalizedStatus === "connected";
     const statusUpdatedSource =
+      session.qr_updated_at ||
+      session.qrUpdatedAt ||
       session.status_updated_at ||
       session.statusUpdatedAt ||
       (typeof session.status === "object"
@@ -1353,6 +1483,9 @@ class ApiService {
     }
 
     const rawQrContent =
+      session.base64 ||
+      session.qrBase64 ||
+      session.qr_base64 ||
       (qrRecord && (qrRecord.base64 || qrRecord.data || qrRecord.qr || null)) ||
       session.qr_image ||
       session.qrImage ||
@@ -1370,22 +1503,34 @@ class ApiService {
 
     let qrImage = null;
     let qrUrl = null;
+    let qrBase64 = null;
+
+    const normalizeBase64 = (value) =>
+      typeof value === "string" ? value.replace(/\s+/g, "") : value;
 
     if (typeof rawQrContent === "string") {
+      const trimmed = rawQrContent.trim();
       if (
-        rawQrContent.startsWith("http://") ||
-        rawQrContent.startsWith("https://")
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://")
       ) {
-        qrUrl = rawQrContent;
-      } else if (rawQrContent.startsWith("data:")) {
-        qrImage = rawQrContent;
-      } else if (/^[A-Za-z0-9+/=]+$/.test(rawQrContent)) {
-        qrImage = `data:${qrContentType};base64,${rawQrContent}`;
+        qrUrl = trimmed;
+      } else if (trimmed.startsWith("data:")) {
+        qrImage = trimmed;
+      } else {
+        const compact = normalizeBase64(trimmed);
+        if (/^[A-Za-z0-9+/]+={0,2}$/.test(compact)) {
+          qrBase64 = compact;
+          qrImage = `data:${qrContentType};base64,${compact}`;
+        }
       }
     } else if (rawQrContent && typeof rawQrContent === "object") {
       const nestedBase64 =
-        rawQrContent.base64 || rawQrContent.data || rawQrContent.qr || null;
+        normalizeBase64(
+          rawQrContent.base64 || rawQrContent.data || rawQrContent.qr || null,
+        );
       if (typeof nestedBase64 === "string") {
+        qrBase64 = nestedBase64;
         qrImage = `data:${qrContentType};base64,${nestedBase64}`;
       }
       if (!qrUrl) {
@@ -1430,7 +1575,10 @@ class ApiService {
           (sessionDetails.agentId ||
             sessionDetails.userId ||
             sessionDetails.plan)) ||
-        qrRecord
+        qrRecord ||
+        session.base64 ||
+        session.qrBase64 ||
+        session.qr_base64
     );
 
     return {
@@ -1438,13 +1586,14 @@ class ApiService {
       status: isActive ? "active" : normalizedStatus || "inactive",
       qrImage,
       qrUrl,
+      qrBase64,
       qrGeneratedAt,
       qrExpiresAt,
       qrExpiresInSeconds:
         typeof expiresInSeconds === "number" ? expiresInSeconds : null,
       sessionId: resolvedSessionId,
       updatedAt: statusUpdatedAt,
-      raw: hasSessionDetails ? data : null,
+      raw: hasSessionDetails ? rawInput : null,
     };
   }
 
@@ -1508,7 +1657,8 @@ class ApiService {
       userId,
       agentId,
       agentName: agentName || agentId,
-      Apikey: apiKey,
+      apiKey,
+      apikey: apiKey,
     };
 
     const response = await fetch(buildWhatsAppUrl(), {
@@ -1547,6 +1697,49 @@ class ApiService {
 
     const responsePayload = await response.json().catch(() => ({}));
     return this.normalizeWhatsAppSession(responsePayload);
+  }
+
+  async fetchWhatsAppQr(agentId) {
+    if (!agentId) {
+      throw new Error("Agent ID is required to fetch a WhatsApp QR code.");
+    }
+
+    const response = await fetch(buildWhatsAppQrUrl(), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ agentId }),
+    });
+
+    if (!response.ok) {
+      let message = `Failed to fetch WhatsApp QR (${response.status})`;
+      try {
+        const data = await response.json();
+        if (typeof data === "string") {
+          message = data;
+        } else if (data?.detail) {
+          message =
+            typeof data.detail === "string"
+              ? data.detail
+              : JSON.stringify(data.detail);
+        } else if (data?.message) {
+          message =
+            typeof data.message === "string"
+              ? data.message
+              : JSON.stringify(data.message);
+        }
+      } catch (_parseError) {
+        const text = await response.text();
+        if (text) {
+          message = text;
+        }
+      }
+      throw new Error(message);
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    return this.normalizeWhatsAppSession(payload);
   }
 
   async getWhatsAppConnectionStatus(agentId) {

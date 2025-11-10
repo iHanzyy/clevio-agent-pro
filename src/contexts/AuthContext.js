@@ -595,11 +595,20 @@ const startTrialSession = useCallback(
     void checkAuth();
   }, [checkAuth]);
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     let loginSucceeded = false;
     try {
+      const normalizedIdentifier =
+        typeof identifier === "string"
+          ? identifier.trim()
+          : identifier != null
+            ? String(identifier)
+            : "";
+      if (!normalizedIdentifier) {
+        return { success: false, error: "Email or phone number is required" };
+      }
       logoutRequestedRef.current = false;
-      const response = await apiService.login(email, password);
+      const response = await apiService.login(normalizedIdentifier, password);
 
       const sessionToken =
         response?.access_token ??

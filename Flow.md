@@ -9,7 +9,7 @@
 
 - `SC_BACKEND` → `https://new-langchain.chiefaiofficer.id/api/v1` (proxied through `/api/proxy`).
 - `N8N_MAIN` → `https://n8n-new.chiefaiofficer.id`.
-- `WHATSAPP_SERVICE` → value of `process.env.WHATSAPP_SESSIONS_URL` (defaults to the dev tunnel in `.env.local`).
+- `WHATSAPP_SERVICE` → legacy remote session service env (kept for backwards compatibility; QR generation now goes straight to the n8n webhook).
 - `ApiService` methods are referenced by their function name in `src/lib/api.js`.
 
 ## Local API routes
@@ -18,7 +18,7 @@
 - `/api/v1/payment/status` – in-memory store for Midtrans status payloads; accepts writes from n8n (`POST`) and readbacks from the payment page (`POST`/`GET`).
 - `/api/webhook/n8n-template` – scratchpad for template interview results; supports `PUT` (register session), `POST` (n8n completion payload), `GET` (frontend poll).
 - `/api/n8n-webhook` – generic passthrough for template chat (legacy; the new UI uses `AiAssistat` directly).
-- `/api/whatsapp-sessions` – relays WhatsApp session CRUD to `WHATSAPP_SERVICE`.
+- `/api/whatsapp-sessions` – forwards session requests to the n8n QR webhook, caches the latest base64 per agent, and serves the dashboard pollers.
 
 # Authentication & Subscription Lifecycle
 
@@ -38,7 +38,7 @@ flowchart LR
     order -->|no redirect| pollStart[(start status polling)]
 ```
 
-1. `Register` page calls `apiService.register(email, password)` → `/api/proxy/auth/register` (credentials now live solely in the POST payload to avoid leaking into query strings). The response is normalised to extract `user_id` & `email`.
+1. `Register` page calls `apiService.register(email, password)` → `/api/proxy/auth/register` (credentials now live solely in the POST payload to avoid leaking into query strings). Registration now requires a valid email address—phone-based signups are disabled—so the response is normalised to extract `user_id` & `email`.
 2. On success the UI clears any stale payment state (`apiService.clearLastOrderId`) and pushes the browser to `/payment?user_id=…&email=…`.
 3. The payment screen initialises `ApiService` with the plan coming from the query string, restores pending registration info, and waits for the user to pick a plan.
 4. Submitting a plan invokes `apiService.notifyPaymentWebhook`, which POSTs `{user_id, email, plan_code, charge, order_suffix}` to `N8N_MAIN/webhook/pembayaranMidtrans`.
@@ -87,7 +87,7 @@ flowchart TD
     route -->|false| inlineError[Show inactive subscription message]
 ```
 
-1. `useAuth.login` sends credentials to `/api/proxy/auth/login`. Any bearer token returned (`access_token`, `jwt_token`, etc.) is cached with `apiService.setSessionToken`.
+1. `useAuth.login` sends the identifier (email or phone number) plus password to `/api/proxy/auth/login`, and `apiService` includes both `identifier` and the corresponding `email`/`phone` params for backend compatibility. Any bearer token returned (`access_token`, `jwt_token`, etc.) is cached with `apiService.setSessionToken`.
 2. It then fetches `/auth/me` and `/auth/subscription-status`, merging the results into `AuthContext` state and persisting `plan_code`, `is_active`, and any supplied API keys.
 3. If no API key is available, `apiService` attempts to `listApiKeys` and falls back to `generateApiKey({ planCode, useSessionAuth: true })`.
 4. Successful logins resolve `{ success: true, is_active }`; the page routes to `/dashboard` only when the subscription flag is active. Errors clear tokens and keep the user on the form.
@@ -180,20 +180,23 @@ flowchart LR
     detail[/Agent detail/] --> start{Session active?}
     start -->|no| createBtn[Trigger "Connect WhatsApp"]
     createBtn --> payload[{userId, agentId, apiKey}]
-    payload --> postLocal[POST /api/whatsapp-sessions]
-    postLocal --> remote[WHATSAPP_SERVICE POST /sessions]
-    remote --> result{qr provided?}
+    payload --> postLocal[POST /api/whatsapp-sessions<br/>(create session)]
+    postLocal --> wait30[UI countdown (~30s)]
+    wait30 --> qrPost[POST /api/whatsapp-sessions/qr]
+    qrPost --> cache[Cache latest QR per agent]
+    cache --> result{qr provided?}
     result -->|yes| qr[Display QR + start countdown]
-    detail --> poll[Poll /api/whatsapp-sessions?agentId=… every 5s]
-    poll --> normalize[apiService.normalizeWhatsAppSession]
+    detail --> refresh[Manual Refresh Status]
+    refresh --> apiGet[GET /api/whatsapp-sessions?agentId=…]
+    apiGet --> normalize[apiService.normalizeWhatsAppSession]
     normalize --> statusCard[Update badges + metrics]
     normalize -->|isActive| stopPoll[Stop polling]
 ```
 
 1. Clicking “Connect WhatsApp” calls `createWhatsAppSession`, passing the logged-in user id, agent id, name, and API key.
-2. The Next API route forwards the payload to `WHATSAPP_SERVICE`. Any QR image/URL/expiry returned is surfaced in the UI with a countdown.
-3. While the session is pending the page polls every 5 s using `getWhatsAppSession`, normalising myriad response shapes into `{ isActive, status, qrImage, updatedAt }`.
-4. Once `isActive` becomes true, polling stops and the dashboard stats increment the “Connected WhatsApp” counter.
+2. `/api/whatsapp-sessions` forwards the payload to the WhatsApp backend (`POST /sessions`) and returns immediately so the UI can start a visible countdown.
+3. After ~30 seconds the frontend calls `/api/whatsapp-sessions/qr`, which proxies to the backend (`POST /sessions/:agentId/qr`), waits for the base64 QR, caches it per agent, and resolves the promise.
+4. The detail page can still call `getWhatsAppSession`/`GET /api/whatsapp-sessions?agentId=…` to read back the cached payload for badges and manual refreshes.
 
 ## Google Workspace connector flow
 
@@ -240,6 +243,7 @@ flowchart LR
 | `BACKEND_BASE_URL` | Server-side default for the proxy route. |
 | `NEXT_PUBLIC_MCP_SERVER_URL` | Injected into agent payloads as the default MCP SSE endpoint. |
 | `N8N_WEBHOOK_URL`, `NEXT_PUBLIC_N8N_WEBHOOK_URL` | Chat/interview webhook defaults (used by `AiAssistat` and legacy chat). |
+| `WHATSAPP_BACKEND_BASE_URL` (optional) | Base URL for the WhatsApp backend (`https://lfzlwlbz-3000.asse.devtunnels.ms`), used for both session creation and forced QR generation. |
 | `WHATSAPP_SESSIONS_URL` (optional) | Remote WhatsApp session manager; defaults to the dev tunnel when unset. |
 
 # Key files

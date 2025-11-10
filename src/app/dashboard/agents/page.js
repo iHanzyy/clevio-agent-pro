@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,6 +10,21 @@ import {
   describeWhatsAppStatus,
   toneToBadgeClasses,
 } from "@/lib/whatsappStatus";
+import { resolveSessionQrImage } from "@/lib/whatsappQr";
+
+const formatTimestamp = (value) => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return date.toLocaleString();
+};
+
+const WHATSAPP_QR_PREPARATION_SECONDS = 30;
+const WHATSAPP_QR_EXPIRY_SECONDS = 60;
 
 export default function AgentsPage() {
   const router = useRouter();
@@ -22,6 +37,8 @@ export default function AgentsPage() {
   const [whatsAppRefreshMap, setWhatsAppRefreshMap] = useState({});
   const [whatsAppErrors, setWhatsAppErrors] = useState({});
   const [qrPreview, setQrPreview] = useState(null);
+  const qrFlowAbortRef = useRef(null);
+  const qrPreparationTimerRef = useRef(null);
 
   const resolveApiKey = useCallback(async () => {
     let apiKey =
@@ -57,24 +74,35 @@ export default function AgentsPage() {
   }, [user?.subscription]);
 
   const closeQrPreview = useCallback(() => {
+    if (qrFlowAbortRef.current) {
+      qrFlowAbortRef.current.abort();
+      qrFlowAbortRef.current = null;
+    }
+    if (qrPreparationTimerRef.current) {
+      clearInterval(qrPreparationTimerRef.current);
+      qrPreparationTimerRef.current = null;
+    }
     setQrPreview(null);
   }, []);
 
-  const openQrPreview = useCallback((agentId, agentName, qrValue) => {
-    if (!qrValue) {
-      setQrPreview(null);
-      return;
-    }
-    const isImage =
-      typeof qrValue === "string" &&
-      (qrValue.startsWith("data:image") || qrValue.startsWith("http"));
-    setQrPreview({
-      agentId,
-      agentName,
-      qr: qrValue,
-      isImage,
-    });
-  }, []);
+  const openQrPreview = useCallback(
+    (agentId, agentName, qrValue, meta = {}) => {
+      const isImage =
+        typeof qrValue === "string" &&
+        (qrValue.startsWith("data:image") || qrValue.startsWith("http"));
+      setQrPreview({
+        agentId,
+        agentName,
+        qr: qrValue || null,
+        isImage: qrValue ? isImage : true,
+        qrUpdatedAt: meta.qrUpdatedAt || null,
+        traceId: meta.traceId || null,
+        loading: meta.loading ?? !qrValue,
+        countdown: meta.countdown ?? null,
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (loading) {
@@ -146,6 +174,19 @@ export default function AgentsPage() {
       setQrPreview(null);
     }
   }, [agents, qrPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (qrFlowAbortRef.current) {
+        qrFlowAbortRef.current.abort();
+        qrFlowAbortRef.current = null;
+      }
+      if (qrPreparationTimerRef.current) {
+        clearInterval(qrPreparationTimerRef.current);
+        qrPreparationTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleRefreshWhatsAppStatus = useCallback(
     async (agent) => {
@@ -220,12 +261,91 @@ export default function AgentsPage() {
 
   const handleWhatsAppActivation = useCallback(
     async (agent) => {
+      if (!agent?.id) {
+        return;
+      }
+
       setWhatsAppErrors((prev) => {
         const next = { ...prev };
         delete next[agent.id];
         return next;
       });
-      setWhatsAppLoadingMap((prev) => ({ ...prev, [agent.id]: true }));
+      setWhatsAppLoadingMap((prev) => ({
+        ...prev,
+        [agent.id]: {
+          loading: true,
+          countdown: WHATSAPP_QR_PREPARATION_SECONDS,
+        },
+      }));
+
+      if (qrFlowAbortRef.current) {
+        qrFlowAbortRef.current.abort();
+      }
+      const flowAbortController = new AbortController();
+      qrFlowAbortRef.current = flowAbortController;
+
+      const createAbortError = () => {
+        try {
+          return new DOMException("Aborted", "AbortError");
+        } catch (_err) {
+          const abortError = new Error("Aborted");
+          abortError.name = "AbortError";
+          return abortError;
+        }
+      };
+
+      const clearPreparationTimer = () => {
+        if (qrPreparationTimerRef.current) {
+          clearInterval(qrPreparationTimerRef.current);
+          qrPreparationTimerRef.current = null;
+        }
+      };
+
+      const updateCountdown = (value) => {
+        setWhatsAppLoadingMap((prev) => ({
+          ...prev,
+          [agent.id]: { loading: true, countdown: value },
+        }));
+        setQrPreview((prev) =>
+          prev && prev.agentId === agent.id
+            ? { ...prev, countdown: value }
+            : prev
+        );
+      };
+
+      const runPreparationCountdown = () =>
+        new Promise((resolve, reject) => {
+          let remaining = WHATSAPP_QR_PREPARATION_SECONDS;
+          updateCountdown(remaining);
+
+          if (remaining <= 0) {
+            updateCountdown(null);
+            resolve();
+            return;
+          }
+
+          const tick = () => {
+            if (flowAbortController.signal.aborted) {
+              clearPreparationTimer();
+              reject(createAbortError());
+              return;
+            }
+            remaining -= 1;
+            updateCountdown(Math.max(remaining, 0));
+            if (remaining <= 0) {
+              clearPreparationTimer();
+              updateCountdown(null);
+              resolve();
+            }
+          };
+
+          qrPreparationTimerRef.current = setInterval(tick, 1000);
+        });
+
+      openQrPreview(agent.id, agent.name, null, {
+        loading: true,
+        countdown: WHATSAPP_QR_PREPARATION_SECONDS,
+      });
 
       try {
         if (!user?.user_id) {
@@ -233,12 +353,17 @@ export default function AgentsPage() {
         }
 
         const apiKey = await resolveApiKey();
-        const session = await apiService.createWhatsAppSession({
+        await apiService.createWhatsAppSession({
           userId: String(user.user_id),
           agentId: String(agent.id),
           agentName: agent.name,
           apiKey,
         });
+
+        await runPreparationCountdown();
+
+        const session = await apiService.fetchWhatsAppQr(agent.id);
+        const sessionQrValue = resolveSessionQrImage(session);
 
         setWhatsAppSessions((prev) => {
           const previous = prev[agent.id];
@@ -246,8 +371,7 @@ export default function AgentsPage() {
           const shouldPreserveActive =
             previous?.isActive &&
             !session.isActive &&
-            !session.qrImage &&
-            !session.qrUrl &&
+            !sessionQrValue &&
             (!statusValue ||
               ["inactive", "not_linked", "not_found", "unknown"].includes(
                 statusValue
@@ -256,8 +380,8 @@ export default function AgentsPage() {
           const nextSession = shouldPreserveActive
             ? {
                 ...previous,
-                updatedAt: session.updatedAt || previous.updatedAt || null,
-                raw: session.raw || previous.raw || null,
+                updatedAt: session.updatedAt || previous?.updatedAt || null,
+                raw: session.raw || previous?.raw || null,
               }
             : session;
 
@@ -273,16 +397,37 @@ export default function AgentsPage() {
           return next;
         });
 
-        const qrValue = session.qrImage || session.qrUrl || null;
-        openQrPreview(agent.id, agent.name, qrValue);
+        if (sessionQrValue) {
+          openQrPreview(agent.id, agent.name, sessionQrValue, {
+            qrUpdatedAt: session.qrUpdatedAt || null,
+            traceId: session.traceId || null,
+            loading: false,
+          });
+        } else if (!session.isActive) {
+          setWhatsAppErrors((prev) => ({
+            ...prev,
+            [agent.id]:
+              "QR code unavailable right now. Please try again shortly.",
+          }));
+        }
       } catch (err) {
+        if (err?.name === "AbortError") {
+          return;
+        }
         setWhatsAppErrors((prev) => ({
           ...prev,
           [agent.id]:
             err?.message ||
             "Unable to initialise WhatsApp session. Please try again.",
         }));
+        setQrPreview((prev) =>
+          prev && prev.agentId === agent.id ? null : prev
+        );
       } finally {
+        clearPreparationTimer();
+        if (qrFlowAbortRef.current === flowAbortController) {
+          qrFlowAbortRef.current = null;
+        }
         setWhatsAppLoadingMap((prev) => ({
           ...prev,
           [agent.id]: false,
@@ -363,7 +508,12 @@ export default function AgentsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           {agents.map((agent) => {
             const sessionInfo = whatsAppSessions[agent.id] || null;
-            const sessionLoading = Boolean(whatsAppLoadingMap[agent.id]);
+            const loadingEntry = whatsAppLoadingMap[agent.id];
+            const sessionLoading = Boolean(loadingEntry);
+            const sessionLoadingCountdown =
+              typeof loadingEntry === "object"
+                ? loadingEntry.countdown ?? null
+                : null;
             const refreshLoading = Boolean(whatsAppRefreshMap[agent.id]);
             const checkingStatus = sessionLoading || refreshLoading;
             const sessionError = whatsAppErrors[agent.id];
@@ -372,7 +522,7 @@ export default function AgentsPage() {
               sessionDescriptor.tone,
               { loading: checkingStatus }
             );
-            const qrValue = sessionInfo?.qrImage || sessionInfo?.qrUrl || null;
+            const qrValue = resolveSessionQrImage(sessionInfo);
             const capabilityList = Array.isArray(agent?.allowed_tools)
               ? [...agent.allowed_tools]
               : [];
@@ -464,16 +614,24 @@ export default function AgentsPage() {
                       className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-[#128c7e] focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent cursor-pointer"
                     >
                       {sessionLoading
-                        ? "Requesting..."
+                        ? sessionLoadingCountdown
+                          ? `Preparing QR (${sessionLoadingCountdown}s)`
+                          : "Requesting..."
                         : sessionInfo?.isActive
                         ? "Re-link WhatsApp"
-                        : "Scan WhatsApp QR"}
+                        : "Connect WhatsApp"}
                     </button>
                     {qrValue && (
                       <button
                         type="button"
                         onClick={() =>
-                          openQrPreview(agent.id, agent.name, qrValue)
+                          openQrPreview(agent.id, agent.name, qrValue, {
+                            qrUpdatedAt:
+                              sessionInfo?.qrUpdatedAt ||
+                              sessionInfo?.updatedAt ||
+                              null,
+                            traceId: sessionInfo?.traceId || null,
+                          })
                         }
                         className="text-[11px] font-medium text-accent hover:text-accent"
                       >
@@ -493,8 +651,8 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {qrPreview?.qr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      {qrPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="relative w-full max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-6 text-center shadow-xl">
             <button
               type="button"
@@ -511,31 +669,56 @@ export default function AgentsPage() {
                 Agent: {qrPreview.agentName}
               </p>
             )}
-            <div className="mt-4">
-              {qrPreview.isImage ? (
-                <div className="mx-auto inline-flex rounded-md border border-surface-strong/60 bg-surface p-2">
-                  <Image
-                    src={qrPreview.qr}
-                    alt="WhatsApp QR Code"
-                    width={240}
-                    height={240}
-                    unoptimized
-                    className="h-auto w-[240px]"
-                  />
-                </div>
-              ) : (
-                <a
-                  href={qrPreview.qr}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
-                >
-                  Open WhatsApp Link
-                </a>
-              )}
-              <p className="mt-3 text-xs text-muted">
-                QR codes expire quickly. Refresh if the scan times out.
+            {qrPreview?.qrUpdatedAt && (
+              <p className="mt-1 text-[11px] text-muted">
+                Updated {formatTimestamp(qrPreview.qrUpdatedAt) || "just now"}
               </p>
+            )}
+            <div className="mt-4 space-y-3">
+              {qrPreview.loading ? (
+                <div className="space-y-1">
+                  <p className="text-sm text-muted">
+                    {typeof qrPreview.countdown === "number"
+                      ? `Preparing WhatsApp QR… ${qrPreview.countdown}s remaining.`
+                      : "Waiting for WhatsApp QR response…"}
+                  </p>
+                  <p className="text-xs text-muted">
+                    Keep this window open until the QR appears.
+                  </p>
+                </div>
+              ) : qrPreview.qr ? (
+                <>
+                  {qrPreview.isImage ? (
+                    <div className="mx-auto inline-flex rounded-md border border-surface-strong/60 bg-surface p-2">
+                      <Image
+                        src={qrPreview.qr}
+                        alt="WhatsApp QR Code"
+                        width={240}
+                        height={240}
+                        unoptimized
+                        className="h-auto w-[240px]"
+                      />
+                    </div>
+                  ) : (
+                    <a
+                      href={qrPreview.qr}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
+                    >
+                      Open WhatsApp Link
+                    </a>
+                  )}
+                  <p className="text-xs text-muted">
+                    QR codes expire after about {WHATSAPP_QR_EXPIRY_SECONDS}s.
+                    Refresh if the scan times out.
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted">
+                  QR code unavailable right now. Please generate a new one.
+                </p>
+              )}
             </div>
           </div>
         </div>

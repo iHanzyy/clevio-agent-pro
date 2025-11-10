@@ -47,7 +47,7 @@ async function fetchExternalIp() {
 
 export async function GET(request) {
   try {
-    const headerList = headers();
+    const headerList = await headers();
     let ip =
       request?.ip ||
       extractIpFromHeaders(headerList) ||

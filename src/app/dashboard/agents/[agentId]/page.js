@@ -6,6 +6,7 @@ import {
   describeWhatsAppStatus,
   toneToBadgeClasses,
 } from "@/lib/whatsappStatus";
+import { resolveSessionQrImage } from "@/lib/whatsappQr";
 
 const GOOGLE_AUTH_TOOL_OVERRIDES = {
   gmail: "Gmail",
@@ -60,6 +61,9 @@ const formatGoogleToolLabel = (toolId) => {
   return titleCase(normalized);
 };
 
+const WHATSAPP_QR_PREPARATION_SECONDS = 30;
+const WHATSAPP_QR_EXPIRY_SECONDS = 60;
+
 const EMPTY_WHATSAPP_SESSION = {
   status: "inactive",
   isActive: false,
@@ -104,12 +108,16 @@ export default function AgentDetailPage() {
   const [whatsAppQr, setWhatsAppQr] = useState(null);
   const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
   const [whatsAppQrCountdown, setWhatsAppQrCountdown] = useState(null);
+  const [qrPreparationCountdown, setQrPreparationCountdown] = useState(null);
   const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
     EMPTY_WHATSAPP_SESSION
   );
   const whatsAppStatusLoadingRef = useRef(false);
   // ⭐ TAMBAH: Flag untuk mencegah auto-close
   const whatsAppQrUserClosedRef = useRef(false);
+  const qrFlowAbortRef = useRef(null);
+  const qrPreparationTimerRef = useRef(null);
+  const qrExpiryTimerRef = useRef(null);
 
   const queryAuthUrl = searchParams?.get("authUrl") || null;
   const queryAuthState = searchParams?.get("authState") || null;
@@ -128,9 +136,22 @@ export default function AgentDetailPage() {
   const googleAuthCheckingRef = useRef(false);
   const closeWhatsAppQrPreview = useCallback(() => {
     whatsAppQrUserClosedRef.current = true; // ⭐ Set flag bahwa user yang close
+    if (qrFlowAbortRef.current) {
+      qrFlowAbortRef.current.abort();
+      qrFlowAbortRef.current = null;
+    }
+    if (qrPreparationTimerRef.current) {
+      clearInterval(qrPreparationTimerRef.current);
+      qrPreparationTimerRef.current = null;
+    }
+    if (qrExpiryTimerRef.current) {
+      clearInterval(qrExpiryTimerRef.current);
+      qrExpiryTimerRef.current = null;
+    }
     setShowWhatsAppQr(false);
     setWhatsAppQr(null);
     setWhatsAppQrCountdown(null);
+    setQrPreparationCountdown(null);
     setWhatsAppError("");
   }, []);
 
@@ -184,6 +205,43 @@ export default function AgentDetailPage() {
 
     setGoogleAuthError("");
   }, [agentIdParam, queryAuthUrl, queryAuthState]);
+
+  useEffect(() => {
+    if (!showWhatsAppQr || !whatsAppQr) {
+      if (qrExpiryTimerRef.current) {
+        clearInterval(qrExpiryTimerRef.current);
+        qrExpiryTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (qrExpiryTimerRef.current) {
+      clearInterval(qrExpiryTimerRef.current);
+    }
+
+    const intervalId = setInterval(() => {
+      setWhatsAppQrCountdown((prev) => {
+        if (typeof prev !== "number") {
+          return prev;
+        }
+        if (prev <= 0) {
+          clearInterval(intervalId);
+          qrExpiryTimerRef.current = null;
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    qrExpiryTimerRef.current = intervalId;
+
+    return () => {
+      clearInterval(intervalId);
+      if (qrExpiryTimerRef.current === intervalId) {
+        qrExpiryTimerRef.current = null;
+      }
+    };
+  }, [showWhatsAppQr, whatsAppQr]);
 
   const agentToolIds = useMemo(() => {
     const collected = new Set();
@@ -254,6 +312,23 @@ export default function AgentDetailPage() {
       clearInterval(googleAuthPollRef.current);
       googleAuthPollRef.current = null;
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (qrFlowAbortRef.current) {
+        qrFlowAbortRef.current.abort();
+        qrFlowAbortRef.current = null;
+      }
+      if (qrPreparationTimerRef.current) {
+        clearInterval(qrPreparationTimerRef.current);
+        qrPreparationTimerRef.current = null;
+      }
+      if (qrExpiryTimerRef.current) {
+        clearInterval(qrExpiryTimerRef.current);
+        qrExpiryTimerRef.current = null;
+      }
+    };
   }, []);
 
   const checkGoogleAuthStatus = useCallback(async () => {
@@ -445,6 +520,14 @@ export default function AgentDetailPage() {
     void loadKnowledge();
   }, [loadKnowledge]);
 
+  useEffect(() => {
+    return () => {
+      if (qrPollAbortRef.current) {
+        qrPollAbortRef.current.abort();
+      }
+    };
+  }, []);
+
   const getApiKeyForWhatsApp = useCallback(async () => {
     let apiKey =
       (typeof apiService.getCurrentApiKey === "function"
@@ -499,6 +582,7 @@ export default function AgentDetailPage() {
 
     try {
       const session = await apiService.getWhatsAppSession(agent.id);
+      const currentQrValue = resolveSessionQrImage(session);
 
       setWhatsAppSessionInfo((previous) => {
         const prev = previous || EMPTY_WHATSAPP_SESSION;
@@ -512,8 +596,7 @@ export default function AgentDetailPage() {
         if (prev.isActive && !session.isActive) {
           const nextStatus = (session.status || "").toLowerCase();
           const shouldPreserve =
-            !session.qrImage &&
-            !session.qrUrl &&
+            !currentQrValue &&
             (!nextStatus ||
               ["inactive", "not_linked", "not_found", "unknown"].includes(
                 nextStatus
@@ -532,9 +615,8 @@ export default function AgentDetailPage() {
       });
 
       if (showWhatsAppQr) {
-        const qrValue = session.qrImage || session.qrUrl || null;
-        if (qrValue) {
-          setWhatsAppQr(qrValue);
+        if (currentQrValue) {
+          setWhatsAppQr(currentQrValue);
         }
 
         if (session.isActive && !whatsAppQrUserClosedRef.current) {
@@ -558,12 +640,65 @@ export default function AgentDetailPage() {
       return;
     }
 
+    if (qrFlowAbortRef.current) {
+      qrFlowAbortRef.current.abort();
+    }
+    const flowAbortController = new AbortController();
+    qrFlowAbortRef.current = flowAbortController;
+
+    const createAbortError = () => {
+      try {
+        return new DOMException("Aborted", "AbortError");
+      } catch (_err) {
+        const abortError = new Error("Aborted");
+        abortError.name = "AbortError";
+        return abortError;
+      }
+    };
+
+    const clearPreparationTimer = () => {
+      if (qrPreparationTimerRef.current) {
+        clearInterval(qrPreparationTimerRef.current);
+        qrPreparationTimerRef.current = null;
+      }
+    };
+
+    const runPreparationCountdown = () =>
+      new Promise((resolve, reject) => {
+        let remaining = WHATSAPP_QR_PREPARATION_SECONDS;
+        setQrPreparationCountdown(remaining);
+
+         if (remaining <= 0) {
+           setQrPreparationCountdown(null);
+           resolve();
+           return;
+         }
+
+        const tick = () => {
+          if (flowAbortController.signal.aborted) {
+            clearPreparationTimer();
+            reject(createAbortError());
+            return;
+          }
+          remaining -= 1;
+          setQrPreparationCountdown(Math.max(remaining, 0));
+          if (remaining <= 0) {
+            clearPreparationTimer();
+            setQrPreparationCountdown(null);
+            resolve();
+          }
+        };
+
+        qrPreparationTimerRef.current = setInterval(tick, 1000);
+      });
+
     whatsAppQrUserClosedRef.current = false; // ⭐ Reset flag saat generate QR baru
     setWhatsAppError("");
     setWhatsAppLoading(true);
-    setShowWhatsAppQr(false);
+    setShowWhatsAppQr(true);
     setWhatsAppQr(null);
     setWhatsAppQrCountdown(null);
+    setQrPreparationCountdown(null);
 
     try {
       if (!user?.user_id) {
@@ -571,39 +706,32 @@ export default function AgentDetailPage() {
       }
 
       const apiKey = await getApiKeyForWhatsApp();
-      const session = await apiService.createWhatsAppSession({
+      await apiService.createWhatsAppSession({
         userId: String(user.user_id),
         agentId: String(agent.id),
         agentName: agent.name,
         apiKey,
       });
 
-      setWhatsAppSessionInfo(session);
+      await runPreparationCountdown();
 
-      const qr =
-        session.qrImage ||
-        session.qrUrl ||
-        session.raw?.qr_image ||
-        session.raw?.qr ||
-        null;
+      const session = await apiService.fetchWhatsAppQr(agent.id);
+      const qr = resolveSessionQrImage(session);
+
+      setWhatsAppSessionInfo(session);
 
       if (qr) {
         setWhatsAppQr(qr);
-        setShowWhatsAppQr(true);
-        setWhatsAppQrCountdown(null);
-      } else if (!session.isActive) {
-        setShowWhatsAppQr(false);
-        setWhatsAppQr(null);
-        setWhatsAppQrCountdown(null);
-        setWhatsAppError(
+        setWhatsAppQrCountdown(WHATSAPP_QR_EXPIRY_SECONDS);
+      } else {
+        throw new Error(
           "QR code unavailable right now. Please try again shortly."
         );
-      } else {
-        setShowWhatsAppQr(false);
-        setWhatsAppQr(null);
-        setWhatsAppQrCountdown(null);
       }
     } catch (error) {
+      if (error?.name === "AbortError") {
+        return;
+      }
       setWhatsAppError(
         error?.message || "Unable to initialise WhatsApp session right now."
       );
@@ -611,8 +739,13 @@ export default function AgentDetailPage() {
       setWhatsAppQr(null);
       setShowWhatsAppQr(false);
       setWhatsAppQrCountdown(null);
+      setQrPreparationCountdown(null);
     } finally {
       setWhatsAppLoading(false);
+      clearPreparationTimer();
+      if (qrFlowAbortRef.current === flowAbortController) {
+        qrFlowAbortRef.current = null;
+      }
     }
   };
 
@@ -669,6 +802,11 @@ export default function AgentDetailPage() {
 
     return parts.join(", ");
   }, [agent?.description, googleToolIds, googleAuthPending]);
+
+  const qrPreparationActive =
+    typeof qrPreparationCountdown === "number" && qrPreparationCountdown > 0;
+  const whatsAppQrExpired =
+    typeof whatsAppQrCountdown === "number" && whatsAppQrCountdown <= 0;
 
   const handleDelete = async () => {
     if (!agent) return;
@@ -1103,7 +1241,7 @@ export default function AgentDetailPage() {
                 ? "Requesting QR..."
                 : whatsAppSessionInfo.isActive
                 ? "Re-link WhatsApp"
-                : "Scan WhatsApp QR"}
+                : "Connect WhatsApp"}
             </button>
             <button
               type="button"
@@ -1177,9 +1315,19 @@ export default function AgentDetailPage() {
                   ) : (
                     <>
                       {whatsAppLoading && (
-                        <p className="text-sm text-muted">
-                          Generating WhatsApp QR code…
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted">
+                            {qrPreparationActive
+                              ? "Preparing WhatsApp QR code…"
+                              : "Waiting for WhatsApp QR response…"}
+                          </p>
+                          {qrPreparationActive && (
+                            <p className="text-xs text-muted">
+                              Generating secure QR… {qrPreparationCountdown}s
+                              remaining.
+                            </p>
+                          )}
+                        </div>
                       )}
                       {!whatsAppLoading && whatsAppQr && (
                         <div className="space-y-4">

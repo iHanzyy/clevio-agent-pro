@@ -82,7 +82,7 @@ const Card = forwardRef(({ className, ...props }, ref) => (
 ));
 Card.displayName = "Card";
 
-const MotionCard = motion(Card);
+const MotionCard = motion.create(Card);
 
 const FADE_UP_VARIANTS = {
   hidden: { opacity: 0, y: 24, filter: "blur(8px)" },

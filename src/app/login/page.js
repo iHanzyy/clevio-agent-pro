@@ -84,7 +84,7 @@ const IconEye = ({ hidden }) => (
 );
 
 export default function Login() {
-  const [formData, setFormData] = useState({ email: "", password: "" });
+  const [formData, setFormData] = useState({ identifier: "", password: "" });
   const [error, setError] = useState("");
   const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -105,16 +105,19 @@ export default function Login() {
 
     if (hasSettlementQuery) {
       setInfoMessage(
-        "Payment settled. Please sign in with your registered email and password."
+        "Payment settled. Please sign in with your registered email or phone number and password."
       );
     }
 
-    const queryEmail = searchParams.get("email");
+    const queryIdentifier =
+      searchParams.get("identifier") ||
+      searchParams.get("email") ||
+      searchParams.get("phone");
 
-    if (queryEmail) {
+    if (queryIdentifier) {
       setFormData((prev) => ({
         ...prev,
-        email: prev.email || queryEmail,
+        identifier: prev.identifier || queryIdentifier,
       }));
     }
   }, []);
@@ -124,8 +127,15 @@ export default function Login() {
     setError("");
     setLoading(true);
 
+    const identifier = formData.identifier.trim();
+    if (!identifier) {
+      setError("Please enter your email address or phone number.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await login(formData.email, formData.password);
+      const result = await login(identifier, formData.password);
 
       if (result.success) {
         if (result.is_active) {
@@ -149,7 +159,8 @@ export default function Login() {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   return (
@@ -191,23 +202,23 @@ export default function Login() {
             <form className="mt-6 space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label
-                  htmlFor="email"
+                  htmlFor="identifier"
                   className="block text-sm font-medium text-muted"
                 >
-                  Email
+                  Email or phone number
                 </label>
                 <div className="relative mt-2">
                   <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center">
                     <IconMail />
                   </span>
                   <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
+                    id="identifier"
+                    name="identifier"
+                    type="text"
+                    autoComplete="username"
+                    placeholder="you@example.com or +62 812-3456-7890"
                     className={inputBase}
-                    value={formData.email}
+                    value={formData.identifier}
                     onChange={handleChange}
                     disabled={loading}
                     required

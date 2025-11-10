@@ -21,7 +21,7 @@ The API now uses a two-step authentication process:
 
 ```bash
 # Step 1: Register user
-# Register with email (replace with phone using identifier= or phone= query params)
+# Register with email (phone numbers are no longer accepted)
 REGISTER_RESPONSE=$(curl -s -X POST "$BASE_URL$API_PREFIX/auth/register?email=newuser@example.com&password=changeme")
 USER_ID=$(echo $REGISTER_RESPONSE | jq -r '.user_id')
 echo "Registered user: $USER_ID"
@@ -88,6 +88,8 @@ If you have access to an already activated user account, use that email/password
 
 - **POST /login** (query parameters)
 
+  Login accepts either the account email or the normalized phone number. Supply the value via the `identifier` query parameter when possible; `email` and `phone` remain for backwards compatibility.
+
   ```bash
   curl -X POST "$BASE_URL$API_PREFIX/auth/login?email=user@example.com&password=changeme"
   ```
@@ -106,12 +108,7 @@ If you have access to an already activated user account, use that email/password
   curl -X POST "$BASE_URL$API_PREFIX/auth/register?email=newuser@example.com&password=changeme"
   ```
 
-  ```bash
-  # Register with a phone number by using phone= or identifier=
-  curl -X POST "$BASE_URL$API_PREFIX/auth/register?phone=%2B628123456789&password=changeme"
-  ```
-
-  Returns user information without API key. Supply either `email`, `phone`, or `identifier` (email/phone string) along with the password. Phone numbers can include `+` and separators; the API normalizes them to digits only for storage. Use the API key generation endpoint to get access tokens.
+  Returns user information without an API key. Supply a valid `email` along with the password—`phone` and `identifier` parameters are ignored for registration. Use the API key generation endpoint to get access tokens after signing up.
 
 - **POST /api-key** (JSON body)
 

@@ -104,7 +104,7 @@ function resolvePlanCode(data) {
 }
 
 async function resolveClientIp(requestBody) {
-  const headerList = headers();
+  const headerList = await headers();
   const provided =
     (typeof requestBody === "object" && requestBody
       ? requestBody.ip_user || requestBody.ip
