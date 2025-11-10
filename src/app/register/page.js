@@ -206,7 +206,7 @@ export default function Register() {
                   />
                 </div>
                 <p className="mt-2 text-xs text-muted">
-                  Use a valid email address; phone-based registration isn't supported.
+                  Use a valid email address; phone-based registration isn&#39;t supported.
                 </p>
               </div>
 
