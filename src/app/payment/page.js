@@ -244,23 +244,39 @@ function PaymentContent() {
     if (snapshot) {
       setTrialAgentDraft(snapshot);
     }
+    return () => {
+      try {
+        clearTrialAgentPayload();
+      } catch (error) {
+        console.warn("Failed to clear pending trial agent payload", error);
+      }
+    };
   }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") {
       return;
     }
-    try {
-      const stored = window.sessionStorage.getItem(
-        "trialRegistrationCredentials",
-      );
-      if (stored) {
+    const stored = window.sessionStorage.getItem(
+      "trialRegistrationCredentials",
+    );
+    if (stored) {
+      try {
         const parsed = JSON.parse(stored);
         setTrialCredentials(parsed);
+      } catch (error) {
+        console.warn("Failed to parse stored trial credentials", error);
+        window.sessionStorage.removeItem("trialRegistrationCredentials");
       }
-    } catch (error) {
-      console.warn("Failed to read stored trial credentials", error);
     }
+
+    return () => {
+      try {
+        window.sessionStorage.removeItem("trialRegistrationCredentials");
+      } catch (error) {
+        console.warn("Failed to clear trial credentials from storage", error);
+      }
+    };
   }, []);
 
   const isSettled = useCallback((transaction, raw) => {
