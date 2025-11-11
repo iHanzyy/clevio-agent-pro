@@ -8,6 +8,7 @@ import {
   readTrialAgentPayload,
   clearTrialAgentPayload,
 } from "@/lib/trialStorage";
+import { markTrialEmailUsed } from "@/lib/trialGuard";
 
 const PLAN_OPTIONS = [
   { code: "TRIAL", name: "Free Trial", price: "0", duration_days: 14 },
@@ -651,6 +652,7 @@ function PaymentContent() {
         }
 
         apiService.setPlanCode("TRIAL");
+        markTrialEmailUsed(activeEmail);
         setStoredPlan("TRIAL");
 
         await completeTrialProvisioning(activeEmail);

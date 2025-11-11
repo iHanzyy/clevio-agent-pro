@@ -1,8 +1,9 @@
 "use client";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiService } from "@/lib/api";
+import { hasUsedTrialEmail } from "@/lib/trialGuard";
 
 const inputBase =
   "w-full rounded-xl border border-surface-strong/60 bg-surface/30 py-3 pl-12 pr-3 text-foreground placeholder-muted transition focus:border-accent focus:bg-surface/40 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:ring-offset-2 focus:ring-offset-background";
@@ -83,6 +84,9 @@ const IconEye = ({ hidden }) => (
   </svg>
 );
 
+const normalizeEmail = (value) =>
+  typeof value === "string" ? value.trim().toLowerCase() : "";
+
 function RegisterContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -92,9 +96,18 @@ function RegisterContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showTrialUsedModal, setShowTrialUsedModal] = useState(false);
+  const [trialBlockedEmail, setTrialBlockedEmail] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
   const wantsTrial = searchParams?.get("trial") === "1";
+
+  useEffect(() => {
+    if (!wantsTrial) {
+      setShowTrialUsedModal(false);
+      setTrialBlockedEmail("");
+    }
+  }, [wantsTrial]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,6 +115,17 @@ function RegisterContent() {
 
     if (password !== confirmPassword) {
       setError("Passwords don't match");
+      return;
+    }
+
+    const normalizedInputEmail = normalizeEmail(email);
+    if (
+      wantsTrial &&
+      typeof window !== "undefined" &&
+      hasUsedTrialEmail(normalizedInputEmail)
+    ) {
+      setTrialBlockedEmail(normalizedInputEmail);
+      setShowTrialUsedModal(true);
       return;
     }
 
@@ -128,7 +152,7 @@ function RegisterContent() {
               email: normalizedEmail,
               password,
               createdAt: Date.now(),
-            })
+            }),
           );
         } catch (storageError) {
           console.warn(
@@ -342,6 +366,48 @@ function RegisterContent() {
           />
         </div>
       </div>
+
+      {showTrialUsedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setShowTrialUsedModal(false)}
+              className="absolute right-3 top-3 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/70"
+            >
+              Close
+            </button>
+            <div className="space-y-3 text-center">
+              <h2 className="text-xl font-semibold text-foreground">
+                Trial unavailable
+              </h2>
+              <p className="text-sm text-muted">
+                {trialBlockedEmail
+                  ? `${trialBlockedEmail} has already used the free trial on this device.`
+                  : "This device has already activated a free trial."}
+                Upgrade to PRO to continue or sign in with your existing paid
+                account.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTrialUsedModal(false)}
+                  className="rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-semibold text-muted hover:bg-surface"
+                >
+                  Got it
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/login")}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover"
+                >
+                  Go to Login
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

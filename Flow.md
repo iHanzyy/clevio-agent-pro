@@ -147,6 +147,7 @@ flowchart LR
 2. The guest-only template gallery + interview chat mirrors the authenticated version. When n8n finishes the interview, the payload is cached as `sessionStorage.pendingAgentData`, `/trial/agent-form?fromInterview=true` auto-prefills `AgentForm`, and submitting that form serialises the create-agent payload into `localStorage.trialPendingAgentPayload` before sending the browser to `/register?trial=1`.
 3. Successful registration pushes to `/payment?plan=TRIAL&source=trial-flow`. Selecting the “Free Trial” plan skips Midtrans: the payment page POSTS the zero-charge payload to `notifyPaymentWebhook`, reads the staged agent config from `localStorage`, forces `plan_code: "TRIAL"`, and calls `apiService.createAgent`. A 200 response clears `localStorage.trialPendingAgentPayload` and redirects the visitor to `/login?trial=1`.
 4. After login the standard dashboard layout loads; subscription refreshes pick up the `TRIAL` plan that was activated via n8n. The legacy `/trial/chat` route remains for authenticated trial accounts who already created an agent and want a sandboxed console.
+5. Every time a trial account is activated, the browser stores the normalised email in `localStorage.trialUsedEmails`. The register form checks this list before attempting another trial signup, showing a modal that explains the trial has already been consumed on this device.
 
 ## Agent detail operations
 

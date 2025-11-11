@@ -154,6 +154,8 @@ If you have access to an already activated user account, use that email/password
 
   Successful responses mirror the standard API key payload with `plan_code` set to `TRIAL` and include an expiration timestamp. When the trial window ends, the key is revoked automatically. The Next.js frontend stores this key inside `sessionStorage.trialSession`, walks the user through `/trial/templates → /trial/agent-form`, and stashes the create-agent payload in `localStorage.trialPendingAgentPayload` so the payment screen can auto-provision the agent after the visitor selects the “Free Trial” plan.
 
+  > **Note:** The browser also records the normalised email in `localStorage.trialUsedEmails` after a trial account is activated. Future attempts to register another trial from the same device surface a modal explaining the trial has already been used and prompting the user to upgrade instead.
+
 - **POST /api-key/update** (JSON body)
 
   ```bash
