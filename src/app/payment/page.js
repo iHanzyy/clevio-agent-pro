@@ -108,7 +108,6 @@ function PaymentContent() {
       }
 
       await apiService.createAgent(agentPayload);
-      clearTrialAgentPayload();
       setTrialAgentDraft(null);
       clearTrialCredentials();
     },
@@ -143,9 +142,6 @@ function PaymentContent() {
           queryEmail ||
           "";
 
-        const forceLogin =
-          normalizedPlanCode === "TRIAL" || !normalizedPlanCode;
-
         if (normalizedPlanCode === "TRIAL" && resolvedEmail) {
           try {
             await completeTrialProvisioning(resolvedEmail);
@@ -158,7 +154,7 @@ function PaymentContent() {
           setTrialAgentDraft(null);
         }
 
-        if (user && !forceLogin) {
+        if (user) {
           try {
             await updateSubscription?.();
           } catch (err) {
@@ -621,10 +617,36 @@ function PaymentContent() {
         }
 
         const data = await response.json().catch(() => ({}));
-        if (data?.access_token) {
-          apiService.setApiKey(data.access_token);
+        const webhookApiKey =
+          data?.access_token ||
+          data?.token ||
+          data?.api_key ||
+          data?.apiKey ||
+          null;
+
+        if (webhookApiKey) {
+          apiService.setApiKey(webhookApiKey);
+        } else {
+          await apiService.generateApiKey({
+            username: activeEmail,
+            password: trialCredentials.password,
+            planCode: "TRIAL",
+          });
         }
-        await finalizeSuccess(null, { planCode: "TRIAL", email: activeEmail });
+
+        apiService.setPlanCode("TRIAL");
+        setStoredPlan("TRIAL");
+
+        await completeTrialProvisioning(activeEmail);
+
+        setStatusState({
+          state: "success",
+          message: "Trial activated! Redirecting you to login.",
+        });
+        hasRedirectedRef.current = true;
+        const loginParams = new URLSearchParams({ trial: "1" });
+        loginParams.set("email", activeEmail);
+        router.replace(`/login?${loginParams.toString()}`);
       } catch (error) {
         console.error("Trial activation failed", error);
         setError(
@@ -639,6 +661,7 @@ function PaymentContent() {
       }
       return;
     }
+
 
     setLoading(true);
     setError("");
