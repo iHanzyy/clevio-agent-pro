@@ -13,6 +13,21 @@ const GOOGLE_AUTH_TOOL_OVERRIDES = {
   calendar: "Google Calendar",
 };
 
+const UPGRADE_PLAN_OPTIONS = [
+  {
+    code: "PRO_M",
+    name: "Pro Monthly",
+    priceLabel: "Rp 100.000 / bulan",
+    description: "30 hari akses penuh ke semua konektor termasuk WhatsApp.",
+  },
+  {
+    code: "PRO_Y",
+    name: "Pro Yearly",
+    priceLabel: "Rp 1.000.000 / tahun",
+    description: "Hemat 17% untuk akses sepanjang tahun dan prioritas support.",
+  },
+];
+
 const normalizeToolId = (value) =>
   (typeof value === "string" ? value : "").trim().toLowerCase();
 
@@ -112,6 +127,9 @@ export default function AgentDetailPage() {
   const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
     EMPTY_WHATSAPP_SESSION
   );
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState("PRO_M");
+  const [upgradeProcessing, setUpgradeProcessing] = useState(false);
   const qrPollAbortRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
   // ⭐ TAMBAH: Flag untuk mencegah auto-close
@@ -135,6 +153,22 @@ export default function AgentDetailPage() {
   const [googleAuthChecking, setGoogleAuthChecking] = useState(false);
   const googleAuthPollRef = useRef(null);
   const googleAuthCheckingRef = useRef(false);
+
+  const normalizedUserPlan = useMemo(() => {
+    const planCode =
+      user?.subscription?.plan_code ||
+      user?.subscription?.planCode ||
+      (typeof apiService.getPlanCode === "function"
+        ? apiService.getPlanCode()
+        : null);
+    return typeof planCode === "string"
+      ? planCode.trim().toLowerCase()
+      : null;
+  }, [user?.subscription?.plan_code, user?.subscription?.planCode]);
+
+  const isTrialPlan = Boolean(
+    user?.is_trial || normalizedUserPlan === "trial"
+  );
   const closeWhatsAppQrPreview = useCallback(() => {
     whatsAppQrUserClosedRef.current = true; // ⭐ Set flag bahwa user yang close
     if (qrFlowAbortRef.current) {
@@ -243,6 +277,29 @@ export default function AgentDetailPage() {
       }
     };
   }, [showWhatsAppQr, whatsAppQr]);
+
+  const handleUpgradeRedirect = useCallback(() => {
+    if (!selectedUpgradePlan) {
+      return;
+    }
+    setUpgradeProcessing(true);
+    try {
+      const params = new URLSearchParams({
+        plan: selectedUpgradePlan,
+        source: "whatsapp-upgrade",
+      });
+      if (user?.email) {
+        params.set("email", user.email);
+      }
+      if (user?.user_id) {
+        params.set("user_id", user.user_id);
+      }
+      router.push(`/payment?${params.toString()}`);
+    } finally {
+      setUpgradeProcessing(false);
+      setShowUpgradeModal(false);
+    }
+  }, [router, selectedUpgradePlan, user?.email, user?.user_id]);
 
   const agentToolIds = useMemo(() => {
     const collected = new Set();
@@ -645,6 +702,11 @@ export default function AgentDetailPage() {
   // ✅ handleWhatsAppQr tetap di bawah
   const handleWhatsAppQr = async () => {
     if (!agent) {
+      return;
+    }
+
+    if (isTrialPlan) {
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -1460,6 +1522,82 @@ export default function AgentDetailPage() {
                       )}
                     </>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+          {showUpgradeModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+              <div className="relative w-full max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUpgradeModal(false);
+                    setUpgradeProcessing(false);
+                  }}
+                  className="absolute right-4 top-4 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/70"
+                >
+                  Close
+                </button>
+                <div className="space-y-3">
+                  <h3 className="text-xl font-semibold text-foreground">
+                    Upgrade required
+                  </h3>
+                  <p className="text-sm text-muted">
+                    WhatsApp integration isn&apos;t available on the trial plan.
+                    Upgrade to unlock WhatsApp messaging, automation, and QR
+                    connectivity.
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    {UPGRADE_PLAN_OPTIONS.map((plan) => {
+                      const isActive = selectedUpgradePlan === plan.code;
+                      return (
+                        <button
+                          type="button"
+                          key={plan.code}
+                          onClick={() => setSelectedUpgradePlan(plan.code)}
+                          className={`rounded-2xl border p-4 text-left transition ${isActive ? "border-accent bg-accent/5 shadow-lg" : "border-surface-strong/60 hover:border-accent/60"}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-base font-semibold text-foreground">
+                              {plan.name}
+                            </span>
+                            {isActive && (
+                              <span className="text-xs font-semibold text-accent">
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-2 text-sm font-medium text-foreground">
+                            {plan.priceLabel}
+                          </p>
+                          <p className="mt-1 text-xs text-muted">
+                            {plan.description}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-6 flex flex-wrap justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUpgradeModal(false);
+                        setUpgradeProcessing(false);
+                      }}
+                      className="rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-semibold text-muted hover:bg-surface"
+                    >
+                      Maybe later
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUpgradeRedirect}
+                      disabled={upgradeProcessing}
+                      className="inline-flex items-center rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent-hover disabled:opacity-60"
+                    >
+                      {upgradeProcessing ? "Redirecting..." : "Continue to payment"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
