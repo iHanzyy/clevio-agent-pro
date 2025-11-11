@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiService } from "@/lib/api";
@@ -83,7 +83,7 @@ const IconEye = ({ hidden }) => (
   </svg>
 );
 
-export default function Register() {
+function RegisterContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -344,5 +344,22 @@ export default function Register() {
       </div>
 
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="text-center">
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent" />
+            <p className="mt-4 text-sm text-muted">Preparing registration…</p>
+          </div>
+        </div>
+      }
+    >
+      <RegisterContent />
+    </Suspense>
   );
 }

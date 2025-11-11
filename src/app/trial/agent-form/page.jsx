@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AgentForm from "@/app/dashboard/agents/components/AgentForm";
 import { buildPrefilledFormValues } from "@/lib/agentInterviewUtils";
 import { saveTrialAgentPayload } from "@/lib/trialStorage";
 
-export default function TrialAgentFormPage() {
+function TrialAgentFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [prefilledData, setPrefilledData] = useState(null);
@@ -127,5 +127,22 @@ export default function TrialAgentFormPage() {
         submitButtonLabel="Save & Continue"
       />
     </div>
+  );
+}
+
+export default function TrialAgentFormPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+            <p className="mt-4 text-sm text-muted">Preparing trial form…</p>
+          </div>
+        </div>
+      }
+    >
+      <TrialAgentFormContent />
+    </Suspense>
   );
 }
