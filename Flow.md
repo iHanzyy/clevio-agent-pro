@@ -143,10 +143,10 @@ flowchart LR
 
 ### Trial onboarding & sandbox
 
-1. When a visitor clicks “Start Free Trial” on the marketing page, the frontend calls `/api/trial`. The route resolves the caller’s public IP (`/api/ip` fallback) and proxies `POST /auth/api-key/trial` to `SC_BACKEND`, returning a `TRIAL` plan API key.
-2. `AuthContext.startTrialSession` stores the key, plan code, and IP metadata in memory and `sessionStorage.trialSession`, tagging the user as `is_trial`. On reload, `restoreTrialSessionFromStorage` runs only when no authenticated session token is present; otherwise the persisted full session (`sessionStorage.authSession`) takes precedence so paid accounts stay signed in.
-3. Trial users can run through the template → interview → agent form flow, but after submitting the form the app captures the new agent id (`sessionStorage.trialAgentContext`) and redirects them to `/trial/chat` instead of the full dashboard.
-4. The `/trial/chat` route now mirrors the dashboard “Test the Agent” console: it loads the trial agent, calls `executeAgent(agentId, …)` for every prompt, and reveals intermediate steps for debugging while still blocking non-trial accounts via a redirect to `/dashboard`.
+1. Clicking “Start Free Trial” still calls `/api/trial`, but the CTA now routes visitors to `/trial/templates` after `AuthContext.startTrialSession` records the returned `TRIAL` API key inside `sessionStorage.trialSession`.
+2. The guest-only template gallery + interview chat mirrors the authenticated version. When n8n finishes the interview, the payload is cached as `sessionStorage.pendingAgentData`, `/trial/agent-form?fromInterview=true` auto-prefills `AgentForm`, and submitting that form serialises the create-agent payload into `localStorage.trialPendingAgentPayload` before sending the browser to `/register?trial=1`.
+3. Successful registration pushes to `/payment?plan=TRIAL&source=trial-flow`. Selecting the “Free Trial” plan skips Midtrans: the payment page POSTS the zero-charge payload to `notifyPaymentWebhook`, reads the staged agent config from `localStorage`, forces `plan_code: "TRIAL"`, and calls `apiService.createAgent`. A 200 response clears `localStorage.trialPendingAgentPayload` and redirects the visitor to `/login?trial=1`.
+4. After login the standard dashboard layout loads; subscription refreshes pick up the `TRIAL` plan that was activated via n8n. The legacy `/trial/chat` route remains for authenticated trial accounts who already created an agent and want a sandboxed console.
 
 ## Agent detail operations
 

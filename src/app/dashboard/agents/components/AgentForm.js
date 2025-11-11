@@ -184,6 +184,7 @@ export default function AgentForm({
   startGuidedTour = false,
   onGuidedTourClose,
   onGuidedTourStepChange,
+  submitButtonLabel = null,
 }) {
   const [values, setValues] = useState(() => mapInitialValues(initialValues));
   const [formErrors, setFormErrors] = useState({});
@@ -192,9 +193,12 @@ export default function AgentForm({
   const [isTourOpen, setIsTourOpen] = useState(false);
 
   const submitLabel = useMemo(() => {
+    if (submitButtonLabel) {
+      return submitButtonLabel;
+    }
     if (mode === "edit") return "Save Changes";
     return "Create Agent";
-  }, [mode]);
+  }, [mode, submitButtonLabel]);
 
   // MOVE tourSteps ABOVE any hook that references it to avoid TDZ
   const tourSteps = useMemo(

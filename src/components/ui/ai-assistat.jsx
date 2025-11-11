@@ -66,6 +66,108 @@ const extractMessageText = (data, fallback = "") => {
   return fallback;
 };
 
+const safeParseJson = (value) => {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed.length) {
+    return null;
+  }
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
+    try {
+      return JSON.parse(trimmed);
+    } catch (error) {
+      console.warn("[AiAssistat] Unable to parse JSON string:", error);
+    }
+  }
+  return null;
+};
+
+const normalizeAgentData = (value) => {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return safeParseJson(value) ?? { summary: value };
+  }
+  if (typeof value === "object") {
+    return value;
+  }
+  return null;
+};
+
+const pickAgentData = (payload) => {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const candidates = [
+    payload.agent_data,
+    payload.agentData,
+    payload.agent,
+    payload.data?.agent_data,
+    payload.data?.agentData,
+    payload.data?.agent,
+    payload.response?.agent_data,
+    payload.response?.agentData,
+  ];
+  for (const candidate of candidates) {
+    const normalized = normalizeAgentData(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+  return null;
+};
+
+const detectCompletionStatus = (payload) => {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+  const statusCandidates = [
+    payload.status,
+    payload.state,
+    payload.result,
+    payload.outcome,
+    payload.data?.status,
+    payload.data?.state,
+    payload.data?.result,
+    payload.data?.outcome,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
+  if (
+    statusCandidates.some((value) =>
+      ["completed", "complete", "done", "success", "finished"].includes(value),
+    )
+  ) {
+    return true;
+  }
+  if (
+    payload.success === true ||
+    payload.completed === true ||
+    payload.finished === true ||
+    payload.data?.success === true ||
+    payload.data?.completed === true
+  ) {
+    return true;
+  }
+  return Boolean(pickAgentData(payload));
+};
+
+const buildCompletionResult = (payload) => {
+  const agentData = pickAgentData(payload);
+  const isCompleted = detectCompletionStatus(payload) || Boolean(agentData);
+  return {
+    isCompleted,
+    agentData: agentData || null,
+  };
+};
+
+
 const AIMessageBar = ({
   title = "AI Assistant",
   description = "Chat with our AI assistant",
@@ -269,15 +371,12 @@ const AIMessageBar = ({
       };
     }
 
-    const completionData =
-      data.status === "completed" && data.agent_data
-        ? data.agent_data
-        : undefined;
+    const completion = buildCompletionResult(data);
 
     return {
       data,
       messages: [initialMessage],
-      completionData,
+      completionData: completion.isCompleted ? completion.agentData : undefined,
     };
   };
 
@@ -356,15 +455,17 @@ const AIMessageBar = ({
       }
 
       console.log("[AiAssistat] 📥 AI response:", data);
-
-      const aiMessageText = extractMessageText(
-        data,
-        "I received your message."
-      );
+      const completion = buildCompletionResult(data);
+      if (completion.isCompleted) {
+        console.log(
+          "[AiAssistat] 🧩 Extracted agent data:",
+          completion.agentData
+        );
+      }
 
       const aiResponse = {
         id: Date.now() + 1,
-        text: aiMessageText,
+        text: extractMessageText(data, "I received your message."),
         sender: "ai",
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -378,11 +479,11 @@ const AIMessageBar = ({
         messageCallbackRef.current(data);
       }
 
-      if (data.status === "completed" && data.agent_data) {
-        console.log("[AiAssistat] 🎉 Interview completed!", data.agent_data);
-        if (completeCallbackRef.current) {
-          completeCallbackRef.current(data.agent_data);
-        }
+      if (completion.isCompleted && completion.agentData) {
+        console.log("[AiAssistat] 🎉 Interview completed!", completion.agentData);
+        completeCallbackRef.current?.(completion.agentData);
+      } else {
+        console.log("[AiAssistat] ⏳ Waiting for final n8n payload…");
       }
     } catch (err) {
       console.error("[AiAssistat] ❌ Send message failed:", err);

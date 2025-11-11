@@ -123,7 +123,7 @@ If you have access to an already activated user account, use that email/password
   ```
 
   Generates API key with plan-based expiration:
-
+  - `TRIAL` : 14 days expiration
   - `PRO_M`: 30 days expiration
   - `PRO_Y`: 365 days expiration
     The `username` field accepts the email address or phone number used during registration.
@@ -152,7 +152,7 @@ If you have access to an already activated user account, use that email/password
         }'
   ```
 
-  Successful responses mirror the standard API key payload with `plan_code` set to `TRIAL` and include an expiration timestamp. When the trial window ends, the key is revoked automatically.
+  Successful responses mirror the standard API key payload with `plan_code` set to `TRIAL` and include an expiration timestamp. When the trial window ends, the key is revoked automatically. The Next.js frontend stores this key inside `sessionStorage.trialSession`, walks the user through `/trial/templates → /trial/agent-form`, and stashes the create-agent payload in `localStorage.trialPendingAgentPayload` so the payment screen can auto-provision the agent after the visitor selects the “Free Trial” plan.
 
 - **POST /api-key/update** (JSON body)
 

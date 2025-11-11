@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiService } from "@/lib/api";
 
 const inputBase =
@@ -93,6 +93,8 @@ export default function Register() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const wantsTrial = searchParams?.get("trial") === "1";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -118,6 +120,24 @@ export default function Register() {
         throw new Error("Unable to capture user information for payment.");
       }
 
+      if (wantsTrial && typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(
+            "trialRegistrationCredentials",
+            JSON.stringify({
+              email: normalizedEmail,
+              password,
+              createdAt: Date.now(),
+            })
+          );
+        } catch (storageError) {
+          console.warn(
+            "[Register] Failed to persist trial credentials for activation",
+            storageError
+          );
+        }
+      }
+
       setSuccess(
         "Registration successful! Redirecting you to choose a plan. After settlement, use these credentials to log in."
       );
@@ -131,6 +151,10 @@ export default function Register() {
           user_id: String(userId),
           email: String(normalizedEmail),
         });
+        if (wantsTrial) {
+          params.set("plan", "TRIAL");
+          params.set("source", "trial-flow");
+        }
         router.push(`/payment?${params.toString()}`);
       }, 1000);
     } catch (err) {

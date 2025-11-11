@@ -2,13 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import AgentForm, { TOOL_OPTIONS } from "../components/AgentForm";
+import AgentForm from "../components/AgentForm";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-
-const GMAIL_TOOL_IDS = TOOL_OPTIONS.filter((tool) =>
-  tool.id.startsWith("gmail")
-).map((tool) => tool.id);
+import { buildPrefilledFormValues } from "@/lib/agentInterviewUtils";
 
 export default function NewAgentPage() {
   const router = useRouter();
@@ -19,77 +16,6 @@ export default function NewAgentPage() {
   const [showGuidedTour, setShowGuidedTour] = useState(false);
   const [guidedTourState, setGuidedTourState] = useState("idle");
   const [hasAppliedInterviewData, setHasAppliedInterviewData] = useState(false);
-
-  const extractAllowedTools = useCallback((agentData) => {
-    const result = new Set();
-
-    if (Array.isArray(agentData?.tools)) {
-      agentData.tools.forEach((tool) => {
-        if (typeof tool === "string" && tool.trim()) {
-          result.add(tool.trim());
-        }
-      });
-    }
-
-    if (Array.isArray(agentData?.allowed_tools)) {
-      agentData.allowed_tools.forEach((tool) => {
-        if (typeof tool === "string" && tool.trim()) {
-          result.add(tool.trim());
-        }
-      });
-    }
-
-    if (Array.isArray(agentData?.mcp_tools)) {
-      agentData.mcp_tools.forEach((tool) => {
-        if (typeof tool === "string" && tool.trim()) {
-          result.add(tool.trim());
-        }
-      });
-    }
-
-    if (agentData?.google_tools) {
-      const raw = agentData.google_tools;
-      let parsed = [];
-
-      if (Array.isArray(raw)) {
-        parsed = raw;
-      } else if (typeof raw === "string") {
-        const trimmed = raw.trim();
-        if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-          try {
-            const json = JSON.parse(trimmed);
-            if (Array.isArray(json)) {
-              parsed = json;
-            }
-          } catch (error) {
-            console.warn(
-              "[NewAgentPage] Failed to parse google_tools JSON string:",
-              error
-            );
-          }
-        }
-
-        if (parsed.length === 0) {
-          parsed = trimmed
-            .split(/[,\s]+/)
-            .map((item) => item.trim())
-            .filter(Boolean);
-        }
-      }
-
-      parsed.forEach((tool) => {
-        if (typeof tool === "string" && tool.trim()) {
-          result.add(tool.trim());
-        }
-      });
-    }
-
-    if (result.has("gmail")) {
-      GMAIL_TOOL_IDS.forEach((toolId) => result.add(toolId));
-    }
-
-    return Array.from(result);
-  }, []);
 
   useEffect(() => {
     if (hasAppliedInterviewData) {
@@ -102,23 +28,10 @@ export default function NewAgentPage() {
       if (storedData) {
         try {
           const agentData = JSON.parse(storedData);
-          const allowedTools = extractAllowedTools(agentData);
-
-          const formData = {
-            name: agentData.name || "",
-            tools: TOOL_OPTIONS.reduce((accumulator, tool) => {
-              accumulator[tool.id] = allowedTools.includes(tool.id);
-              return accumulator;
-            }, {}),
-            systemPrompt: agentData.config?.system_prompt || "",
-            model: agentData.config?.llm_model || "gpt-4o-mini",
-            temperature: agentData.config?.temperature || 0.7,
-            maxTokens: agentData.config?.max_tokens || 1000,
-            memoryType: agentData.config?.memory_type || "buffer",
-            reasoningStrategy: agentData.config?.reasoning_strategy || "react",
-          };
-
-          setPrefilledData(formData);
+          const formData = buildPrefilledFormValues(agentData);
+          if (formData) {
+            setPrefilledData(formData);
+          }
           // TUNDA open ke frame berikutnya agar child sudah render
           setGuidedTourState("in-progress");
           setTimeout(() => setShowGuidedTour(true), 0);
@@ -137,7 +50,7 @@ export default function NewAgentPage() {
     setShowGuidedTour(false);
     setGuidedTourState("idle");
     setHasAppliedInterviewData(true);
-  }, [searchParams, hasAppliedInterviewData, extractAllowedTools]);
+  }, [searchParams, hasAppliedInterviewData]);
 
   if (authLoading) {
     return (

@@ -662,7 +662,7 @@ export default function ClevioLandingPage() {
         metadata: data.raw,
       });
 
-      router.push("/dashboard/agents/templates");
+      router.push("/trial/templates");
     } catch (error) {
       setTrialError(error.message || "Unable to start trial");
     } finally {

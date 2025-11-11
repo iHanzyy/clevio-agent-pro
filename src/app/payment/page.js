@@ -4,8 +4,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  readTrialAgentPayload,
+  clearTrialAgentPayload,
+} from "@/lib/trialStorage";
 
 const PLAN_OPTIONS = [
+  { code: "TRIAL", name: "Free Trial", price: "0", duration_days: 14 },
   { code: "PRO_M", name: "Pro Monthly", price: "100000", duration_days: 30 },
   { code: "PRO_Y", name: "Pro Yearly", price: "1000000", duration_days: 365 },
 ];
@@ -58,6 +63,8 @@ function PaymentContent() {
   const { user, loading: authLoading, updateSubscription, applySubscription } =
     useAuth();
   const hasRedirectedRef = useRef(false);
+  const [trialAgentDraft, setTrialAgentDraft] = useState(null);
+  const [trialCredentials, setTrialCredentials] = useState(null);
 
   const extractPlanFromOrderId = (value) => {
     if (!value || typeof value !== "string") {
@@ -76,6 +83,39 @@ function PaymentContent() {
     [selectedPlan, storedPlan],
   );
 
+  const clearTrialCredentials = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem("trialRegistrationCredentials");
+      } catch (error) {
+        console.warn("Failed to clear trial credentials from storage", error);
+      }
+    }
+    setTrialCredentials(null);
+  }, []);
+
+  const completeTrialProvisioning = useCallback(
+    async (activeEmail) => {
+      if (!trialAgentDraft?.agentPayload || !activeEmail) {
+        return;
+      }
+
+      const agentPayload = {
+        ...trialAgentDraft.agentPayload,
+      };
+      if (!agentPayload.plan_code) {
+        agentPayload.plan_code = "TRIAL";
+      }
+
+      await apiService.createAgent(agentPayload);
+      clearTrialAgentPayload();
+      setTrialAgentDraft(null);
+      clearTrialCredentials();
+    },
+    [trialAgentDraft, clearTrialCredentials],
+  );
+
+  
   const finalizeSuccess = useCallback(
     async (latestOrderId, overrides = {}) => {
       if (isFinalizing) {
@@ -88,11 +128,37 @@ function PaymentContent() {
         const planCodeOverride =
           overrides.planCode || resolvePendingPlan(effectiveOrderId);
 
-        if (planCodeOverride) {
+        const normalizedPlanCode = planCodeOverride
+          ? String(planCodeOverride).toUpperCase()
+          : null;
+
+        if (normalizedPlanCode) {
           apiService.setPlanCode(planCodeOverride);
         }
 
-        if (user) {
+        const resolvedEmail =
+          overrides.email ||
+          user?.email ||
+          pendingRegistration?.email ||
+          queryEmail ||
+          "";
+
+        const forceLogin =
+          normalizedPlanCode === "TRIAL" || !normalizedPlanCode;
+
+        if (normalizedPlanCode === "TRIAL" && resolvedEmail) {
+          try {
+            await completeTrialProvisioning(resolvedEmail);
+          } catch (err) {
+            console.warn("Failed to complete trial provisioning", err);
+          }
+        } else if (!normalizedPlanCode) {
+          clearTrialCredentials();
+          clearTrialAgentPayload();
+          setTrialAgentDraft(null);
+        }
+
+        if (user && !forceLogin) {
           try {
             await updateSubscription?.();
           } catch (err) {
@@ -123,11 +189,6 @@ function PaymentContent() {
           return;
         }
 
-        const loginEmail =
-          overrides.email ||
-          pendingRegistration?.email ||
-          queryEmail ||
-          "";
         setOrderId("");
         setOrderSuffix(Date.now().toString());
         setStoredPlan("");
@@ -138,8 +199,11 @@ function PaymentContent() {
           message: "Payment settled! Please log in to continue.",
         });
         const loginParams = new URLSearchParams({ settlement: "1" });
-        if (loginEmail) {
-          loginParams.set("email", loginEmail);
+        if (normalizedPlanCode === "TRIAL") {
+          loginParams.set("trial", "1");
+        }
+        if (resolvedEmail) {
+          loginParams.set("email", resolvedEmail);
         }
         hasRedirectedRef.current = true;
         router.replace(`/login?${loginParams.toString()}`);
@@ -149,6 +213,8 @@ function PaymentContent() {
     },
     [
       applySubscription,
+      clearTrialCredentials,
+      completeTrialProvisioning,
       isFinalizing,
       orderId,
       pendingRegistration,
@@ -176,6 +242,30 @@ function PaymentContent() {
       apiService.setLastOrderId(searchOrderId);
     }
   }, [queryEmail, queryPlan, queryUserId, searchOrderId]);
+
+  useEffect(() => {
+    const snapshot = readTrialAgentPayload();
+    if (snapshot) {
+      setTrialAgentDraft(snapshot);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    try {
+      const stored = window.sessionStorage.getItem(
+        "trialRegistrationCredentials",
+      );
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setTrialCredentials(parsed);
+      }
+    } catch (error) {
+      console.warn("Failed to read stored trial credentials", error);
+    }
+  }, []);
 
   const isSettled = useCallback((transaction, raw) => {
     const candidates = [
@@ -472,6 +562,84 @@ function PaymentContent() {
       return;
     }
 
+    const activeEmail =
+      user?.email || pendingRegistration?.email || queryEmail || "";
+    const activeUserId =
+      user?.user_id || pendingRegistration?.user_id || "";
+
+    if (!activeEmail || !activeUserId) {
+      setError(
+        "Missing registrant information. Please restart registration or contact support.",
+      );
+      return;
+    }
+
+    if (selectedPlan === "TRIAL") {
+      if (!trialAgentDraft?.agentPayload) {
+        setError(
+          "We lost your trial configuration. Please restart from the template gallery.",
+        );
+        return;
+      }
+      if (!trialCredentials?.password) {
+        setError(
+          "Trial activation requires your registration credentials. Please restart the trial enrollment.",
+        );
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      setStatusError("");
+      setStatusState({
+        state: "processing",
+        message: "Activating your free trial…",
+      });
+
+      try {
+        const response = await fetch(
+          "https://n8n-new.chiefaiofficer.id/webhook/registerTrial",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              user_id: activeUserId,
+              email: activeEmail,
+              password: trialCredentials.password,
+              plan_code: "TRIAL",
+            }),
+          },
+        );
+
+        if (!response.ok) {
+          const detail = await response.text();
+          throw new Error(
+            detail || "Trial activation webhook returned an error.",
+          );
+        }
+
+        const data = await response.json().catch(() => ({}));
+        if (data?.access_token) {
+          apiService.setApiKey(data.access_token);
+        }
+        await finalizeSuccess(null, { planCode: "TRIAL", email: activeEmail });
+      } catch (error) {
+        console.error("Trial activation failed", error);
+        setError(
+          error?.message || "Failed to activate free trial. Please try again.",
+        );
+        setStatusState({
+          state: "error",
+          message: "Trial activation failed.",
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -481,16 +649,9 @@ function PaymentContent() {
         (plan) => plan.code === selectedPlan,
       );
 
-      const activeEmail = user?.email || pendingRegistration?.email || "";
-      const activeUserId = user?.user_id || pendingRegistration?.user_id || "";
-
-      if (!activeEmail || !activeUserId) {
-        throw new Error(
-          "Missing registrant information. Please restart registration or contact support.",
-        );
-      }
-
-      const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const uniqueSuffix = `${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 8)}`;
       setOrderSuffix(uniqueSuffix);
 
       const chargeValue = planDetails?.price || "0";
@@ -521,7 +682,9 @@ function PaymentContent() {
       setSuccessMessage(paymentMessage);
 
       const generatedOrderId =
-        webhookResponse?.order_id || webhookResponse?.data?.order_id || null;
+        webhookResponse?.order_id ||
+        webhookResponse?.data?.order_id ||
+        null;
       const transactionStatusRaw =
         webhookResponse?.transaction_status ||
         webhookResponse?.data?.transaction_status ||
