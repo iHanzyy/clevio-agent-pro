@@ -2,6 +2,9 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { Lock } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import templatesData from "@/data/agent-templates.json";
 import TemplateConfirmationDialog from "@/components/TemplateConfirmationDialog";
 
@@ -15,6 +18,23 @@ const CATEGORIES = [
   { id: "Research", label: "Research" },
 ];
 
+const TRIAL_TEMPLATE_LIMIT = 2;
+
+const UPGRADE_PLAN_OPTIONS = [
+  {
+    code: "PRO_M",
+    name: "Pro Monthly",
+    priceLabel: "Rp 100.000 / bulan",
+    description: "30 hari akses penuh ke semua konektor termasuk WhatsApp.",
+  },
+  {
+    code: "PRO_Y",
+    name: "Pro Yearly",
+    priceLabel: "Rp 1.000.000 / tahun",
+    description: "Hemat 17% untuk akses sepanjang tahun dan prioritas support.",
+  },
+];
+
 export default function AgentTemplatesView({
   heading = "Choose Agent Template",
   subheading = "Select a pre-configured template or start from scratch",
@@ -23,12 +43,34 @@ export default function AgentTemplatesView({
   onCreateFromScratch,
   allowCustomStart = true,
 }) {
+  const router = useRouter();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [error, setError] = useState(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [selectedUpgradePlan, setSelectedUpgradePlan] = useState("PRO_M");
+  const [upgradeProcessing, setUpgradeProcessing] = useState(false);
+
+  const isTrialPlanUser = useMemo(() => {
+    const plan =
+      user?.subscription?.plan_code || user?.subscription?.planCode || "";
+    return Boolean(
+      user?.is_trial ||
+        (typeof plan === "string" && plan.toLowerCase() === "trial"),
+    );
+  }, [user?.is_trial, user?.subscription?.planCode, user?.subscription?.plan_code]);
+
+  const trialAllowedTemplates = useMemo(() => {
+    return new Set(
+      templatesData
+        .slice(0, TRIAL_TEMPLATE_LIMIT)
+        .map((template) => template.id),
+    );
+  }, []);
 
   const filteredTemplates = useMemo(() => {
     let filtered = templatesData;
@@ -56,7 +98,21 @@ export default function AgentTemplatesView({
     return templatesData.filter((t) => t.category === selectedCategory).length;
   }, [selectedCategory]);
 
+  const isTemplateLocked = (templateId) =>
+    isTrialPlanUser && !trialAllowedTemplates.has(templateId);
+
+  const handleLockedClick = () => {
+    if (!isTrialPlanUser) {
+      return;
+    }
+    setShowUpgradeModal(true);
+  };
+
   const handleUseTemplate = (template) => {
+    if (isTemplateLocked(template.id)) {
+      handleLockedClick();
+      return;
+    }
     setSelectedTemplate(template);
     setShowConfirmDialog(true);
     setError(null);
@@ -92,7 +148,39 @@ export default function AgentTemplatesView({
   };
 
   const handleCreateFromScratch = () => {
+    if (isTrialPlanUser) {
+      handleLockedClick();
+      return;
+    }
     onCreateFromScratch?.();
+  };
+
+  const closeUpgradeModal = () => {
+    setShowUpgradeModal(false);
+    setUpgradeProcessing(false);
+  };
+
+  const handleUpgradeRedirect = () => {
+    if (!selectedUpgradePlan) {
+      return;
+    }
+    setUpgradeProcessing(true);
+    try {
+      const params = new URLSearchParams({
+        plan: selectedUpgradePlan,
+        source: "template-lock",
+      });
+      if (user?.email) {
+        params.set("email", user.email);
+      }
+      if (user?.user_id) {
+        params.set("user_id", user.user_id);
+      }
+      router.push(`/payment?${params.toString()}`);
+    } finally {
+      setUpgradeProcessing(false);
+      setShowUpgradeModal(false);
+    }
   };
 
   return (
@@ -109,9 +197,14 @@ export default function AgentTemplatesView({
             {allowCustomStart && (
               <button
                 onClick={handleCreateFromScratch}
-                className="rounded-xl bg-accent px-6 py-3 text-sm font-medium text-white shadow-lg shadow-accent/25 transition-all hover:bg-accent/90 hover:shadow-accent/40"
+                disabled={isTrialPlanUser}
+                className={`rounded-xl px-6 py-3 text-sm font-medium shadow-lg transition-all ${
+                  isTrialPlanUser
+                    ? "cursor-not-allowed bg-surface-strong/60 text-muted"
+                    : "bg-accent text-white shadow-accent/25 hover:bg-accent/90 hover:shadow-accent/40"
+                }`}
               >
-                {actionLabel}
+                {isTrialPlanUser ? "Upgrade to customize" : actionLabel}
               </button>
             )}
           </div>
@@ -206,53 +299,78 @@ export default function AgentTemplatesView({
         </div>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredTemplates.map((template) => (
-            <div
-              key={template.id}
-              className="rounded-2xl border border-surface-strong/60 bg-surface p-5 shadow-sm transition hover:border-accent/60 hover:shadow-lg"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted">
-                    {template.category}
-                  </p>
-                  <h3 className="mt-2 text-xl font-semibold text-foreground">
-                    {template.name}
-                  </h3>
-                </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
-                  <Image
-                    src="/icons/agent-template.svg"
-                    alt=""
-                    width={24}
-                    height={24}
-                    className="h-5 w-5"
-                  />
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-muted">{template.description}</p>
-              <div className="mt-6 flex items-center justify-between">
-                <button
-                  onClick={() => handleUseTemplate(template)}
-                  className="text-sm font-semibold text-accent hover:text-accent-hover"
-                >
-                  Use template →
-                </button>
-                {Array.isArray(template.tags) && template.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {template.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-surface-strong/40 px-2 py-0.5 text-xs text-muted"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
+          {filteredTemplates.map((template) => {
+            const locked = isTemplateLocked(template.id);
+            return (
+              <div
+                key={template.id}
+                className="relative rounded-2xl border border-surface-strong/60 bg-surface p-5 shadow-sm transition hover:border-accent/60 hover:shadow-lg"
+              >
+                {locked && (
+                  <button
+                    type="button"
+                    onClick={handleLockedClick}
+                    className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-black/60 text-center text-white backdrop-blur-sm transition hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    <Lock className="mb-2 h-5 w-5 text-accent" />
+                    <span className="text-sm font-semibold">
+                      Trial limit reached
+                    </span>
+                    <span className="text-xs text-white/80">
+                      Upgrade to unlock all templates
+                    </span>
+                  </button>
                 )}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted">
+                      {template.category}
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-foreground">
+                      {template.name}
+                    </h3>
+                  </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+                    <Image
+                      src="/icons/agent-template.svg"
+                      alt=""
+                      width={24}
+                      height={24}
+                      className="h-5 w-5"
+                    />
+                  </div>
+                </div>
+                <p className="mt-4 text-sm text-muted">
+                  {template.description}
+                </p>
+                <div className="mt-6 flex items-center justify-between">
+                  <button
+                    onClick={() => handleUseTemplate(template)}
+                    disabled={locked}
+                    className={`text-sm font-semibold ${
+                      locked
+                        ? "cursor-not-allowed text-muted"
+                        : "text-accent hover:text-accent-hover"
+                    }`}
+                  >
+                    {locked ? "Locked" : "Use template →"}
+                  </button>
+                  {Array.isArray(template.tags) && template.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {template.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full bg-surface-strong/40 px-2 py-0.5 text-xs text-muted"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredTemplates.length === 0 && (
@@ -274,6 +392,76 @@ export default function AgentTemplatesView({
         onCancel={handleCancelDialog}
         isLoading={isLoading}
       />
+
+      {isTrialPlanUser && showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={closeUpgradeModal}
+              className="absolute right-4 top-4 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/70"
+            >
+              Close
+            </button>
+            <div className="space-y-3">
+              <h3 className="text-xl font-semibold text-foreground">
+                Upgrade required
+              </h3>
+              <p className="text-sm text-muted">
+                Trial plan hanya membuka 2 template pertama. Upgrade untuk
+                memakai semua template dan fitur customize agent.
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {UPGRADE_PLAN_OPTIONS.map((plan) => {
+                  const isActive = selectedUpgradePlan === plan.code;
+                  return (
+                    <button
+                      type="button"
+                      key={plan.code}
+                      onClick={() => setSelectedUpgradePlan(plan.code)}
+                      className={`rounded-2xl border p-4 text-left transition ${isActive ? "border-accent bg-accent/5 shadow-lg" : "border-surface-strong/60 hover:border-accent/60"}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-semibold text-foreground">
+                          {plan.name}
+                        </span>
+                        {isActive && (
+                          <span className="text-xs font-semibold text-accent">
+                            Selected
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm font-medium text-foreground">
+                        {plan.priceLabel}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        {plan.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeUpgradeModal}
+                  className="rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-semibold text-muted hover:bg-surface"
+                >
+                  Maybe later
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpgradeRedirect}
+                  disabled={upgradeProcessing}
+                  className="inline-flex items-center rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent-hover disabled:opacity-60"
+                >
+                  {upgradeProcessing ? "Redirecting..." : "Continue to payment"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
