@@ -18,12 +18,17 @@ import {
   Instagram,
   LayoutTemplate,
   Linkedin,
+  Maximize2,
   Menu,
   MessageSquare,
+  Pause,
+  Play,
   QrCode,
   Shield,
   Sparkles,
   Twitter,
+  Volume2,
+  VolumeX,
   X,
   Zap,
 } from "lucide-react";
@@ -105,6 +110,13 @@ const STAGGER_CONTAINER_VARIANTS = {
   },
 };
 
+const PRODUCT_VIDEO_SOURCE = {
+  src: "https://storage.googleapis.com/coverr-main/mp4/Mt_Baker.mp4",
+  poster:
+    "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1920&q=80",
+  durationLabel: "02:03",
+};
+
 const translations = {
   hero_tagline: {
     en: "WhatsApp-ready automation for Indonesian SMEs",
@@ -178,33 +190,49 @@ const translations = {
     en: "Choose from pre-built agent templates for sales, support, and operations. Customize them to fit your business and launch instantly.",
     id: "Pilih dari template agen yang sudah jadi untuk penjualan, dukungan, dan operasi. Sesuaikan dengan bisnis Anda dan luncurkan secara instan.",
   },
-  how_it_works_title: {
-    en: "How It Works",
-    id: "Cara Kerjanya",
+  product_video_badge: {
+    en: "Product preview",
+    id: "Pratinjau produk",
   },
-  step_1_title: {
-    en: "Create Your Agent",
-    id: "Buat Agen Anda",
+  product_video_title: {
+    en: "See Clevio AI in Action",
+    id: "Lihat Clevio AI Beraksi",
   },
-  step_1_desc: {
-    en: "Use our builder or pick a template to design your AI agent in minutes.",
-    id: "Gunakan pembuat kami atau pilih template untuk merancang agen AI Anda dalam hitungan menit.",
+  product_video_subtitle: {
+    en: "Explore the redesigned experience for launching WhatsApp-ready AI agents.",
+    id: "Jelajahi pengalaman baru untuk meluncurkan agen AI siap WhatsApp.",
   },
-  step_2_title: {
-    en: "Connect WhatsApp via QR",
-    id: "Hubungkan WhatsApp via QR",
+  product_video_overlay_title: {
+    en: "Clevio AI",
+    id: "Clevio AI",
   },
-  step_2_desc: {
-    en: "Scan the QR code to link your WhatsApp account—no API keys needed.",
-    id: "Pindai kode QR untuk menghubungkan akun WhatsApp Anda—tidak perlu kunci API.",
+  product_video_overlay_subtitle: {
+    en: "Coding & Design",
+    id: "Coding & Design",
   },
-  step_3_title: {
-    en: "Launch and Iterate",
-    id: "Luncurkan dan Iterasi",
+  product_video_play: {
+    en: "Play product demo",
+    id: "Putar demo produk",
   },
-  step_3_desc: {
-    en: "Go live instantly. Monitor performance and refine your agent as you grow.",
-    id: "Langsung aktif. Pantau kinerja dan sempurnakan agen Anda seiring pertumbuhan.",
+  product_video_pause: {
+    en: "Pause demo",
+    id: "Jeda demo",
+  },
+  product_video_caption: {
+    en: "Captured inside the WhatsApp agent workspace. Replace this video anytime.",
+    id: "Diambil di workspace agen WhatsApp. Ganti video ini kapan pun.",
+  },
+  product_video_mute: {
+    en: "Mute video",
+    id: "Bisukan video",
+  },
+  product_video_unmute: {
+    en: "Unmute video",
+    id: "Aktifkan suara video",
+  },
+  product_video_fullscreen: {
+    en: "Toggle fullscreen",
+    id: "Alihkan layar penuh",
   },
   integrations_title: {
     en: "Seamless WhatsApp Integration",
@@ -490,6 +518,11 @@ export default function ClevioLandingPage() {
   const [trialLoading, setTrialLoading] = useState(false);
   const [trialError, setTrialError] = useState("");
   const [publicIp, setPublicIp] = useState(null);
+  const productVideoRef = useRef(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [videoTime, setVideoTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [isVideoMuted, setIsVideoMuted] = useState(false);
   const prefersReducedMotion = useReducedMotion();
   const canAnimate = !prefersReducedMotion;
 
@@ -497,6 +530,79 @@ export default function ClevioLandingPage() {
     (key) => translations[key]?.[language] ?? key,
     [language]
   );
+
+  const formatVideoTime = useCallback((seconds) => {
+    if (!Number.isFinite(seconds)) {
+      return "00:00";
+    }
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }, []);
+
+  const handleVideoTimeUpdate = useCallback(() => {
+    const media = productVideoRef.current;
+    if (!media) return;
+    setVideoTime(media.currentTime);
+    if (Number.isFinite(media.duration)) {
+      setVideoDuration(media.duration);
+    }
+  }, []);
+
+  const toggleVideoPlayback = useCallback(() => {
+    const media = productVideoRef.current;
+    if (!media) return;
+    if (media.paused) {
+      media.play().catch(() => {});
+    } else {
+      media.pause();
+    }
+  }, []);
+
+  const handleVideoEnded = useCallback(() => {
+    setIsVideoPlaying(false);
+    setVideoTime(0);
+  }, []);
+
+  const handleProgressClick = useCallback((event) => {
+    const media = productVideoRef.current;
+    if (!media || !Number.isFinite(media.duration)) {
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const ratio = Math.min(Math.max(clickX / rect.width, 0), 1);
+    media.currentTime = ratio * media.duration;
+    setVideoTime(media.currentTime);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const media = productVideoRef.current;
+    if (!media) return;
+    const nextMuted = !isVideoMuted;
+    media.muted = nextMuted;
+    setIsVideoMuted(nextMuted);
+  }, [isVideoMuted]);
+
+  const handleFullscreen = useCallback(() => {
+    const media = productVideoRef.current;
+    if (!media || typeof document === "undefined") {
+      return;
+    }
+    if (document.fullscreenElement) {
+      document.exitFullscreen?.();
+      return;
+    }
+    media.requestFullscreen?.();
+  }, []);
+
+  const videoProgress = videoDuration
+    ? Math.min((videoTime / videoDuration) * 100, 100)
+    : 0;
+  const displayedCurrentTime = formatVideoTime(videoTime);
+  const displayedDuration = videoDuration
+    ? formatVideoTime(videoDuration)
+    : PRODUCT_VIDEO_SOURCE.durationLabel ?? "00:00";
 
   const socialLinks = useMemo(
     () => [
@@ -525,15 +631,6 @@ export default function ClevioLandingPage() {
         titleKey: "feature_3_title",
         descriptionKey: "feature_3_desc",
       },
-    ],
-    []
-  );
-
-  const howItWorksSteps = useMemo(
-    () => [
-      { step: 1, titleKey: "step_1_title", descriptionKey: "step_1_desc" },
-      { step: 2, titleKey: "step_2_title", descriptionKey: "step_2_desc" },
-      { step: 3, titleKey: "step_3_title", descriptionKey: "step_3_desc" },
     ],
     []
   );
@@ -873,36 +970,123 @@ export default function ClevioLandingPage() {
         <motion.section
           {...sectionMotion}
           variants={STAGGER_CONTAINER_VARIANTS}
-          className="container mx-auto px-4 pb-20"
+          className="relative overflow-hidden bg-[#050505] py-20"
         >
-          <motion.div
-            variants={FADE_UP_VARIANTS}
-            className="mx-auto max-w-xl text-center"
-          >
-            <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-              {t("how_it_works_title")}
-            </h2>
-          </motion.div>
+          <div className="container mx-auto px-4">
+            <motion.div
+              variants={FADE_UP_VARIANTS}
+              className="mx-auto max-w-3xl text-center text-white"
+            >
+              <span className="inline-flex items-center justify-center rounded-full border border-white/20 bg-white/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-white/80">
+                {t("product_video_badge")}
+              </span>
+              <h2 className="mt-6 text-4xl font-bold sm:text-5xl">
+                {t("product_video_title")}
+              </h2>
+              <p className="mt-4 text-lg text-white/70">
+                {t("product_video_subtitle")}
+              </p>
+            </motion.div>
 
-          <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
-            {howItWorksSteps.map(({ step, titleKey, descriptionKey }) => (
-              <MotionCard
-                key={titleKey}
-                variants={FADE_UP_VARIANTS}
-                {...cardMotionProps}
-                className="flex h-full flex-col items-center border-border/60 bg-card/95 p-8 text-center hover:border-accent/60"
-              >
-                <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground text-2xl font-semibold shadow-lg shadow-primary/40">
-                  {step}
-                </span>
-                <h3 className="mt-5 text-xl font-semibold text-foreground">
-                  {t(titleKey)}
-                </h3>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  {t(descriptionKey)}
-                </p>
-              </MotionCard>
-            ))}
+            <motion.div
+              variants={FADE_UP_VARIANTS}
+              className="mx-auto mt-12 max-w-5xl"
+            >
+              <div className="rounded-[42px] bg-gradient-to-br from-white/15 via-white/5 to-transparent p-1 shadow-[0_30px_120px_rgba(0,0,0,0.45)]">
+                <div className="relative overflow-hidden rounded-[36px] border border-white/10 bg-black">
+                  <video
+                    ref={productVideoRef}
+                    src={PRODUCT_VIDEO_SOURCE.src}
+                    poster={PRODUCT_VIDEO_SOURCE.poster}
+                    className="block h-full w-full object-cover"
+                    muted={isVideoMuted}
+                    playsInline
+                    preload="metadata"
+                    onPlay={() => setIsVideoPlaying(true)}
+                    onPause={() => setIsVideoPlaying(false)}
+                    onEnded={handleVideoEnded}
+                    onTimeUpdate={handleVideoTimeUpdate}
+                    onLoadedMetadata={handleVideoTimeUpdate}
+                  />
+
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 text-center text-white mix-blend-screen">
+                    <p className="text-4xl font-semibold tracking-tight sm:text-6xl">
+                      {t("product_video_overlay_title")}
+                    </p>
+                    <p className="text-2xl font-semibold text-white/80 sm:text-4xl">
+                      {t("product_video_overlay_subtitle")}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleVideoPlayback}
+                    aria-pressed={isVideoPlaying}
+                    className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-white/10 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    {isVideoPlaying ? (
+                      <Pause className="h-7 w-7" />
+                    ) : (
+                      <Play className="h-7 w-7 translate-x-0.5" />
+                    )}
+                    <span className="sr-only">
+                      {isVideoPlaying
+                        ? t("product_video_pause")
+                        : t("product_video_play")}
+                    </span>
+                  </button>
+
+                  <div className="absolute inset-x-6 bottom-6 flex flex-wrap items-center gap-4 text-white/80">
+                    <div
+                      className="relative flex-1 cursor-pointer rounded-full bg-white/20 p-0.5"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={Math.round(videoProgress)}
+                      onClick={handleProgressClick}
+                    >
+                      <span
+                        className="block h-1 rounded-full bg-white"
+                        style={{ width: `${videoProgress}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-white/80">
+                      {displayedCurrentTime} | {displayedDuration}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleMute}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                        aria-pressed={isVideoMuted}
+                      >
+                        {isVideoMuted ? (
+                          <VolumeX className="h-4 w-4" />
+                        ) : (
+                          <Volume2 className="h-4 w-4" />
+                        )}
+                        <span className="sr-only">
+                          {isVideoMuted
+                            ? t("product_video_unmute")
+                            : t("product_video_mute")}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleFullscreen}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                        aria-label={t("product_video_fullscreen")}
+                      >
+                        <Maximize2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="mt-6 text-center text-sm text-white/60">
+                {t("product_video_caption")}
+              </p>
+            </motion.div>
           </div>
         </motion.section>
 
