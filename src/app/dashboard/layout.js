@@ -113,11 +113,23 @@ export default function DashboardLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-foreground">Loading...</h2>
-          <p className="mt-4 text-muted">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-background via-surface to-background flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="flex flex-col items-center gap-4 rounded-3xl border border-surface-strong/30 bg-surface/80 px-10 py-8 shadow-2xl backdrop-blur"
+        >
+          <div className="w-16 h-16 rounded-full border-4 border-accent/30 border-t-accent animate-spin" />
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-foreground">
+              Preparing your dashboard
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Fetching the latest workspace data…
+            </p>
+          </div>
+        </motion.div>
       </div>
     );
   }
