@@ -3,21 +3,9 @@
 import { ArrowLeft, Clock, Rocket } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-const COUNTDOWN_TARGET_MS = 30 * 24 * 60 * 60 * 1000;
-
-const formatTime = (value) => value.toString().padStart(2, '0');
-
 export default function ComingSoon() {
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
-  const [timeLeft, setTimeLeft] = useState({
-    days: '00',
-    hours: '00',
-    minutes: '00',
-    seconds: '00',
-  });
   const [particles, setParticles] = useState([]);
-
-  const countdownTarget = useMemo(() => Date.now() + COUNTDOWN_TARGET_MS, []);
 
   useEffect(() => {
     setParticles(
@@ -31,27 +19,6 @@ export default function ComingSoon() {
       })),
     );
   }, []);
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      const diff = Math.max(countdownTarget - Date.now(), 0);
-      const days = Math.floor(diff / (24 * 60 * 60 * 1000));
-      const hours = Math.floor((diff / (60 * 60 * 1000)) % 24);
-      const minutes = Math.floor((diff / (60 * 1000)) % 60);
-      const seconds = Math.floor((diff / 1000) % 60);
-
-      setTimeLeft({
-        days: formatTime(days),
-        hours: formatTime(hours),
-        minutes: formatTime(minutes),
-        seconds: formatTime(seconds),
-      });
-    };
-
-    updateCountdown();
-    const interval = window.setInterval(updateCountdown, 1000);
-    return () => window.clearInterval(interval);
-  }, [countdownTarget]);
 
   useEffect(() => {
     let rafId;
@@ -91,13 +58,6 @@ export default function ComingSoon() {
     ],
     [],
   );
-
-  const countdownBlocks = [
-    { label: 'Days', value: timeLeft.days },
-    { label: 'Hours', value: timeLeft.hours },
-    { label: 'Minutes', value: timeLeft.minutes },
-    { label: 'Seconds', value: timeLeft.seconds },
-  ];
 
   const handleGoBack = () => {
     if (typeof window !== 'undefined') {
@@ -152,18 +112,6 @@ export default function ComingSoon() {
             We&apos;re working hard to bring you something amazing! This feature is currently under development and will
             be available soon.
           </p>
-        </div>
-
-        <div className="grid w-full max-w-3xl grid-cols-4 gap-3">
-          {countdownBlocks.map((block) => (
-            <div
-              key={block.label}
-              className="flex flex-col items-center rounded-2xl border border-gray-700 bg-gray-800/50 p-4 backdrop-blur transition duration-300 hover:border-green-500/80"
-            >
-              <span className="text-4xl font-bold tracking-wide">{block.value}</span>
-              <span className="text-xs uppercase tracking-[0.3em] text-gray-400">{block.label}</span>
-            </div>
-          ))}
         </div>
 
         <div className="w-full max-w-3xl space-y-2 text-left">
