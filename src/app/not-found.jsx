@@ -107,12 +107,18 @@ export default function NotFoundPage() {
         </div>
 
         <div className="flex flex-col gap-4 sm:flex-row">
-          <Link href="/" className="btn-primary">
-            <Home className="h-5 w-5" />
+          <Link
+            href="/"
+            className="group inline-flex items-center justify-center gap-3 rounded-xl border border-white/80 bg-white px-7 py-3 text-base font-medium text-slate-900 shadow-[0_14px_34px_rgba(59,130,246,0.22)] transition duration-200 hover:scale-105 hover:bg-gradient-to-r hover:from-sky-500 hover:to-fuchsia-500 hover:text-white hover:shadow-[0_18px_38px_rgba(99,102,241,0.45)]"
+          >
+            <Home className="h-5 w-5 transition-colors duration-200 group-hover:text-white" />
             <span>Go Home</span>
           </Link>
-          <Link href="/dashboard" className="btn-outline">
-            <Compass className="h-5 w-5" />
+          <Link
+            href="/dashboard"
+            className="group inline-flex items-center justify-center gap-3 rounded-xl border border-slate-500/60 bg-white/5 px-7 py-3 text-base font-medium text-slate-200 backdrop-blur transition duration-200 hover:scale-105 hover:border-sky-400/80 hover:bg-sky-500/10 hover:text-white hover:shadow-[0_14px_34px_rgba(56,189,248,0.28)]"
+          >
+            <Compass className="h-5 w-5 transition-transform duration-500 group-hover:-rotate-90" />
             <span>Explore</span>
           </Link>
         </div>
@@ -160,60 +166,6 @@ export default function NotFoundPage() {
         .glitch-text::after {
           transform: translate3d(3px, 3px, 0);
           mix-blend-mode: lighten;
-        }
-
-        .btn-primary,
-        .btn-outline {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          padding: 0.875rem 2rem;
-          border-radius: 0.5rem;
-          font-weight: 500;
-          font-size: 1rem;
-          transition: all 0.3s ease;
-          text-decoration: none;
-          position: relative;
-        }
-
-        .btn-primary {
-          background-color: #ffffff;
-          color: #000000;
-          border: none;
-          box-shadow: 0 4px 14px rgba(255, 255, 255, 0.15);
-        }
-
-        .btn-primary:hover {
-          transform: scale(1.05);
-          box-shadow: 0 8px 24px rgba(59, 130, 246, 0.5);
-          background: linear-gradient(
-            to right,
-            rgb(59, 130, 246),
-            rgb(168, 85, 247)
-          );
-          color: #ffffff;
-        }
-
-        .btn-outline {
-          background-color: transparent;
-          color: #ffffff;
-          border: 2px solid #374151;
-        }
-
-        .btn-outline:hover {
-          transform: scale(1.05);
-          border-color: #3b82f6;
-          box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
-          background-color: rgba(59, 130, 246, 0.1);
-        }
-
-        .btn-outline :global(.lucide) {
-          transition: transform 0.5s ease;
-        }
-
-        .btn-outline:hover :global(.lucide) {
-          transform: rotate(180deg);
         }
 
         .particle {

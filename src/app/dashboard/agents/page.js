@@ -23,7 +23,7 @@ const formatTimestamp = (value) => {
   return date.toLocaleString();
 };
 
-const WHATSAPP_QR_PREPARATION_SECONDS = 30;
+const WHATSAPP_QR_PREPARATION_SECONDS = 1;
 const WHATSAPP_QR_EXPIRY_SECONDS = 60;
 
 export default function AgentsPage() {
