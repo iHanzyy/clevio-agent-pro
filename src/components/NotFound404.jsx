@@ -137,11 +137,11 @@ export default function NotFoundPage() {
         .glitch-text {
           position: relative;
           display: inline-block;
-          color: white;
-          background-image: none;
+          color: transparent;
+          background-image: linear-gradient(120deg, #38bdf8, #a855f7, #ec4899);
           background-clip: text;
           -webkit-background-clip: text;
-          filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.5));
+          filter: drop-shadow(0 0 16px rgba(79, 70, 229, 0.75));
           animation: pulse 2.5s ease-in-out infinite;
         }
 
@@ -150,10 +150,10 @@ export default function NotFoundPage() {
           content: "404";
           position: absolute;
           inset: 0;
-          background-image: none;
+          background-image: inherit;
           background-clip: text;
           -webkit-background-clip: text;
-          color: white;
+          color: transparent;
           opacity: 0.7;
           animation: glitch 2s infinite;
         }
