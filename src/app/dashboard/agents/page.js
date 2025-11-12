@@ -79,7 +79,7 @@ export default function AgentsPage() {
       qrFlowAbortRef.current = null;
     }
     if (qrPreparationTimerRef.current) {
-      clearInterval(qrPreparationTimerRef.current);
+      clearTimeout(qrPreparationTimerRef.current);
       qrPreparationTimerRef.current = null;
     }
     setQrPreview(null);
@@ -98,7 +98,6 @@ export default function AgentsPage() {
         qrUpdatedAt: meta.qrUpdatedAt || null,
         traceId: meta.traceId || null,
         loading: meta.loading ?? !qrValue,
-        countdown: meta.countdown ?? null,
       });
     },
     [],
@@ -182,7 +181,7 @@ export default function AgentsPage() {
         qrFlowAbortRef.current = null;
       }
       if (qrPreparationTimerRef.current) {
-        clearInterval(qrPreparationTimerRef.current);
+        clearTimeout(qrPreparationTimerRef.current);
         qrPreparationTimerRef.current = null;
       }
     };
@@ -272,10 +271,7 @@ export default function AgentsPage() {
       });
       setWhatsAppLoadingMap((prev) => ({
         ...prev,
-        [agent.id]: {
-          loading: true,
-          countdown: WHATSAPP_QR_PREPARATION_SECONDS,
-        },
+        [agent.id]: true,
       }));
 
       if (qrFlowAbortRef.current) {
@@ -296,55 +292,44 @@ export default function AgentsPage() {
 
       const clearPreparationTimer = () => {
         if (qrPreparationTimerRef.current) {
-          clearInterval(qrPreparationTimerRef.current);
+          clearTimeout(qrPreparationTimerRef.current);
           qrPreparationTimerRef.current = null;
         }
       };
 
-      const updateCountdown = (value) => {
-        setWhatsAppLoadingMap((prev) => ({
-          ...prev,
-          [agent.id]: { loading: true, countdown: value },
-        }));
-        setQrPreview((prev) =>
-          prev && prev.agentId === agent.id
-            ? { ...prev, countdown: value }
-            : prev
-        );
-      };
-
-      const runPreparationCountdown = () =>
+      const waitForQrPreparation = () =>
         new Promise((resolve, reject) => {
-          let remaining = WHATSAPP_QR_PREPARATION_SECONDS;
-          updateCountdown(remaining);
-
-          if (remaining <= 0) {
-            updateCountdown(null);
+          if (WHATSAPP_QR_PREPARATION_SECONDS <= 0) {
             resolve();
             return;
           }
 
-          const tick = () => {
-            if (flowAbortController.signal.aborted) {
-              clearPreparationTimer();
-              reject(createAbortError());
-              return;
-            }
-            remaining -= 1;
-            updateCountdown(Math.max(remaining, 0));
-            if (remaining <= 0) {
-              clearPreparationTimer();
-              updateCountdown(null);
-              resolve();
+          const abortSignal = flowAbortController.signal;
+          let abortHandler;
+
+          const cleanup = () => {
+            clearPreparationTimer();
+            if (abortHandler) {
+              abortSignal.removeEventListener("abort", abortHandler);
+              abortHandler = null;
             }
           };
 
-          qrPreparationTimerRef.current = setInterval(tick, 1000);
+          abortHandler = () => {
+            cleanup();
+            reject(createAbortError());
+          };
+
+          abortSignal.addEventListener("abort", abortHandler);
+
+          qrPreparationTimerRef.current = setTimeout(() => {
+            cleanup();
+            resolve();
+          }, WHATSAPP_QR_PREPARATION_SECONDS * 1000);
         });
 
       openQrPreview(agent.id, agent.name, null, {
         loading: true,
-        countdown: WHATSAPP_QR_PREPARATION_SECONDS,
       });
 
       try {
@@ -360,7 +345,7 @@ export default function AgentsPage() {
           apiKey,
         });
 
-        await runPreparationCountdown();
+        await waitForQrPreparation();
 
         const session = await apiService.fetchWhatsAppQr(agent.id);
         const sessionQrValue = resolveSessionQrImage(session);
@@ -508,12 +493,7 @@ export default function AgentsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           {agents.map((agent) => {
             const sessionInfo = whatsAppSessions[agent.id] || null;
-            const loadingEntry = whatsAppLoadingMap[agent.id];
-            const sessionLoading = Boolean(loadingEntry);
-            const sessionLoadingCountdown =
-              typeof loadingEntry === "object"
-                ? loadingEntry.countdown ?? null
-                : null;
+            const sessionLoading = Boolean(whatsAppLoadingMap[agent.id]);
             const refreshLoading = Boolean(whatsAppRefreshMap[agent.id]);
             const checkingStatus = sessionLoading || refreshLoading;
             const sessionError = whatsAppErrors[agent.id];
@@ -614,9 +594,7 @@ export default function AgentsPage() {
                       className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-[#128c7e] focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent cursor-pointer"
                     >
                       {sessionLoading
-                        ? sessionLoadingCountdown
-                          ? `Preparing QR (${sessionLoadingCountdown}s)`
-                          : "Requesting..."
+                        ? "Loading QR..."
                         : sessionInfo?.isActive
                         ? "Re-link WhatsApp"
                         : "Connect WhatsApp"}
@@ -676,11 +654,10 @@ export default function AgentsPage() {
             )}
             <div className="mt-4 space-y-3">
               {qrPreview.loading ? (
-                <div className="space-y-1">
+                <div className="space-y-3">
+                  <div className="mx-auto h-10 w-10 rounded-full border-2 border-accent/40 border-t-transparent animate-spin"></div>
                   <p className="text-sm text-muted">
-                    {typeof qrPreview.countdown === "number"
-                      ? `Preparing WhatsApp QR… ${qrPreview.countdown}s remaining.`
-                      : "Waiting for WhatsApp QR response…"}
+                    Waiting for WhatsApp QR response…
                   </p>
                   <p className="text-xs text-muted">
                     Keep this window open until the QR appears.
