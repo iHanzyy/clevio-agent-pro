@@ -207,6 +207,15 @@ export const getWhatsAppSessionRecord = (agentId) => {
   return store.get(normalizeAgentId(agentId)) || null;
 };
 
+export const deleteWhatsAppSessionRecord = (agentId) => {
+  const store = ensureStore();
+  const normalizedId = normalizeAgentId(agentId);
+  if (!normalizedId) {
+    return false;
+  }
+  return store.delete(normalizedId);
+};
+
 export const listWhatsAppSessionRecords = () => {
   const store = ensureStore();
   return Array.from(store.values());

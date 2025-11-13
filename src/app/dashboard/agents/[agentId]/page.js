@@ -126,6 +126,8 @@ export default function AgentDetailPage() {
   const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
     EMPTY_WHATSAPP_SESSION
   );
+  const [whatsAppDeleting, setWhatsAppDeleting] = useState(false);
+  const [whatsAppReconnecting, setWhatsAppReconnecting] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState("PRO_M");
   const [upgradeProcessing, setUpgradeProcessing] = useState(false);
@@ -136,6 +138,7 @@ export default function AgentDetailPage() {
   const qrFlowAbortRef = useRef(null);
   const qrPreparationTimerRef = useRef(null);
   const qrExpiryTimerRef = useRef(null);
+  const qrStatusPollRef = useRef(null);
 
   const queryAuthUrl = searchParams?.get("authUrl") || null;
   const queryAuthState = searchParams?.get("authState") || null;
@@ -181,6 +184,10 @@ export default function AgentDetailPage() {
     if (qrExpiryTimerRef.current) {
       clearInterval(qrExpiryTimerRef.current);
       qrExpiryTimerRef.current = null;
+    }
+    if (qrStatusPollRef.current) {
+      clearInterval(qrStatusPollRef.current);
+      qrStatusPollRef.current = null;
     }
     setShowWhatsAppQr(false);
     setWhatsAppQr(null);
@@ -697,6 +704,48 @@ export default function AgentDetailPage() {
     }
   }, [agent?.id, showWhatsAppQr]);
 
+  useEffect(() => {
+    if (!showWhatsAppQr) {
+      if (qrStatusPollRef.current) {
+        clearInterval(qrStatusPollRef.current);
+        qrStatusPollRef.current = null;
+      }
+      return;
+    }
+
+    const pollWhatsAppStatus = () => {
+      refreshWhatsAppSession();
+    };
+
+    pollWhatsAppStatus();
+    const intervalId = setInterval(pollWhatsAppStatus, 3000);
+    qrStatusPollRef.current = intervalId;
+
+    return () => {
+      clearInterval(intervalId);
+      if (qrStatusPollRef.current === intervalId) {
+        qrStatusPollRef.current = null;
+      }
+    };
+  }, [showWhatsAppQr, refreshWhatsAppSession]);
+
+  useEffect(() => {
+    if (
+      showWhatsAppQr &&
+      whatsAppSessionInfo.isActive &&
+      !whatsAppQrUserClosedRef.current
+    ) {
+      const timer = setTimeout(() => {
+        closeWhatsAppQrPreview();
+      }, 1200);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    showWhatsAppQr,
+    whatsAppSessionInfo.isActive,
+    closeWhatsAppQrPreview,
+  ]);
+
   // ✅ handleWhatsAppQr tetap di bawah
   const handleWhatsAppQr = async () => {
     if (!agent) {
@@ -816,6 +865,60 @@ export default function AgentDetailPage() {
       }
     }
   };
+
+  const handleWhatsAppReconnect = useCallback(async () => {
+    if (!agent?.id) {
+      return;
+    }
+    if (isTrialPlan) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    setWhatsAppError("");
+    setWhatsAppReconnecting(true);
+    try {
+      const session = await apiService.reconnectWhatsAppSession(agent.id);
+      setWhatsAppSessionInfo(session || EMPTY_WHATSAPP_SESSION);
+
+      const qr = resolveSessionQrImage(session);
+      if (qr) {
+        whatsAppQrUserClosedRef.current = false;
+        setShowWhatsAppQr(true);
+        setWhatsAppQr(qr);
+        setWhatsAppQrCountdown(WHATSAPP_QR_EXPIRY_SECONDS);
+      }
+
+      await refreshWhatsAppSession();
+    } catch (error) {
+      setWhatsAppError(
+        error?.message || "Unable to reconnect WhatsApp session right now."
+      );
+    } finally {
+      setWhatsAppReconnecting(false);
+    }
+  }, [agent?.id, isTrialPlan, refreshWhatsAppSession]);
+
+  const handleWhatsAppDelete = useCallback(async () => {
+    if (!agent?.id) {
+      return;
+    }
+
+    setWhatsAppError("");
+    setWhatsAppDeleting(true);
+    try {
+      await apiService.deleteWhatsAppSession(agent.id);
+      closeWhatsAppQrPreview();
+      setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
+      await refreshWhatsAppSession();
+    } catch (error) {
+      setWhatsAppError(
+        error?.message || "Unable to delete WhatsApp session right now."
+      );
+    } finally {
+      setWhatsAppDeleting(false);
+    }
+  }, [agent?.id, closeWhatsAppQrPreview, refreshWhatsAppSession]);
 
   // ❌ HAPUS definisi refreshWhatsAppSession yang lama (sekitar line 549)
   // const refreshWhatsAppSession = useCallback(async () => { ... }, [agent?.id, showWhatsAppQr]);
@@ -1300,7 +1403,7 @@ export default function AgentDetailPage() {
             <button
               type="button"
               onClick={handleWhatsAppQr}
-              disabled={whatsAppLoading}
+              disabled={whatsAppLoading || whatsAppDeleting || whatsAppReconnecting}
               className="inline-flex items-center px-4 py-2 rounded-lg bg-[#25D366] hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60 cursor-pointer"
             >
               {whatsAppLoading
@@ -1312,12 +1415,42 @@ export default function AgentDetailPage() {
             <button
               type="button"
               onClick={refreshWhatsAppSession}
-              disabled={whatsAppStatusLoading || whatsAppLoading}
+              disabled={
+                whatsAppStatusLoading ||
+                whatsAppLoading ||
+                whatsAppDeleting ||
+                whatsAppReconnecting
+              }
               className="inline-flex items-center px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-semibold text-muted hover:bg-surface disabled:opacity-60 cursor-pointer"
             >
               {whatsAppStatusLoading ? "Refreshing..." : "Refresh Status"}
             </button>
           </div>
+          {whatsAppSessionInfo.isActive && (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleWhatsAppReconnect}
+                disabled={
+                  whatsAppReconnecting ||
+                  whatsAppLoading ||
+                  whatsAppStatusLoading ||
+                  whatsAppDeleting
+                }
+                className="inline-flex items-center px-4 py-2 rounded-lg border border-accent/40 text-xs font-semibold text-accent hover:bg-accent/5 disabled:opacity-60"
+              >
+                {whatsAppReconnecting ? "Reconnecting..." : "Reconnect session"}
+              </button>
+              <button
+                type="button"
+                onClick={handleWhatsAppDelete}
+                disabled={whatsAppDeleting || whatsAppReconnecting}
+                className="inline-flex items-center px-4 py-2 rounded-lg border border-red-200 text-xs font-semibold text-red-600 hover:bg-red-500/10 disabled:opacity-60"
+              >
+                {whatsAppDeleting ? "Deleting..." : "Delete session"}
+              </button>
+            </div>
+          )}
           {whatsAppSessionInfo.isActive && (
             <p className="text-xs text-accent">
               WhatsApp session is active. Re-scan the QR if you need to link a

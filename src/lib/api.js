@@ -14,16 +14,26 @@ const debugLog = (...args) => {
     console.log(...args);
   }
 };
+const DEFAULT_WHATSAPP_STATUS_BASE = "/api/whatsapp-status";
+
 const resolveWhatsAppStatusBaseUrl = () => {
-  if (typeof process === "undefined") {
-    return null;
+  if (typeof process !== "undefined") {
+    const raw = process.env.NEXT_PUBLIC_WHATSAPP_STATUS_BASE_URL;
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed) {
+        return DEFAULT_WHATSAPP_STATUS_BASE;
+      }
+      if (
+        trimmed.startsWith("http://") ||
+        trimmed.startsWith("https://") ||
+        trimmed.startsWith("/")
+      ) {
+        return trimmed.replace(/\/+$/, "");
+      }
+    }
   }
-  const raw = process.env.NEXT_PUBLIC_WHATSAPP_STATUS_BASE_URL;
-  if (typeof raw !== "string") {
-    return null;
-  }
-  const trimmed = raw.trim();
-  return trimmed.length ? trimmed.replace(/\/+$/, "") : null;
+  return DEFAULT_WHATSAPP_STATUS_BASE;
 };
 
 const buildWhatsAppStatusCheckUrl = (agentId) => {
@@ -31,10 +41,13 @@ const buildWhatsAppStatusCheckUrl = (agentId) => {
     return null;
   }
   const base = resolveWhatsAppStatusBaseUrl();
-  if (!base) {
-    return null;
-  }
-  return `${base}/agents/${encodeURIComponent(agentId)}/get-status`;
+  const normalizedBase =
+    base === "/"
+      ? ""
+      : base.endsWith("/")
+      ? base.slice(0, -1)
+      : base;
+  return `${normalizedBase}/agents/${encodeURIComponent(agentId)}/get-status`;
 };
 
 const buildWhatsAppUrl = (agentId = null) => {
@@ -87,6 +100,23 @@ const buildWhatsAppQrUrl = (agentId = null) => {
     return `${qrPath}${separator}agentId=${encodeURIComponent(agentId)}`;
   }
   return qrPath;
+};
+
+const buildWhatsAppAgentResourceUrl = (agentId, suffix = "") => {
+  if (!agentId) {
+    return null;
+  }
+  const base =
+    typeof WHATSAPP_SESSIONS_URL === "string" &&
+    WHATSAPP_SESSIONS_URL.length > 0
+      ? WHATSAPP_SESSIONS_URL
+      : "/api/whatsapp-sessions";
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedSuffix =
+    typeof suffix === "string" && suffix.length
+      ? `/${suffix.replace(/^\/+/, "")}`
+      : "";
+  return `${normalizedBase}/${encodeURIComponent(agentId)}${normalizedSuffix}`;
 };
 const joinBaseAndEndpoint = (base, endpoint) => {
   if (!base) return endpoint || "";
@@ -1597,6 +1627,80 @@ class ApiService {
     };
   }
 
+  normalizeWhatsAppStatusSnapshot(payload) {
+    if (!payload || typeof payload !== "object") {
+      return {
+        isActive: false,
+        status: "inactive",
+        qrImage: null,
+        rawStatus: payload ?? null,
+      };
+    }
+
+    const data =
+      payload.data && typeof payload.data === "object"
+        ? payload.data
+        : payload;
+    const liveState =
+      data.liveState ||
+      data.live_state ||
+      data.status ||
+      {};
+
+    const qrSource =
+      liveState.qr ||
+      liveState.qr_details ||
+      liveState.qrDetails ||
+      {};
+
+    const qrBase64 =
+      typeof qrSource.base64 === "string" ? qrSource.base64 : null;
+    const qrContentType =
+      qrSource.contentType ||
+      qrSource.mime_type ||
+      qrSource.mimeType ||
+      "image/png";
+    const qrImage =
+      qrBase64 && qrContentType
+        ? `data:${qrContentType};base64,${qrBase64}`
+        : null;
+
+    const normalizedStatus =
+      (data.status ||
+        liveState.sessionState ||
+        liveState.state ||
+        "")
+        .toString()
+        .toLowerCase();
+
+    const isActive =
+      normalizedStatus === "connected" ||
+      normalizedStatus === "active" ||
+      liveState.isReady === true ||
+      liveState.hasClient === true;
+
+    return {
+      agentId: data.agentId || data.agent_id || null,
+      status: normalizedStatus || (isActive ? "connected" : "inactive"),
+      isActive,
+      qrImage,
+      qrUrl: qrSource.url || qrSource.qrUrl || null,
+      qrBase64,
+      qrContentType,
+      qrUpdatedAt: liveState.qrUpdatedAt || qrSource.updatedAt || null,
+      updatedAt: data.updatedAt || liveState.qrUpdatedAt || null,
+      lastConnectedAt: data.lastConnectedAt || null,
+      lastDisconnectedAt: data.lastDisconnectedAt || null,
+      rawStatus: payload,
+      traceId:
+        payload.traceId ||
+        payload.trace_id ||
+        data.traceId ||
+        data.trace_id ||
+        null,
+    };
+  }
+
   async getWhatsAppSession(agentId) {
     if (!agentId) {
       return this.normalizeWhatsAppSession(null);
@@ -1756,30 +1860,91 @@ class ApiService {
       );
     }
 
-    try {
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(
-          detail ||
-            `Failed to refresh WhatsApp connection status (${response.status})`
-        );
-      }
+        if (!response.ok) {
+          const detail = await response.text();
+          throw new Error(
+            detail ||
+              `Failed to refresh WhatsApp connection status (${response.status})`
+          );
+        }
 
-      return await response.json().catch(() => ({}));
-    } catch (error) {
-      console.warn("Unable to refresh WhatsApp connection status", {
-        agentId,
-        error,
-      });
+        const payload = await response.json().catch(() => ({}));
+        return this.normalizeWhatsAppStatusSnapshot(payload);
+      } catch (error) {
+        console.warn("Unable to refresh WhatsApp connection status", {
+          agentId,
+          error,
+        });
       throw error;
     }
+  }
+
+  async deleteWhatsAppSession(agentId) {
+    if (!agentId) {
+      throw new Error("Agent ID is required to delete WhatsApp session.");
+    }
+
+    const url = buildWhatsAppAgentResourceUrl(agentId);
+    if (!url) {
+      throw new Error("Unable to resolve WhatsApp session endpoint.");
+    }
+
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail =
+        typeof payload?.detail === "string"
+          ? payload.detail
+          : payload?.message ||
+            `Failed to delete WhatsApp session (${response.status})`;
+      throw new Error(detail);
+    }
+
+    return payload;
+  }
+
+  async reconnectWhatsAppSession(agentId) {
+    if (!agentId) {
+      throw new Error("Agent ID is required to reconnect WhatsApp session.");
+    }
+
+    const url = buildWhatsAppAgentResourceUrl(agentId, "reconnect");
+    if (!url) {
+      throw new Error("Unable to resolve WhatsApp reconnect endpoint.");
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const detail =
+        typeof payload?.detail === "string"
+          ? payload.detail
+          : payload?.message ||
+            `Failed to reconnect WhatsApp session (${response.status})`;
+      throw new Error(detail);
+    }
+
+    return this.normalizeWhatsAppSession(payload);
   }
 
   // Tools endpoints

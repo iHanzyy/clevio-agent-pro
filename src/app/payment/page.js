@@ -12,7 +12,13 @@ import { markTrialEmailUsed } from "@/lib/trialGuard";
 
 const PLAN_OPTIONS = [
   { code: "TRIAL", name: "Free Trial", price: "0", duration_days: 14 },
-  { code: "PRO_M", name: "Pro Monthly", price: "100000", duration_days: 30 },
+  {
+    code: "PRO_M",
+    name: "Pro Monthly",
+    price: "750000",
+    originalPrice: "1500000",
+    duration_days: 30,
+  },
   { code: "PRO_Y", name: "Pro Yearly", price: "1000000", duration_days: 365 },
 ];
 
@@ -52,7 +58,7 @@ function PaymentContent() {
   const [pendingRegistration, setPendingRegistration] = useState(() =>
     queryEmail && queryUserId
       ? { email: String(queryEmail), user_id: String(queryUserId) }
-      : null,
+      : null
   );
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [statusState, setStatusState] = useState({
@@ -61,8 +67,12 @@ function PaymentContent() {
   });
   const [statusError, setStatusError] = useState("");
   const [orderSuffix, setOrderSuffix] = useState(() => Date.now().toString());
-  const { user, loading: authLoading, updateSubscription, applySubscription } =
-    useAuth();
+  const {
+    user,
+    loading: authLoading,
+    updateSubscription,
+    applySubscription,
+  } = useAuth();
   const hasRedirectedRef = useRef(false);
   const [trialAgentDraft, setTrialAgentDraft] = useState(null);
   const [trialCredentials, setTrialCredentials] = useState(null);
@@ -81,7 +91,7 @@ function PaymentContent() {
       if (selectedPlan) return selectedPlan;
       return extractPlanFromOrderId(candidateOrderId);
     },
-    [selectedPlan, storedPlan],
+    [selectedPlan, storedPlan]
   );
 
   const clearTrialCredentials = useCallback(() => {
@@ -112,10 +122,9 @@ function PaymentContent() {
       setTrialAgentDraft(null);
       clearTrialCredentials();
     },
-    [trialAgentDraft, clearTrialCredentials],
+    [trialAgentDraft, clearTrialCredentials]
   );
 
-  
   const finalizeSuccess = useCallback(
     async (latestOrderId, overrides = {}) => {
       if (isFinalizing) {
@@ -161,7 +170,7 @@ function PaymentContent() {
           } catch (err) {
             console.warn(
               "Failed to refresh subscription after settlement",
-              err,
+              err
             );
           }
 
@@ -220,7 +229,7 @@ function PaymentContent() {
       router,
       updateSubscription,
       user,
-    ],
+    ]
   );
 
   useEffect(() => {
@@ -259,7 +268,7 @@ function PaymentContent() {
       return;
     }
     const stored = window.sessionStorage.getItem(
-      "trialRegistrationCredentials",
+      "trialRegistrationCredentials"
     );
     if (stored) {
       try {
@@ -321,10 +330,7 @@ function PaymentContent() {
 
   const fetchTransactionStatus = useCallback(async () => {
     try {
-      const response = await apiService.getInformationN8N(
-        orderId,
-        orderSuffix,
-      );
+      const response = await apiService.getInformationN8N(orderId, orderSuffix);
 
       if (!response) {
         return { transaction: null, raw: null };
@@ -427,8 +433,8 @@ function PaymentContent() {
         const transactionStatus = transaction?.transaction_status
           ? String(transaction.transaction_status).toLowerCase()
           : raw?.transaction_status
-            ? String(raw.transaction_status).toLowerCase()
-            : null;
+          ? String(raw.transaction_status).toLowerCase()
+          : null;
 
         if (
           transactionStatus === "settlement" ||
@@ -450,7 +456,7 @@ function PaymentContent() {
             setStatusError(
               transactionStatus === "pending"
                 ? "Your payment is still pending on Midtrans. We will keep checking automatically."
-                : `Latest payment status from Midtrans: ${transactionStatus}.`,
+                : `Latest payment status from Midtrans: ${transactionStatus}.`
             );
           }
           return;
@@ -459,14 +465,14 @@ function PaymentContent() {
         if (!silent) {
           setStatusState({ state: "idle", message: "" });
           setStatusError(
-            "We have not received a settlement confirmation yet. We'll keep watching this page for updates.",
+            "We have not received a settlement confirmation yet. We'll keep watching this page for updates."
           );
         }
       } catch (_err) {
         if (!silent) {
           setStatusState({ state: "idle", message: "" });
           setStatusError(
-            "We could not confirm your payment right now. Please refresh or try again shortly.",
+            "We could not confirm your payment right now. Please refresh or try again shortly."
           );
         }
       }
@@ -478,7 +484,7 @@ function PaymentContent() {
       pendingRegistration,
       isSettled,
       user,
-    ],
+    ]
   );
 
   useEffect(() => {
@@ -537,7 +543,7 @@ function PaymentContent() {
     if (
       normalized &&
       ["settlement", "capture", "success", "paid", "paid_off"].includes(
-        normalized,
+        normalized
       )
     ) {
       const effectiveOrderId = searchOrderId || orderId || null;
@@ -577,12 +583,11 @@ function PaymentContent() {
 
     const activeEmail =
       user?.email || pendingRegistration?.email || queryEmail || "";
-    const activeUserId =
-      user?.user_id || pendingRegistration?.user_id || "";
+    const activeUserId = user?.user_id || pendingRegistration?.user_id || "";
 
     if (!activeEmail || !activeUserId) {
       setError(
-        "Missing registrant information. Please restart registration or contact support.",
+        "Missing registrant information. Please restart registration or contact support."
       );
       return;
     }
@@ -590,13 +595,13 @@ function PaymentContent() {
     if (selectedPlan === "TRIAL") {
       if (!trialAgentDraft?.agentPayload) {
         setError(
-          "We lost your trial configuration. Please restart from the template gallery.",
+          "We lost your trial configuration. Please restart from the template gallery."
         );
         return;
       }
       if (!trialCredentials?.password) {
         setError(
-          "Trial activation requires your registration credentials. Please restart the trial enrollment.",
+          "Trial activation requires your registration credentials. Please restart the trial enrollment."
         );
         return;
       }
@@ -623,13 +628,13 @@ function PaymentContent() {
               password: trialCredentials.password,
               plan_code: "TRIAL",
             }),
-          },
+          }
         );
 
         if (!response.ok) {
           const detail = await response.text();
           throw new Error(
-            detail || "Trial activation webhook returned an error.",
+            detail || "Trial activation webhook returned an error."
           );
         }
 
@@ -668,7 +673,7 @@ function PaymentContent() {
       } catch (error) {
         console.error("Trial activation failed", error);
         setError(
-          error?.message || "Failed to activate free trial. Please try again.",
+          error?.message || "Failed to activate free trial. Please try again."
         );
         setStatusState({
           state: "error",
@@ -680,14 +685,13 @@ function PaymentContent() {
       return;
     }
 
-
     setLoading(true);
     setError("");
 
     try {
       setStatusError("");
       const planDetails = PLAN_OPTIONS.find(
-        (plan) => plan.code === selectedPlan,
+        (plan) => plan.code === selectedPlan
       );
 
       const uniqueSuffix = `${Date.now()}-${Math.random()
@@ -709,8 +713,9 @@ function PaymentContent() {
       setStoredPlan(selectedPlan);
       apiService.setPlanCode(selectedPlan);
 
-      const webhookResponse =
-        await apiService.notifyPaymentWebhook(webhookPayload);
+      const webhookResponse = await apiService.notifyPaymentWebhook(
+        webhookPayload
+      );
       console.log("[payment] webhook response", webhookResponse);
 
       if (webhookResponse?.access_token) {
@@ -723,9 +728,7 @@ function PaymentContent() {
       setSuccessMessage(paymentMessage);
 
       const generatedOrderId =
-        webhookResponse?.order_id ||
-        webhookResponse?.data?.order_id ||
-        null;
+        webhookResponse?.order_id || webhookResponse?.data?.order_id || null;
       const transactionStatusRaw =
         webhookResponse?.transaction_status ||
         webhookResponse?.data?.transaction_status ||
@@ -791,11 +794,11 @@ function PaymentContent() {
         void verifyPayment({ silent: true });
       } else {
         setStatusError(
-          "We generated your payment request. Please check your email for instructions.",
+          "We generated your payment request. Please check your email for instructions."
         );
         console.warn(
           "Payment webhook response did not include a redirect URL or settlement status",
-          webhookResponse,
+          webhookResponse
         );
       }
     } catch (error) {
@@ -904,8 +907,15 @@ function PaymentContent() {
                       <p className="text-muted">{plan.duration_days} days</p>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-accent">
-                        {formatPrice(plan.price)}
+                      <div className="flex flex-col items-end">
+                        {plan.originalPrice && (
+                          <div className="text-sm text-muted line-through">
+                            {formatPrice(plan.originalPrice)}
+                          </div>
+                        )}
+                        <div className="text-2xl font-bold text-accent">
+                          {formatPrice(plan.price)}
+                        </div>
                       </div>
                       {plan.code === "PRO_Y" && (
                         <div className="text-sm text-accent">Save 17%!</div>

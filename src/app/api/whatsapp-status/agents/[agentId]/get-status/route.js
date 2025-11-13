@@ -33,7 +33,7 @@ const buildRemoteStatusUrl = (agentId) => {
   if (!baseUrl) {
     return null;
   }
-  return `${baseUrl}/agents/${encodeURIComponent(agentId)}/get-status`;
+  return `${baseUrl}/sessions/${encodeURIComponent(agentId)}`;
 };
 
 async function relayResponse(remoteResponse) {
@@ -87,8 +87,9 @@ async function relayResponse(remoteResponse) {
   }
 }
 
-export async function GET(_request, { params }) {
-  const agentIdParam = params?.agentId;
+export async function GET(_request, context) {
+  const resolvedParams = (context && (await context.params)) ?? {};
+  const agentIdParam = resolvedParams?.agentId;
 
   if (!agentIdParam || typeof agentIdParam !== "string") {
     return NextResponse.json(
