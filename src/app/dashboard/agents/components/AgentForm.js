@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import AgentFormTour from "@/components/ui/AgentFormTour";
+import mcpTools from "@/data/mcp-tools.json";
 
 export const TOOL_OPTIONS = [
   {
@@ -63,8 +64,32 @@ export const TOOL_OPTIONS = [
 
 const TOOL_IDS = TOOL_OPTIONS.map((tool) => tool.id);
 
+const formatMcpLabel = (value) =>
+  value
+    .split("_")
+    .map((segment) =>
+      segment.length ? segment[0].toUpperCase() + segment.slice(1) : "",
+    )
+    .join(" ");
+
+const MCP_TOOL_OPTIONS = Array.isArray(mcpTools)
+  ? mcpTools.map((tool) => ({
+      id: tool.id,
+      label: tool.label || formatMcpLabel(tool.id),
+      description: tool.description || "",
+    }))
+  : [];
+
+const MCP_TOOL_IDS = MCP_TOOL_OPTIONS.map((tool) => tool.id);
+
 const createDefaultToolState = () =>
   TOOL_IDS.reduce((accumulator, id) => {
+    accumulator[id] = false;
+    return accumulator;
+  }, {});
+
+const createDefaultMcpToolState = () =>
+  MCP_TOOL_IDS.reduce((accumulator, id) => {
     accumulator[id] = false;
     return accumulator;
   }, {});
@@ -108,6 +133,7 @@ const resolveLegacyKeysForSelection = (selectedTools) => {
 const DEFAULT_VALUES = {
   name: "",
   tools: createDefaultToolState(),
+  mcpTools: createDefaultMcpToolState(),
   systemPrompt: `You are a helpful research aide. Remember the users.
 - Use clear, professional language.
 - Reference available tools when they can help.
@@ -175,9 +201,39 @@ function mapInitialValues(input) {
     toolState[toolId] = fromArray || fromObject || fromAllowed;
   });
 
+  const normalizedMcpObject =
+    input.mcpTools && typeof input.mcpTools === "object"
+      ? input.mcpTools
+      : input.mcp_tools && typeof input.mcp_tools === "object"
+      ? input.mcp_tools
+      : {};
+
+  const normalizedMcpArraySource = Array.isArray(input.mcp_tools)
+    ? input.mcp_tools
+    : Array.isArray(input.mcpTools)
+    ? input.mcpTools
+    : [];
+
+  const normalizedMcpArray = normalizedMcpArraySource
+    .filter((item) => typeof item === "string")
+    .map((item) => item.trim());
+
+  const mcpState = createDefaultMcpToolState();
+  Object.entries(normalizedMcpObject).forEach(([key, value]) => {
+    if (value && MCP_TOOL_IDS.includes(key)) {
+      mcpState[key] = true;
+    }
+  });
+  normalizedMcpArray.forEach((toolId) => {
+    if (MCP_TOOL_IDS.includes(toolId)) {
+      mcpState[toolId] = true;
+    }
+  });
+
   return {
     name: input.name ?? DEFAULT_VALUES.name,
     tools: toolState,
+    mcpTools: mcpState,
     systemPrompt:
       input.systemPrompt ??
       input.config?.system_prompt ??
@@ -332,6 +388,16 @@ export default function AgentForm({
     }));
   };
 
+  const toggleMcpTool = (toolId) => {
+    setValues((prev) => ({
+      ...prev,
+      mcpTools: {
+        ...prev.mcpTools,
+        [toolId]: !prev.mcpTools[toolId],
+      },
+    }));
+  };
+
   const validate = () => {
     const errors = {};
     if (!values.name.trim()) {
@@ -385,6 +451,10 @@ export default function AgentForm({
           },
         }
       : {};
+    const selectedMcpTools = MCP_TOOL_IDS.filter(
+      (toolId) => values.mcpTools?.[toolId]
+    );
+    payload.mcp_tools = selectedMcpTools;
 
     return payload;
   };
@@ -483,6 +553,39 @@ export default function AgentForm({
               <p className="mt-2 text-sm text-red-600">{formErrors.tools}</p>
             )}
           </div>
+
+          {MCP_TOOL_OPTIONS.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-muted mb-2">
+                MCP Tools (optional)
+              </label>
+              <div className="grid md:grid-cols-2 gap-4">
+                {MCP_TOOL_OPTIONS.map((tool) => (
+                  <label
+                    key={tool.id}
+                    className="flex items-start space-x-3 rounded-lg border border-surface-strong/60 bg-background p-4 cursor-pointer hover:border-accent transition"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={values.mcpTools?.[tool.id] || false}
+                      onChange={() => toggleMcpTool(tool.id)}
+                      className="mt-1 h-4 w-4 text-accent border-surface-strong/60 rounded focus:ring-accent"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold text-foreground">
+                        {tool.label}
+                      </span>
+                      {tool.description && (
+                        <span className="mt-1 block text-xs text-muted">
+                          {tool.description}
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

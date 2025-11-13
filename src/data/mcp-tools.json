@@ -1,0 +1,22 @@
+[
+  {
+    "id": "fetch_web_content",
+    "label": "Fetch Web Content",
+    "description": "Retrieve raw HTML or rendered text from a webpage for downstream processing."
+  },
+  {
+    "id": "web_search",
+    "label": "Web Search",
+    "description": "Run contextual search queries across the public web and return ranked results."
+  },
+  {
+    "id": "docx_generate",
+    "label": "Generate DOCX",
+    "description": "Assemble a Microsoft Word document (DOCX) from structured content or templates."
+  },
+  {
+    "id": "deep_research",
+    "label": "Deep Research",
+    "description": "Perform multi-step research with citations, combining browsing, summarization, and synthesis."
+  }
+]
