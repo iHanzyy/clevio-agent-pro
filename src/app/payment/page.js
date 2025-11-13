@@ -2,6 +2,15 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import {
+  BadgeCheck,
+  CalendarClock,
+  CheckCircle2,
+  CreditCard,
+  ShieldCheck,
+  Sparkles,
+  Rocket,
+} from "lucide-react";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -11,15 +20,56 @@ import {
 import { markTrialEmailUsed } from "@/lib/trialGuard";
 
 const PLAN_OPTIONS = [
-  { code: "TRIAL", name: "Free Trial", price: "0", duration_days: 14 },
+  {
+    code: "TRIAL",
+    name: "Free Trial",
+    subtitle: "Perfect for getting started",
+    price: "0",
+    duration_days: 14,
+    badge: "Start free",
+    description: "Test Clevio for two weeks with limited usage.",
+    features: [
+      "Create up to 2 agents",
+      "Sample knowledge base",
+      "Community support",
+    ],
+    icon: Sparkles,
+  },
   {
     code: "PRO_M",
     name: "Pro Monthly",
+    subtitle: "As your business scales",
     price: "750000",
-    originalPrice: "1500000",
+    originalPrice: "1000000",
     duration_days: 30,
+    badge: "Most popular",
+    description: "Scale your team with monthly flexibility.",
+    features: [
+      "Unlimited agents",
+      "WhatsApp automation",
+      "Advanced tools & RAG",
+      "Priority chat support",
+    ],
+    icon: CalendarClock,
+    recommended: true,
   },
-  { code: "PRO_Y", name: "Pro Yearly", price: "1000000", duration_days: 365 },
+  {
+    code: "PRO_Y",
+    name: "Pro Yearly",
+    subtitle: "For more complex businesses",
+    price: "1000000",
+    duration_days: 365,
+    badge: "Best value",
+    description: "Maximize savings with full-year coverage.",
+    features: [
+      "Everything in Pro Monthly",
+      "Dedicated success manager",
+      "Early feature access",
+      "1:1 onboarding workshop",
+    ],
+    icon: Rocket,
+    discountNote: "Save 17% vs monthly",
+  },
 ];
 
 export default function PaymentPage() {
@@ -812,6 +862,9 @@ function PaymentContent() {
   const formatPrice = (price) => {
     const numericPrice =
       typeof price === "string" ? Number(price) : Number(price || 0);
+    if (numericPrice === 0) {
+      return "Free";
+    }
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
@@ -856,125 +909,284 @@ function PaymentContent() {
   };
 
   return (
-    <div className="min-h-screen bg-surface text-foreground flex justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-background via-surface to-background text-foreground flex justify-center px-4 sm:px-6 lg:px-8 py-10">
       {renderStatusOverlay()}
-      <div className="max-w-screen-xl m-0 sm:m-10 bg-surface shadow sm:rounded-lg flex justify-center flex-1">
-        <div className="w-full p-6 sm:p-12">
-          <div className="text-center mb-8">
-            <Image
-              src="/clevioAIAssistantsLogo.png"
-              alt="Clevio AI Assistants"
-              width={200}
-              height={60}
-              className="mx-auto mb-6"
-              priority
-            />
-            <h1 className="text-3xl font-extrabold text-foreground">
-              Choose Your Plan
-            </h1>
-            <p className="mt-4 text-lg text-muted">
-              Select a subscription plan to activate your account
-            </p>
-          </div>
-
-          {statusError && (
-            <div className="mb-6 p-4 bg-surface-strong/40 border border-surface-strong/60 text-muted rounded max-w-xl mx-auto text-sm">
-              {statusError}
+      <div className="max-w-screen-xl w-full space-y-8">
+        <div className="w-full bg-surface/80 shadow-2xl shadow-accent/10 border border-surface-strong/40 rounded-3xl backdrop-blur">
+          <div className="w-full p-6 sm:p-12 space-y-8">
+            {/* Header */}
+            <div className="text-center space-y-4">
+              <div>
+                <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold">
+                  Choose Your Plan
+                </h1>
+                <p className="mt-3 text-base sm:text-lg text-muted max-w-2xl mx-auto">
+                  Unlock premium automations, WhatsApp workflows, and dedicated
+                  support.
+                </p>
+              </div>
             </div>
-          )}
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded max-w-md mx-auto">
-              {error}
-            </div>
-          )}
+            {/* Error Messages */}
+            {statusError && (
+              <div className="mb-4 p-4 bg-surface-strong/30 border border-red-200 text-red-600 rounded-xl max-w-3xl mx-auto text-sm">
+                {statusError}
+              </div>
+            )}
 
-          <div className="max-w-4xl mx-auto">
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-300 text-red-700 rounded-xl max-w-3xl mx-auto text-sm">
+                {error}
+              </div>
+            )}
+
+            {/* Plan Cards */}
+            <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
               {plans.map((plan) => (
-                <div
+                <PlanCard
                   key={plan.code}
-                  className={`border-2 rounded-lg p-6 cursor-pointer transition-all ${
-                    selectedPlan === plan.code
-                      ? "border-accent bg-accent/10"
-                      : "border-surface-strong/60 hover:border-accent/40"
-                  }`}
-                  onClick={() => setSelectedPlan(plan.code)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-semibold">{plan.name}</h3>
-                      <p className="text-muted">{plan.duration_days} days</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex flex-col items-end">
-                        {plan.originalPrice && (
-                          <div className="text-sm text-muted line-through">
-                            {formatPrice(plan.originalPrice)}
-                          </div>
-                        )}
-                        <div className="text-2xl font-bold text-accent">
-                          {formatPrice(plan.price)}
-                        </div>
-                      </div>
-                      {plan.code === "PRO_Y" && (
-                        <div className="text-sm text-accent">Save 17%!</div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <input
-                      type="radio"
-                      name="plan"
-                      value={plan.code}
-                      checked={selectedPlan === plan.code}
-                      onChange={() => setSelectedPlan(plan.code)}
-                      className="mr-2"
-                    />
-                    <span className="text-sm text-muted">
-                      {plan.code === "PRO_M"
-                        ? "Monthly subscription"
-                        : "Yearly subscription (Best value!)"}
-                    </span>
-                  </div>
-                </div>
+                  plan={plan}
+                  isSelected={selectedPlan === plan.code}
+                  onSelect={() => setSelectedPlan(plan.code)}
+                  formatPrice={formatPrice}
+                />
               ))}
             </div>
 
-            <div className="text-center">
+            {/* Payment Button */}
+            <div className="text-center space-y-4 mt-10">
               <button
                 onClick={handlePayment}
                 disabled={loading || !selectedPlan}
-                className="bg-accent/100 hover:bg-accent-hover text-accent-foreground font-semibold py-4 px-8 rounded-lg text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-accent via-indigo-500 to-purple-500 text-white font-semibold py-4 px-10 rounded-2xl shadow-lg shadow-accent/30 transition hover:shadow-xl hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? "Processing..." : "Continue to Payment"}
+                {loading ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
+                      ></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="h-5 w-5" /> Continue to Payment
+                  </>
+                )}
               </button>
               {successMessage && (
-                <div className="mt-4 p-4 bg-accent/10 border border-accent/40 text-accent rounded max-w-xl mx-auto text-sm">
+                <div className="p-4 bg-accent/10 border border-accent/30 text-accent rounded-xl max-w-xl mx-auto text-sm">
                   {successMessage}
                 </div>
               )}
-              <p className="mt-4 text-sm text-muted">
-                If you were not redirected automatically, please check the
-                payment instructions sent by our billing partner. Keep this
-                order ID for reference:{" "}
-                <span className="font-semibold">{orderId || "pending"}</span>.
-              </p>
-            </div>
-
-            <div className="mt-8 text-center">
-              <h4 className="text-lg font-semibold mb-4">What you get:</h4>
-              <div className="grid md:grid-cols-3 gap-4 text-sm text-muted">
-                <div>✅ Unlimited AI Agents</div>
-                <div>✅ WhatsApp Integration</div>
-                <div>✅ Document Upload (RAG)</div>
-                <div>✅ Advanced Tools</div>
-                <div>✅ Priority Support</div>
+              <div className="text-sm text-muted max-w-2xl mx-auto space-y-2">
+                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted">
+                  <span className="inline-flex items-center gap-1">
+                    <ShieldCheck className="h-4 w-4 text-accent" /> Secure
+                    checkout
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <CreditCard className="h-4 w-4 text-accent" /> Major cards &
+                    bank transfers
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <BadgeCheck className="h-4 w-4 text-accent" /> 7-day
+                    guarantee
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
+  const Icon = plan.icon || Sparkles;
+  return (
+    <label
+      className={`relative block rounded-3xl border p-8 transition-all cursor-pointer ${
+        isSelected
+          ? "border-accent bg-gradient-to-br from-accent/5 to-accent/10 shadow-2xl shadow-accent/20 ring-2 ring-accent scale-105"
+          : "border-surface-strong/30 bg-surface/50 hover:border-accent/40 hover:shadow-xl"
+      }`}
+    >
+      {plan.badge && (
+        <span
+          className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
+            plan.recommended
+              ? "bg-accent text-white shadow-lg"
+              : "bg-surface-strong/80 text-muted border border-surface-strong"
+          }`}
+        >
+          {plan.badge}
+        </span>
+      )}
+
+      <div className="text-center space-y-4">
+        {/* Icon */}
+        <div
+          className={`inline-flex rounded-2xl p-4 ${
+            isSelected ? "bg-accent/20" : "bg-surface-strong/50"
+          }`}
+        >
+          <Icon
+            className={`h-8 w-8 ${isSelected ? "text-accent" : "text-muted"}`}
+          />
+        </div>
+
+        {/* Plan Name */}
+        <div>
+          <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
+          <p className="text-sm text-muted mt-1">{plan.subtitle}</p>
+        </div>
+
+        {/* Price */}
+        <div className="py-6 border-y border-surface-strong/30">
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-5xl font-extrabold text-foreground">
+              {formatPrice(plan.price)}
+            </span>
+            <span className="text-lg text-muted font-medium">/month</span>
+          </div>
+          {plan.discountNote && (
+            <p className="text-xs text-accent font-semibold mt-2">
+              {plan.discountNote}
+            </p>
+          )}
+        </div>
+
+        {/* CTA Button */}
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`w-full py-3 px-6 rounded-xl font-semibold transition-all ${
+            isSelected
+              ? "bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent/90"
+              : "bg-surface-strong/50 text-foreground hover:bg-surface-strong/70"
+          }`}
+        >
+          {plan.code === "TRIAL"
+            ? "Get Started"
+            : isSelected
+            ? "Current plan"
+            : `Get ${plan.name}`}
+        </button>
+
+        {/* Features */}
+        <ul className="mt-6 space-y-3 text-left text-sm">
+          {plan.features.map((feature, index) => (
+            <li key={index} className="flex items-start gap-3">
+              <CheckCircle2
+                className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                  isSelected ? "text-accent" : "text-muted"
+                }`}
+              />
+              <span className="text-muted">{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <input
+        type="radio"
+        name="plan"
+        value={plan.code}
+        checked={isSelected}
+        onChange={onSelect}
+        className="sr-only"
+      />
+    </label>
+  );
+}
+
+function PlanComparison({ selectedPlan }) {
+  const comparison = [
+    {
+      label: "Unlimited AI Agents",
+      tiers: { PRO_M: true, PRO_Y: true },
+    },
+    {
+      label: "WhatsApp Automation",
+      tiers: { PRO_M: true, PRO_Y: true },
+    },
+    {
+      label: "Priority Support",
+      tiers: { PRO_M: true, PRO_Y: true },
+    },
+    {
+      label: "Dedicated Success Manager",
+      tiers: { PRO_Y: true },
+    },
+    {
+      label: "Onboarding Workshop",
+      tiers: { PRO_Y: true },
+    },
+  ];
+
+  return (
+    <section className="mt-4">
+      <div className="rounded-3xl border border-surface-strong/60 bg-background/60 p-6 shadow-inner">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+          <h4 className="text-lg font-semibold">Compare plans</h4>
+          <p className="text-sm text-muted">
+            You selected <span className="font-semibold">{selectedPlan}</span>
+          </p>
+        </div>
+        <div className="overflow-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-muted">
+                <th className="text-left py-2">Features</th>
+                <th className="text-center py-2">Pro Monthly</th>
+                <th className="text-center py-2">Pro Yearly</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparison.map((row) => (
+                <tr
+                  key={row.label}
+                  className="border-t border-surface-strong/60"
+                >
+                  <td className="py-3 pr-4 text-foreground">{row.label}</td>
+                  <td className="py-3 text-center">
+                    {row.tiers.PRO_M ? (
+                      <CheckCircle2 className="h-4 w-4 mx-auto text-accent" />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-3 text-center">
+                    {row.tiers.PRO_Y ? (
+                      <CheckCircle2 className="h-4 w-4 mx-auto text-accent" />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }
