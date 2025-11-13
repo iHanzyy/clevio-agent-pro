@@ -107,7 +107,7 @@ export default function AgentsPage() {
         loading: meta.loading ?? !qrValue,
       });
     },
-    [],
+    []
   );
 
   useEffect(() => {
@@ -202,57 +202,54 @@ export default function AgentsPage() {
     };
   }, []);
 
-  const handleRefreshWhatsAppStatus = useCallback(
-    async (agent) => {
-      if (!agent?.id) {
-        return;
-      }
+  const handleRefreshWhatsAppStatus = useCallback(async (agent) => {
+    if (!agent?.id) {
+      return;
+    }
 
-      const agentId = agent.id;
+    const agentId = agent.id;
 
-      setWhatsAppErrors((prev) => {
+    setWhatsAppErrors((prev) => {
+      const next = { ...prev };
+      delete next[agentId];
+      return next;
+    });
+    setWhatsAppRefreshMap((prev) => ({ ...prev, [agentId]: true }));
+
+    try {
+      const session = await apiService.getWhatsAppConnectionStatus(agentId);
+      setWhatsAppSessions((prev) => {
+        const previous = prev[agentId] || {};
+        const nextSession = session
+          ? {
+              ...previous,
+              ...session,
+              updatedAt: session.updatedAt || previous.updatedAt || null,
+              lastConnectedAt:
+                session.lastConnectedAt || previous.lastConnectedAt || null,
+            }
+          : {
+              ...previous,
+              isActive: false,
+              status: "inactive",
+            };
+        return { ...prev, [agentId]: nextSession };
+      });
+    } catch (err) {
+      setWhatsAppErrors((prev) => ({
+        ...prev,
+        [agentId]:
+          err?.message ||
+          "Unable to refresh WhatsApp status. Please try again.",
+      }));
+    } finally {
+      setWhatsAppRefreshMap((prev) => {
         const next = { ...prev };
         delete next[agentId];
         return next;
       });
-      setWhatsAppRefreshMap((prev) => ({ ...prev, [agentId]: true }));
-
-      try {
-        const session = await apiService.getWhatsAppConnectionStatus(agentId);
-        setWhatsAppSessions((prev) => {
-          const previous = prev[agentId] || {};
-          const nextSession = session
-            ? {
-                ...previous,
-                ...session,
-                updatedAt: session.updatedAt || previous.updatedAt || null,
-                lastConnectedAt:
-                  session.lastConnectedAt || previous.lastConnectedAt || null,
-              }
-            : {
-                ...previous,
-                isActive: false,
-                status: "inactive",
-              };
-          return { ...prev, [agentId]: nextSession };
-        });
-      } catch (err) {
-        setWhatsAppErrors((prev) => ({
-          ...prev,
-          [agentId]:
-            err?.message ||
-            "Unable to refresh WhatsApp status. Please try again.",
-        }));
-      } finally {
-        setWhatsAppRefreshMap((prev) => {
-          const next = { ...prev };
-          delete next[agentId];
-          return next;
-        });
-      }
-    },
-    []
-  );
+    }
+  }, []);
 
   const handleWhatsAppActivation = useCallback(
     async (agent) => {
@@ -543,10 +540,12 @@ export default function AgentsPage() {
 
   if (loading || isLoadingAgents) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center min-h-[50vh] px-4">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-muted">Loading your agents...</p>
+          <div className="w-10 h-10 sm:w-12 sm:h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="mt-4 text-sm sm:text-base text-muted">
+            Loading your agents...
+          </p>
         </div>
       </div>
     );
@@ -557,17 +556,20 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 sm:space-y-8 px-3 sm:px-4 md:px-6 py-4 sm:py-6">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Your Agents</h1>
-          <p className="mt-2 text-sm text-muted">
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+            Your Agents
+          </h1>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-muted">
             Manage, edit, and monitor the assistants you&apos;ve created.
           </p>
         </div>
         <Link
           href="/dashboard/agents/templates"
-          className="inline-flex items-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground font-semibold text-sm transition"
+          className="inline-flex items-center justify-center px-4 py-2 sm:py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground font-semibold text-sm transition w-full sm:w-auto"
         >
           <svg
             className="w-4 h-4 mr-2"
@@ -586,30 +588,33 @@ export default function AgentsPage() {
         </Link>
       </div>
 
+      {/* Error Message */}
       {error && (
-        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div className="p-3 sm:p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm">
           {error}
         </div>
       )}
 
+      {/* Empty State */}
       {agents.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-surface-strong/60 p-10 text-center bg-surface">
-          <h2 className="text-lg font-semibold text-foreground">
+        <div className="rounded-xl border border-dashed border-surface-strong/60 p-6 sm:p-10 text-center bg-surface">
+          <h2 className="text-base sm:text-lg font-semibold text-foreground">
             You haven&apos;t created any agents yet
           </h2>
-          <p className="mt-2 text-sm text-muted">
+          <p className="mt-2 text-xs sm:text-sm text-muted px-4">
             Build your first agent to automate workflows across Gmail, WhatsApp,
             and more.
           </p>
           <Link
             href="/dashboard/agents/templates"
-            className="mt-6 inline-flex items-center px-5 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition"
+            className="mt-4 sm:mt-6 inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition w-full sm:w-auto"
           >
             Create your first agent
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        /* Agent Cards Grid */
+        <div className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 lg:grid-cols-2">
           {agents.map((agent) => {
             const sessionInfo = whatsAppSessions[agent.id] || null;
             const sessionLoading = Boolean(whatsAppLoadingMap[agent.id]);
@@ -643,29 +648,31 @@ export default function AgentsPage() {
             return (
               <div
                 key={agent.id}
-                className="group relative flex flex-col justify-between gap-6 rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-2xl"
+                className="group relative flex flex-col justify-between gap-4 sm:gap-6 rounded-2xl sm:rounded-3xl border border-surface-strong/60 bg-surface p-4 sm:p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-2xl"
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-1 flex-col gap-3">
+                {/* Card Header */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                  <div className="flex-1 space-y-2 sm:space-y-3">
                     <div>
-                      <h3 className="text-xl font-semibold text-foreground">
+                      <h3 className="text-lg sm:text-xl font-semibold text-foreground">
                         {agent.name}
                       </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-muted line-clamp-3">
+                      <p className="mt-1 text-xs sm:text-sm leading-relaxed text-muted line-clamp-2 sm:line-clamp-3">
                         {agent.config?.system_message ||
                           agent.config?.system_prompt ||
                           "No system prompt provided yet."}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
+                    {/* Capabilities */}
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] text-muted">
                       <span className="font-medium text-muted">
                         Capabilities
                       </span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1 sm:gap-1.5">
                         {capabilityList.map((capability) => (
                           <span
                             key={capability}
-                            className="rounded-full border border-surface-strong bg-background px-3 py-1 font-medium text-muted"
+                            className="rounded-full border border-surface-strong bg-background px-2 sm:px-3 py-0.5 sm:py-1 font-medium text-muted"
                           >
                             {capability}
                           </span>
@@ -673,29 +680,32 @@ export default function AgentsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2 text-right">
+                  {/* Status Badge */}
+                  <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-start gap-2 sm:text-right">
                     <span
-                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${sessionChipClasses}`}
+                      className={`inline-flex items-center gap-1 rounded-full px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-semibold ${sessionChipClasses}`}
                     >
-                      <span className="inline-flex h-2 w-2 rounded-full bg-current opacity-70"></span>
+                      <span className="inline-flex h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-current opacity-70"></span>
                       {checkingStatus ? "Checking..." : sessionDescriptor.label}
                     </span>
                     {!checkingStatus && (
-                      <p className="max-w-[14rem] text-[11px] text-muted">
+                      <p className="max-w-[14rem] text-[10px] sm:text-[11px] text-muted">
                         {sessionDescriptor.helper}
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
+                {/* Card Footer */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+                  {/* View Details Link */}
                   <Link
                     href={`/dashboard/agents/${agent.id}`}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-accent"
+                    className="inline-flex items-center gap-1 text-xs sm:text-sm font-semibold text-accent transition hover:text-accent"
                   >
                     View details
                     <svg
-                      className="h-4 w-4"
+                      className="h-3.5 w-3.5 sm:h-4 sm:w-4"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -708,20 +718,25 @@ export default function AgentsPage() {
                       />
                     </svg>
                   </Link>
-                  <div className="flex flex-col items-end gap-2 text-right text-xs">
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col gap-2 text-right text-xs">
+                    {/* Refresh Status Button */}
                     <button
                       type="button"
                       onClick={() => handleRefreshWhatsAppStatus(agent)}
                       disabled={refreshDisabled}
-                      className="inline-flex items-center justify-center rounded-full border border-surface-strong px-3 py-1.5 text-[11px] font-semibold text-muted transition hover:border-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center justify-center rounded-full border border-surface-strong px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-muted transition hover:border-accent hover:text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {refreshDisabled ? "Refreshing..." : "Refresh status"}
                     </button>
+
+                    {/* Connect WhatsApp Button */}
                     <button
                       type="button"
                       onClick={() => handleWhatsAppActivation(agent)}
                       disabled={connectDisabled}
-                      className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-[#128c7e] focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent cursor-pointer"
+                      className="inline-flex items-center justify-center rounded-full bg-[#25D366] px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-sm transition hover:bg-[#128c7e] focus:outline-none focus:ring-2 focus:ring-accent/70 disabled:cursor-not-allowed disabled:bg-accent"
                     >
                       {sessionLoading
                         ? "Loading QR..."
@@ -729,8 +744,10 @@ export default function AgentsPage() {
                         ? "Re-link WhatsApp"
                         : "Connect WhatsApp"}
                     </button>
+
+                    {/* Additional Actions for Active Sessions */}
                     {sessionInfo?.isActive && (
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="flex flex-col sm:flex-row flex-wrap justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => handleReconnectWhatsAppSession(agent)}
@@ -739,7 +756,7 @@ export default function AgentsPage() {
                             deletingSession ||
                             refreshLoading
                           }
-                          className="inline-flex items-center justify-center rounded-full border border-accent/40 px-3 py-1.5 text-[11px] font-semibold text-accent transition hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center justify-center rounded-full border border-accent/40 px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-accent transition hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {reconnectingSession
                             ? "Reconnecting..."
@@ -749,12 +766,14 @@ export default function AgentsPage() {
                           type="button"
                           onClick={() => handleDeleteWhatsAppSession(agent)}
                           disabled={deletingSession || reconnectingSession}
-                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1.5 text-[11px] font-semibold text-red-600 transition hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center justify-center rounded-full border border-red-200 px-3 py-1.5 text-[10px] sm:text-[11px] font-semibold text-red-600 transition hover:bg-red-500/10 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {deletingSession ? "Deleting..." : "Delete session"}
                         </button>
                       </div>
                     )}
+
+                    {/* View QR Button */}
                     {qrValue && (
                       <button
                         type="button"
@@ -767,13 +786,15 @@ export default function AgentsPage() {
                             traceId: sessionInfo?.traceId || null,
                           })
                         }
-                        className="text-[11px] font-medium text-accent hover:text-accent"
+                        className="text-[10px] sm:text-[11px] font-medium text-accent hover:text-accent"
                       >
                         View latest QR
                       </button>
                     )}
+
+                    {/* Error Message */}
                     {sessionError && (
-                      <p className="max-w-[18rem] rounded-md bg-rose-500/10 px-2 py-1 text-[11px] font-medium text-rose-600">
+                      <p className="rounded-md bg-rose-500/10 px-2 py-1 text-[10px] sm:text-[11px] font-medium text-rose-600">
                         {sessionError}
                       </p>
                     )}
@@ -785,37 +806,43 @@ export default function AgentsPage() {
         </div>
       )}
 
+      {/* QR Preview Modal */}
       {qrPreview && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="relative w-full max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-6 text-center shadow-xl">
+          <div className="relative w-full max-w-[90vw] sm:max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-5 sm:p-6 text-center shadow-xl">
+            {/* Close Button */}
             <button
               type="button"
               onClick={closeQrPreview}
-              className="absolute right-3 top-3 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/60"
+              className="absolute right-2 top-2 sm:right-3 sm:top-3 rounded-full bg-surface px-2 py-1 text-[10px] sm:text-xs font-semibold text-muted hover:bg-surface-strong/60"
             >
               Close
             </button>
-            <h3 className="text-base font-semibold text-foreground">
+
+            {/* Modal Header */}
+            <h3 className="text-sm sm:text-base font-semibold text-foreground">
               Scan WhatsApp QR
             </h3>
             {qrPreview?.agentName && (
-              <p className="mt-1 text-xs text-muted">
+              <p className="mt-1 text-[10px] sm:text-xs text-muted">
                 Agent: {qrPreview.agentName}
               </p>
             )}
             {qrPreview?.qrUpdatedAt && (
-              <p className="mt-1 text-[11px] text-muted">
+              <p className="mt-1 text-[10px] sm:text-[11px] text-muted">
                 Updated {formatTimestamp(qrPreview.qrUpdatedAt) || "just now"}
               </p>
             )}
+
+            {/* QR Content */}
             <div className="mt-4 space-y-3">
               {qrPreview.loading ? (
                 <div className="space-y-3">
-                  <div className="mx-auto h-10 w-10 rounded-full border-2 border-accent/40 border-t-transparent animate-spin"></div>
-                  <p className="text-sm text-muted">
+                  <div className="mx-auto h-8 w-8 sm:h-10 sm:w-10 rounded-full border-2 border-accent/40 border-t-transparent animate-spin"></div>
+                  <p className="text-xs sm:text-sm text-muted">
                     Waiting for WhatsApp QR response…
                   </p>
-                  <p className="text-xs text-muted">
+                  <p className="text-[10px] sm:text-xs text-muted">
                     Keep this window open until the QR appears.
                   </p>
                 </div>
@@ -829,7 +856,7 @@ export default function AgentsPage() {
                         width={240}
                         height={240}
                         unoptimized
-                        className="h-auto w-[240px]"
+                        className="h-auto w-full max-w-[200px] sm:max-w-[240px]"
                       />
                     </div>
                   ) : (
@@ -837,18 +864,18 @@ export default function AgentsPage() {
                       href={qrPreview.qr}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold"
+                      className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-xs sm:text-sm font-semibold w-full sm:w-auto"
                     >
                       Open WhatsApp Link
                     </a>
                   )}
-                  <p className="text-xs text-muted">
+                  <p className="text-[10px] sm:text-xs text-muted px-2">
                     QR codes expire after about {WHATSAPP_QR_EXPIRY_SECONDS}s.
                     Refresh if the scan times out.
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-muted">
+                <p className="text-xs sm:text-sm text-muted">
                   QR code unavailable right now. Please generate a new one.
                 </p>
               )}

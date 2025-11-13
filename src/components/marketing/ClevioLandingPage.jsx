@@ -191,8 +191,8 @@ const translations = {
     id: "Pilih dari template agen yang sudah jadi untuk penjualan, dukungan, dan operasi. Sesuaikan dengan bisnis Anda dan luncurkan secara instan.",
   },
   product_video_badge: {
-    en: "Product preview",
-    id: "Pratinjau produk",
+    en: "Live Demo",
+    id: "Demo Langsung",
   },
   product_video_title: {
     en: "See Clevio AI in Action",

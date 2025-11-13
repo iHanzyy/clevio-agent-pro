@@ -909,18 +909,18 @@ function PaymentContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-surface to-background text-foreground flex justify-center px-4 sm:px-6 lg:px-8 py-10">
+    <div className="min-h-screen bg-gradient-to-br from-background via-surface to-background text-foreground flex justify-center px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-10">
       {renderStatusOverlay()}
-      <div className="max-w-screen-xl w-full space-y-8">
-        <div className="w-full bg-surface/80 shadow-2xl shadow-accent/10 border border-surface-strong/40 rounded-3xl backdrop-blur">
-          <div className="w-full p-6 sm:p-12 space-y-8">
+      <div className="max-w-screen-xl w-full space-y-6 sm:space-y-8">
+        <div className="w-full bg-surface/80 shadow-2xl shadow-accent/10 border border-surface-strong/40 rounded-2xl sm:rounded-3xl backdrop-blur">
+          <div className="w-full p-4 sm:p-6 md:p-8 lg:p-12 space-y-6 sm:space-y-8">
             {/* Header */}
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-3 sm:space-y-4">
               <div>
-                <h1 className="mt-3 text-3xl sm:text-4xl font-extrabold">
+                <h1 className="mt-2 sm:mt-3 text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight">
                   Choose Your Plan
                 </h1>
-                <p className="mt-3 text-base sm:text-lg text-muted max-w-2xl mx-auto">
+                <p className="mt-2 sm:mt-3 text-sm sm:text-base md:text-lg text-muted max-w-2xl mx-auto px-4">
                   Unlock premium automations, WhatsApp workflows, and dedicated
                   support.
                 </p>
@@ -929,19 +929,19 @@ function PaymentContent() {
 
             {/* Error Messages */}
             {statusError && (
-              <div className="mb-4 p-4 bg-surface-strong/30 border border-red-200 text-red-600 rounded-xl max-w-3xl mx-auto text-sm">
+              <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-surface-strong/30 border border-red-200 text-red-600 rounded-lg sm:rounded-xl max-w-3xl mx-auto text-xs sm:text-sm">
                 {statusError}
               </div>
             )}
 
             {error && (
-              <div className="mb-4 p-4 bg-red-100 border border-red-300 text-red-700 rounded-xl max-w-3xl mx-auto text-sm">
+              <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg sm:rounded-xl max-w-3xl mx-auto text-xs sm:text-sm">
                 {error}
               </div>
             )}
 
             {/* Plan Cards */}
-            <div className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
+            <div className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
               {plans.map((plan) => (
                 <PlanCard
                   key={plan.code}
@@ -954,11 +954,11 @@ function PaymentContent() {
             </div>
 
             {/* Payment Button */}
-            <div className="text-center space-y-4 mt-10">
+            <div className="text-center space-y-3 sm:space-y-4 mt-6 sm:mt-10">
               <button
                 onClick={handlePayment}
                 disabled={loading || !selectedPlan}
-                className="relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-accent via-indigo-500 to-purple-500 text-white font-semibold py-4 px-10 rounded-2xl shadow-lg shadow-accent/30 transition hover:shadow-xl hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-accent via-indigo-500 to-purple-500 text-white font-semibold py-3 sm:py-4 px-8 sm:px-10 rounded-xl sm:rounded-2xl shadow-lg shadow-accent/30 transition hover:shadow-xl hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto text-sm sm:text-base"
               >
                 {loading ? (
                   <>
@@ -986,28 +986,29 @@ function PaymentContent() {
                   </>
                 ) : (
                   <>
-                    <CreditCard className="h-5 w-5" /> Continue to Payment
+                    <CreditCard className="h-4 sm:h-5 w-4 sm:w-5" /> Continue to
+                    Payment
                   </>
                 )}
               </button>
               {successMessage && (
-                <div className="p-4 bg-accent/10 border border-accent/30 text-accent rounded-xl max-w-xl mx-auto text-sm">
+                <div className="p-3 sm:p-4 bg-accent/10 border border-accent/30 text-accent rounded-lg sm:rounded-xl max-w-xl mx-auto text-xs sm:text-sm">
                   {successMessage}
                 </div>
               )}
-              <div className="text-sm text-muted max-w-2xl mx-auto space-y-2">
-                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted">
+              <div className="text-xs sm:text-sm text-muted max-w-2xl mx-auto space-y-2">
+                <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs">
                   <span className="inline-flex items-center gap-1">
-                    <ShieldCheck className="h-4 w-4 text-accent" /> Secure
-                    checkout
+                    <ShieldCheck className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-accent" />{" "}
+                    Secure checkout
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <CreditCard className="h-4 w-4 text-accent" /> Major cards &
-                    bank transfers
+                    <CreditCard className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-accent" />{" "}
+                    Major cards & bank transfers
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <BadgeCheck className="h-4 w-4 text-accent" /> 7-day
-                    guarantee
+                    <BadgeCheck className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-accent" />{" "}
+                    7-day guarantee
                   </span>
                 </div>
               </div>
@@ -1023,15 +1024,15 @@ function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
   const Icon = plan.icon || Sparkles;
   return (
     <label
-      className={`relative block rounded-3xl border p-8 transition-all cursor-pointer ${
+      className={`relative block rounded-2xl sm:rounded-3xl border p-5 sm:p-6 md:p-8 transition-all cursor-pointer ${
         isSelected
-          ? "border-accent bg-gradient-to-br from-accent/5 to-accent/10 shadow-2xl shadow-accent/20 ring-2 ring-accent scale-105"
+          ? "border-accent bg-gradient-to-br from-accent/5 to-accent/10 shadow-2xl shadow-accent/20 ring-2 ring-accent scale-[1.02] sm:scale-105"
           : "border-surface-strong/30 bg-surface/50 hover:border-accent/40 hover:shadow-xl"
       }`}
     >
       {plan.badge && (
         <span
-          className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wider ${
+          className={`absolute -top-2.5 sm:-top-3 left-1/2 -translate-x-1/2 rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
             plan.recommended
               ? "bg-accent text-white shadow-lg"
               : "bg-surface-strong/80 text-muted border border-surface-strong"
@@ -1041,34 +1042,40 @@ function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
         </span>
       )}
 
-      <div className="text-center space-y-4">
+      <div className="text-center space-y-3 sm:space-y-4">
         {/* Icon */}
         <div
-          className={`inline-flex rounded-2xl p-4 ${
+          className={`inline-flex rounded-xl sm:rounded-2xl p-3 sm:p-4 ${
             isSelected ? "bg-accent/20" : "bg-surface-strong/50"
           }`}
         >
           <Icon
-            className={`h-8 w-8 ${isSelected ? "text-accent" : "text-muted"}`}
+            className={`h-6 sm:h-7 md:h-8 w-6 sm:w-7 md:w-8 ${
+              isSelected ? "text-accent" : "text-muted"
+            }`}
           />
         </div>
 
         {/* Plan Name */}
         <div>
-          <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
-          <p className="text-sm text-muted mt-1">{plan.subtitle}</p>
+          <h3 className="text-xl sm:text-2xl font-bold text-foreground">
+            {plan.name}
+          </h3>
+          <p className="text-xs sm:text-sm text-muted mt-1">{plan.subtitle}</p>
         </div>
 
         {/* Price */}
-        <div className="py-6 border-y border-surface-strong/30">
+        <div className="py-4 sm:py-6 border-y border-surface-strong/30">
           <div className="flex items-baseline justify-center gap-1">
-            <span className="text-5xl font-extrabold text-foreground">
+            <span className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground">
               {formatPrice(plan.price)}
             </span>
-            <span className="text-lg text-muted font-medium">/month</span>
+            <span className="text-sm sm:text-base md:text-lg text-muted font-medium">
+              /month
+            </span>
           </div>
           {plan.discountNote && (
-            <p className="text-xs text-accent font-semibold mt-2">
+            <p className="text-[10px] sm:text-xs text-accent font-semibold mt-2">
               {plan.discountNote}
             </p>
           )}
@@ -1078,7 +1085,7 @@ function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
         <button
           type="button"
           onClick={onSelect}
-          className={`w-full py-3 px-6 rounded-xl font-semibold transition-all ${
+          className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold transition-all text-sm sm:text-base ${
             isSelected
               ? "bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent/90"
               : "bg-surface-strong/50 text-foreground hover:bg-surface-strong/70"
@@ -1092,11 +1099,11 @@ function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
         </button>
 
         {/* Features */}
-        <ul className="mt-6 space-y-3 text-left text-sm">
+        <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3 text-left text-xs sm:text-sm">
           {plan.features.map((feature, index) => (
-            <li key={index} className="flex items-start gap-3">
+            <li key={index} className="flex items-start gap-2 sm:gap-3">
               <CheckCircle2
-                className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                className={`h-4 sm:h-5 w-4 sm:w-5 mt-0.5 flex-shrink-0 ${
                   isSelected ? "text-accent" : "text-muted"
                 }`}
               />

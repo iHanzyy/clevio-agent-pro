@@ -60,15 +60,19 @@ export default function AgentTemplatesView({
       user?.subscription?.plan_code || user?.subscription?.planCode || "";
     return Boolean(
       user?.is_trial ||
-        (typeof plan === "string" && plan.toLowerCase() === "trial"),
+        (typeof plan === "string" && plan.toLowerCase() === "trial")
     );
-  }, [user?.is_trial, user?.subscription?.planCode, user?.subscription?.plan_code]);
+  }, [
+    user?.is_trial,
+    user?.subscription?.planCode,
+    user?.subscription?.plan_code,
+  ]);
 
   const trialAllowedTemplates = useMemo(() => {
     return new Set(
       templatesData
         .slice(0, TRIAL_TEMPLATE_LIMIT)
-        .map((template) => template.id),
+        .map((template) => template.id)
     );
   }, []);
 
@@ -76,7 +80,7 @@ export default function AgentTemplatesView({
     let filtered = templatesData;
     if (selectedCategory !== "all") {
       filtered = filtered.filter(
-        (template) => template.category === selectedCategory,
+        (template) => template.category === selectedCategory
       );
     }
     if (searchQuery.trim()) {
@@ -85,7 +89,7 @@ export default function AgentTemplatesView({
         (template) =>
           template.name.toLowerCase().includes(query) ||
           template.description.toLowerCase().includes(query) ||
-          template.category.toLowerCase().includes(query),
+          template.category.toLowerCase().includes(query)
       );
     }
     return filtered;
@@ -184,21 +188,21 @@ export default function AgentTemplatesView({
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 sm:p-6">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8">
-          <div className="mb-4 flex items-center justify-between">
+        <div className="mb-6 sm:mb-8">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="mb-2 text-3xl font-bold text-foreground">
+              <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl">
                 {heading}
               </h1>
-              <p className="text-muted">{subheading}</p>
+              <p className="text-sm text-muted sm:text-base">{subheading}</p>
             </div>
             {allowCustomStart && (
               <button
                 onClick={handleCreateFromScratch}
                 disabled={isTrialPlanUser}
-                className={`rounded-xl px-6 py-3 text-sm font-medium shadow-lg transition-all ${
+                className={`w-full rounded-xl px-4 py-3 text-sm font-medium shadow-lg transition-all sm:w-auto sm:px-6 ${
                   isTrialPlanUser
                     ? "cursor-not-allowed bg-surface-strong/60 text-muted"
                     : "bg-accent text-white shadow-accent/25 hover:bg-accent/90 hover:shadow-accent/40"
@@ -210,8 +214,8 @@ export default function AgentTemplatesView({
           </div>
 
           {error && (
-            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
-              <div className="flex items-start gap-3">
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 sm:mb-6 sm:p-4">
+              <div className="flex items-start gap-2 sm:gap-3">
                 <svg
                   className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600"
                   fill="currentColor"
@@ -227,13 +231,19 @@ export default function AgentTemplatesView({
                   <h3 className="text-sm font-semibold text-red-900">
                     Failed to Start Interview
                   </h3>
-                  <p className="mt-1 text-sm text-red-700">{error}</p>
+                  <p className="mt-1 text-xs text-red-700 sm:text-sm">
+                    {error}
+                  </p>
                 </div>
                 <button
                   onClick={() => setError(null)}
                   className="text-red-400 hover:text-red-600"
                 >
-                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                  <svg
+                    className="h-5 w-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
                     <path
                       fillRule="evenodd"
                       d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -245,10 +255,10 @@ export default function AgentTemplatesView({
             </div>
           )}
 
-          <div className="relative mb-6">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+          <div className="relative mb-4 sm:mb-6">
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 sm:pl-4">
               <svg
-                className="h-5 w-5 text-muted"
+                className="h-4 w-4 text-muted sm:h-5 sm:w-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -266,11 +276,11 @@ export default function AgentTemplatesView({
               placeholder="Search templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-2xl border border-surface-strong/60 bg-surface py-3 pl-12 pr-4 text-sm text-foreground placeholder-muted transition-all focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20"
+              className="w-full rounded-2xl border border-surface-strong/60 bg-surface py-2.5 pl-10 pr-3 text-sm text-foreground placeholder-muted transition-all focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20 sm:py-3 sm:pl-12 sm:pr-4"
             />
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:gap-3 sm:px-0 sm:pb-0">
             {CATEGORIES.map((category) => {
               const isActive = selectedCategory === category.id;
               const count =
@@ -282,14 +292,14 @@ export default function AgentTemplatesView({
                 <button
                   key={category.id}
                   onClick={() => setSelectedCategory(category.id)}
-                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                  className={`flex-shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition sm:px-4 sm:text-sm ${
                     isActive
                       ? "bg-accent text-white shadow-lg shadow-accent/40"
                       : "bg-surface text-muted hover:bg-surface/80"
                   }`}
                 >
                   {category.label}
-                  <span className="ml-2 rounded-full bg-black/5 px-2 py-0.5 text-xs font-semibold text-muted">
+                  <span className="ml-1.5 rounded-full bg-black/5 px-1.5 py-0.5 text-xs font-semibold text-muted sm:ml-2 sm:px-2">
                     {count}
                   </span>
                 </button>
@@ -298,13 +308,13 @@ export default function AgentTemplatesView({
           </div>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
           {filteredTemplates.map((template) => {
             const locked = isTemplateLocked(template.id);
             return (
               <div
                 key={template.id}
-                className="relative rounded-2xl border border-surface-strong/60 bg-surface p-5 shadow-sm transition hover:border-accent/60 hover:shadow-lg"
+                className="relative rounded-2xl border border-surface-strong/60 bg-surface p-4 shadow-sm transition hover:border-accent/60 hover:shadow-lg sm:p-5"
               >
                 {locked && (
                   <button
@@ -322,15 +332,15 @@ export default function AgentTemplatesView({
                   </button>
                 )}
                 <div className="flex items-start justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="text-xs uppercase tracking-wide text-muted">
                       {template.category}
                     </p>
-                    <h3 className="mt-2 text-xl font-semibold text-foreground">
+                    <h3 className="mt-2 text-lg font-semibold text-foreground sm:text-xl">
                       {template.name}
                     </h3>
                   </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
+                  <div className="ml-2 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
                     <Image
                       src="/icons/agent-template.svg"
                       alt=""
@@ -340,10 +350,10 @@ export default function AgentTemplatesView({
                     />
                   </div>
                 </div>
-                <p className="mt-4 text-sm text-muted">
+                <p className="mt-3 text-sm text-muted sm:mt-4">
                   {template.description}
                 </p>
-                <div className="mt-6 flex items-center justify-between">
+                <div className="mt-4 flex flex-col gap-2 sm:mt-6 sm:flex-row sm:items-center sm:justify-between">
                   <button
                     onClick={() => handleUseTemplate(template)}
                     disabled={locked}
@@ -374,11 +384,11 @@ export default function AgentTemplatesView({
         </div>
 
         {filteredTemplates.length === 0 && (
-          <div className="mt-12 rounded-3xl border border-dashed border-surface-strong/60 bg-surface/40 p-12 text-center">
-            <h3 className="text-xl font-semibold text-foreground">
-              No templates match “{searchQuery}”
+          <div className="mt-8 rounded-3xl border border-dashed border-surface-strong/60 bg-surface/40 p-8 text-center sm:mt-12 sm:p-12">
+            <h3 className="text-lg font-semibold text-foreground sm:text-xl">
+              No templates match "{searchQuery}"
             </h3>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-xs text-muted sm:text-sm">
               Try another keyword or pick a different category.
             </p>
           </div>
@@ -394,24 +404,24 @@ export default function AgentTemplatesView({
       />
 
       {isTrialPlanUser && showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
-          <div className="relative w-full max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-4 shadow-2xl sm:p-6">
             <button
               type="button"
               onClick={closeUpgradeModal}
-              className="absolute right-4 top-4 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/70"
+              className="absolute right-3 top-3 rounded-full bg-surface px-2 py-1 text-xs font-semibold text-muted hover:bg-surface-strong/70 sm:right-4 sm:top-4"
             >
               Close
             </button>
             <div className="space-y-3">
-              <h3 className="text-xl font-semibold text-foreground">
+              <h3 className="pr-16 text-lg font-semibold text-foreground sm:text-xl">
                 Upgrade required
               </h3>
-              <p className="text-sm text-muted">
+              <p className="text-xs text-muted sm:text-sm">
                 Trial plan hanya membuka 2 template pertama. Upgrade untuk
                 memakai semua template dan fitur customize agent.
               </p>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:gap-4 md:grid-cols-2">
                 {UPGRADE_PLAN_OPTIONS.map((plan) => {
                   const isActive = selectedUpgradePlan === plan.code;
                   return (
@@ -419,10 +429,14 @@ export default function AgentTemplatesView({
                       type="button"
                       key={plan.code}
                       onClick={() => setSelectedUpgradePlan(plan.code)}
-                      className={`rounded-2xl border p-4 text-left transition ${isActive ? "border-accent bg-accent/5 shadow-lg" : "border-surface-strong/60 hover:border-accent/60"}`}
+                      className={`rounded-2xl border p-3 text-left transition sm:p-4 ${
+                        isActive
+                          ? "border-accent bg-accent/5 shadow-lg"
+                          : "border-surface-strong/60 hover:border-accent/60"
+                      }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-base font-semibold text-foreground">
+                        <span className="text-sm font-semibold text-foreground sm:text-base">
                           {plan.name}
                         </span>
                         {isActive && (
@@ -431,7 +445,7 @@ export default function AgentTemplatesView({
                           </span>
                         )}
                       </div>
-                      <p className="mt-2 text-sm font-medium text-foreground">
+                      <p className="mt-2 text-xs font-medium text-foreground sm:text-sm">
                         {plan.priceLabel}
                       </p>
                       <p className="mt-1 text-xs text-muted">
@@ -441,11 +455,11 @@ export default function AgentTemplatesView({
                   );
                 })}
               </div>
-              <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <div className="mt-4 flex flex-col gap-2 sm:mt-6 sm:flex-row sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   onClick={closeUpgradeModal}
-                  className="rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-semibold text-muted hover:bg-surface"
+                  className="w-full rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-semibold text-muted hover:bg-surface sm:w-auto"
                 >
                   Maybe later
                 </button>
@@ -453,7 +467,7 @@ export default function AgentTemplatesView({
                   type="button"
                   onClick={handleUpgradeRedirect}
                   disabled={upgradeProcessing}
-                  className="inline-flex items-center rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent-hover disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-accent-foreground transition hover:bg-accent-hover disabled:opacity-60 sm:w-auto"
                 >
                   {upgradeProcessing ? "Redirecting..." : "Continue to payment"}
                 </button>
@@ -462,6 +476,16 @@ export default function AgentTemplatesView({
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </div>
   );
 }

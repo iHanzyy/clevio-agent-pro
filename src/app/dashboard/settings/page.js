@@ -191,10 +191,12 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
+      <div className="flex h-64 items-center justify-center px-4">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-accent border-t-transparent"></div>
-          <p className="mt-4 text-sm text-muted">Loading your settings…</p>
+          <div className="mx-auto h-10 w-10 sm:h-12 sm:w-12 animate-spin rounded-full border-4 border-accent border-t-transparent"></div>
+          <p className="mt-4 text-xs sm:text-sm text-muted">
+            Loading your settings…
+          </p>
         </div>
       </div>
     );
@@ -202,11 +204,11 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="mx-auto max-w-2xl rounded-3xl border border-surface-strong/60 bg-surface p-12 text-center shadow-sm">
-        <h2 className="text-2xl font-semibold text-foreground">
+      <div className="mx-auto max-w-2xl rounded-2xl sm:rounded-3xl border border-surface-strong/60 bg-surface p-6 sm:p-12 text-center shadow-sm">
+        <h2 className="text-xl sm:text-2xl font-semibold text-foreground">
           No account data found
         </h2>
-        <p className="mt-3 text-muted">
+        <p className="mt-3 text-sm sm:text-base text-muted">
           Sign in again to access your settings and security controls.
         </p>
       </div>
@@ -214,24 +216,28 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="rounded-3xl bg-gradient-to-br from-accent via-accent/90 to-accent-hover p-8 text-accent-foreground shadow-xl">
-        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface/20 text-2xl font-semibold uppercase text-accent-foreground">
+    <div className="space-y-6 sm:space-y-8 px-3 sm:px-4 md:px-0">
+      {/* Profile Header Card */}
+      <div className="rounded-2xl sm:rounded-3xl bg-gradient-to-br from-accent via-accent/90 to-accent-hover p-5 sm:p-6 md:p-8 text-accent-foreground shadow-xl">
+        <div className="flex flex-col gap-4 sm:gap-6 md:flex-row md:items-center md:justify-between">
+          {/* User Info */}
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 items-center justify-center rounded-full bg-surface/20 text-lg sm:text-xl md:text-2xl font-semibold uppercase text-accent-foreground flex-shrink-0">
               {initials}
             </div>
-            <div>
-              <p className="text-sm uppercase tracking-wide text-accent-foreground/80">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] sm:text-xs uppercase tracking-wide text-accent-foreground/80">
                 Signed in as
               </p>
-              <h1 className="text-3xl font-semibold">{user.email}</h1>
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium">
-                <span className="rounded-full bg-surface/15 px-3 py-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold truncate">
+                {user.email}
+              </h1>
+              <div className="mt-2 sm:mt-3 flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium">
+                <span className="rounded-full bg-surface/15 px-2 sm:px-3 py-0.5 sm:py-1 whitespace-nowrap">
                   Plan: {planLabel}
                 </span>
                 <span
-                  className={`rounded-full px-3 py-1 ${
+                  className={`rounded-full px-2 sm:px-3 py-0.5 sm:py-1 whitespace-nowrap ${
                     isActive ? "bg-accent/20" : "bg-surface-strong/40"
                   } ${isActive ? "text-accent" : "text-muted"}`}
                 >
@@ -240,29 +246,35 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          {/* Renewal Info */}
           <div className="text-left md:text-right">
-            <p className="text-sm text-accent-foreground/70">Next renewal</p>
-            <p className="text-xl font-semibold">{formatDate(expiresAt)}</p>
+            <p className="text-xs sm:text-sm text-accent-foreground/70">
+              Next renewal
+            </p>
+            <p className="text-lg sm:text-xl font-semibold">
+              {formatDate(expiresAt)}
+            </p>
             {typeof daysRemaining === "number" ? (
-              <p className="mt-1 text-sm text-accent-foreground/70">
+              <p className="mt-1 text-xs sm:text-sm text-accent-foreground/70">
                 {daysRemaining} day{daysRemaining === 1 ? "" : "s"} remaining
               </p>
             ) : (
-              <p className="mt-1 text-sm text-accent-foreground/70">
+              <p className="mt-1 text-xs sm:text-sm text-accent-foreground/70">
                 Renewal date not available
               </p>
             )}
           </div>
         </div>
+        {/* Progress Bar */}
         {renewalProgress !== null && (
-          <div className="mt-6">
-            <div className="flex items-center justify-between text-sm text-accent-foreground/70">
+          <div className="mt-4 sm:mt-6">
+            <div className="flex items-center justify-between text-xs sm:text-sm text-accent-foreground/70">
               <span>Plan usage</span>
               <span>{renewalProgress}% used</span>
             </div>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface/25">
+            <div className="mt-2 h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-surface/25">
               <div
-                className="h-full rounded-full bg-surface"
+                className="h-full rounded-full bg-surface transition-all duration-300"
                 style={{ width: `${renewalProgress}%` }}
               ></div>
             </div>
@@ -270,42 +282,47 @@ export default function SettingsPage() {
         )}
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-3">
-        <div className="space-y-8 xl:col-span-2">
-          <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {/* Main Content Grid */}
+      <div className="grid gap-6 sm:gap-8 xl:grid-cols-3">
+        {/* Account Overview Section */}
+        <div className="space-y-6 sm:space-y-8 xl:col-span-2">
+          <section className="rounded-2xl sm:rounded-3xl border border-surface-strong/60 bg-surface p-5 sm:p-6 md:p-8 shadow-sm">
+            <div className="flex flex-col gap-3 sm:gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">
+                <h2 className="text-lg sm:text-xl font-semibold text-foreground">
                   Account overview
                 </h2>
-                <p className="mt-1 text-sm text-muted">
+                <p className="mt-1 text-xs sm:text-sm text-muted">
                   Key details about your subscription and workspace access.
                 </p>
               </div>
             </div>
-            <dl className="mt-6 grid gap-6 sm:grid-cols-2">
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">Account ID</dt>
-                <dd className="mt-2 break-words text-base font-medium text-foreground">
+            {/* Info Grid */}
+            <dl className="mt-5 sm:mt-6 grid gap-3 sm:gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2">
+              <div className="rounded-xl sm:rounded-2xl border border-surface-strong/40 bg-background p-4 sm:p-5">
+                <dt className="text-xs sm:text-sm text-muted">Account ID</dt>
+                <dd className="mt-2 break-words text-sm sm:text-base font-medium text-foreground">
                   {user.user_id || "—"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">Email</dt>
-                <dd className="mt-2 break-words text-base font-medium text-foreground">
+              <div className="rounded-xl sm:rounded-2xl border border-surface-strong/40 bg-background p-4 sm:p-5">
+                <dt className="text-xs sm:text-sm text-muted">Email</dt>
+                <dd className="mt-2 break-words text-sm sm:text-base font-medium text-foreground">
                   {user.email}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">Plan</dt>
-                <dd className="mt-2 text-base font-medium text-foreground">
+              <div className="rounded-xl sm:rounded-2xl border border-surface-strong/40 bg-background p-4 sm:p-5">
+                <dt className="text-xs sm:text-sm text-muted">Plan</dt>
+                <dd className="mt-2 text-sm sm:text-base font-medium text-foreground">
                   {planLabel}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">Subscription status</dt>
+              <div className="rounded-xl sm:rounded-2xl border border-surface-strong/40 bg-background p-4 sm:p-5">
+                <dt className="text-xs sm:text-sm text-muted">
+                  Subscription status
+                </dt>
                 <dd
-                  className={`mt-2 inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
+                  className={`mt-2 inline-flex items-center rounded-full px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-medium ${
                     isActive
                       ? "bg-accent/10 text-accent"
                       : "bg-surface-strong/40 text-muted"
@@ -314,17 +331,19 @@ export default function SettingsPage() {
                   {isActive ? "Active" : "Inactive"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">Days remaining</dt>
-                <dd className="mt-2 text-base font-medium text-foreground">
+              <div className="rounded-xl sm:rounded-2xl border border-surface-strong/40 bg-background p-4 sm:p-5">
+                <dt className="text-xs sm:text-sm text-muted">
+                  Days remaining
+                </dt>
+                <dd className="mt-2 text-sm sm:text-base font-medium text-foreground">
                   {typeof daysRemaining === "number"
                     ? `${daysRemaining} day${daysRemaining === 1 ? "" : "s"}`
                     : "Not available"}
                 </dd>
               </div>
-              <div className="rounded-2xl border border-surface-strong/40 bg-background p-5">
-                <dt className="text-sm text-muted">Renewal date</dt>
-                <dd className="mt-2 text-base font-medium text-foreground">
+              <div className="rounded-xl sm:rounded-2xl border border-surface-strong/40 bg-background p-4 sm:p-5">
+                <dt className="text-xs sm:text-sm text-muted">Renewal date</dt>
+                <dd className="mt-2 text-sm sm:text-base font-medium text-foreground">
                   {formatDate(expiresAt)}
                 </dd>
               </div>
@@ -332,18 +351,23 @@ export default function SettingsPage() {
           </section>
         </div>
 
-        <section className="rounded-3xl border border-surface-strong/60 bg-surface p-8 shadow-sm">
-          <h2 className="text-xl font-semibold text-foreground">
+        {/* Password & Security Section */}
+        <section className="rounded-2xl sm:rounded-3xl border border-surface-strong/60 bg-surface p-5 sm:p-6 md:p-8 shadow-sm">
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">
             Password &amp; security
           </h2>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-1 text-xs sm:text-sm text-muted">
             Update your password to keep your workspace secure.
           </p>
 
-          <form className="mt-6 space-y-5" onSubmit={handlePasswordSubmit}>
+          <form
+            className="mt-5 sm:mt-6 space-y-4 sm:space-y-5"
+            onSubmit={handlePasswordSubmit}
+          >
+            {/* Status Message */}
             {status && (
               <div
-                className={`rounded-2xl border px-4 py-3 text-sm ${
+                className={`rounded-xl sm:rounded-2xl border px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm ${
                   status.type === "success"
                     ? "border-accent/40 bg-accent/10 text-accent"
                     : "border-surface-strong/60 bg-background text-accent"
@@ -353,10 +377,11 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* New Password Input */}
             <div>
               <label
                 htmlFor="newPassword"
-                className="text-sm font-medium text-muted"
+                className="text-xs sm:text-sm font-medium text-muted"
               >
                 New password
               </label>
@@ -368,16 +393,17 @@ export default function SettingsPage() {
                   autoComplete="new-password"
                   value={passwordForm.newPassword}
                   onChange={handlePasswordChange}
-                  className="w-full rounded-2xl border border-surface-strong/60 bg-background px-4 py-3 text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  className="w-full rounded-xl sm:rounded-2xl border border-surface-strong/60 bg-background px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30"
                   placeholder="Use a memorable passphrase"
                 />
               </div>
             </div>
 
+            {/* Confirm Password Input */}
             <div>
               <label
                 htmlFor="confirmPassword"
-                className="text-sm font-medium text-muted"
+                className="text-xs sm:text-sm font-medium text-muted"
               >
                 Confirm password
               </label>
@@ -389,43 +415,46 @@ export default function SettingsPage() {
                   autoComplete="new-password"
                   value={passwordForm.confirmPassword}
                   onChange={handlePasswordChange}
-                  className="w-full rounded-2xl border border-surface-strong/60 bg-background px-4 py-3 text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30"
+                  className="w-full rounded-xl sm:rounded-2xl border border-surface-strong/60 bg-background px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base text-foreground shadow-sm focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/30"
                   placeholder="Repeat your new password"
                 />
               </div>
             </div>
 
+            {/* Toggle Visibility Button */}
             <button
               type="button"
               onClick={handleToggleVisibility}
-              className="text-sm font-medium text-accent hover:text-accent focus:outline-none"
+              className="text-xs sm:text-sm font-medium text-accent hover:text-accent focus:outline-none"
             >
               {passwordVisible ? "Hide passwords" : "Show passwords"}
             </button>
 
+            {/* Password Strength Indicator */}
             <div>
-              <div className="flex items-center justify-between text-sm text-muted">
+              <div className="flex items-center justify-between text-xs sm:text-sm text-muted">
                 <span>Password strength</span>
                 <span className={`font-medium ${passwordStrength.textClass}`}>
                   {passwordStrength.label}
                 </span>
               </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface">
+              <div className="mt-2 h-1.5 sm:h-2 w-full overflow-hidden rounded-full bg-surface">
                 <div
-                  className={`h-full rounded-full ${passwordStrength.barClass} transition-all`}
+                  className={`h-full rounded-full ${passwordStrength.barClass} transition-all duration-300`}
                   style={{ width: `${passwordStrength.progress}%` }}
                 ></div>
               </div>
-              <p className="mt-2 text-xs text-muted">
+              <p className="mt-2 text-[10px] sm:text-xs text-muted">
                 {passwordStrength.helper}
               </p>
             </div>
 
+            {/* Submit Button */}
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-accent cursor-pointer"
+                className="inline-flex w-full items-center justify-center rounded-xl sm:rounded-2xl bg-accent px-4 py-2.5 sm:py-3 text-sm sm:text-base font-semibold text-accent-foreground shadow-sm transition hover:bg-accent-hover focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-accent cursor-pointer"
               >
                 {isSubmitting ? "Updating…" : "Update password"}
               </button>
