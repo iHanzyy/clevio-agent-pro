@@ -12,18 +12,19 @@ const mapAgentToInitialValues = (agent) => {
   const allowedList = Array.isArray(agent.allowed_tools)
     ? agent.allowed_tools
     : [];
+  const normalizedTools =
+    agent.tools &&
+    typeof agent.tools === "object" &&
+    !Array.isArray(agent.tools)
+      ? agent.tools
+      : {};
+  const mcpTools = Array.isArray(agent.mcp_tools) ? agent.mcp_tools : [];
 
   return {
     name: agent.name ?? "",
-    tools: {
-      gmail:
-        (Array.isArray(agent.tools) && agent.tools.includes("gmail")) ||
-        allowedList.includes("gmail"),
-      calendar:
-        (Array.isArray(agent.tools) && agent.tools.includes("calendar")) ||
-        allowedList.includes("calendar"),
-      whatsapp: allowedList.includes("whatsapp"),
-    },
+    tools: normalizedTools,
+    allowed_tools: allowedList,
+    mcp_tools: mcpTools,
     systemPrompt:
       agent.config?.system_message ?? agent.config?.system_prompt ?? "",
     model: agent.config?.model ?? agent.config?.llm_model ?? "gpt-4o-mini",
@@ -154,6 +155,19 @@ export default function EditAgentPage() {
     return null;
   }
 
+  const normalizedPlanCode = (
+    user?.subscription?.plan_code ||
+    user?.subscription?.planCode ||
+    apiService.getPlanCode?.() ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+  const isTrialPlan = Boolean(
+    user?.is_trial || normalizedPlanCode === "trial"
+  );
+  const isProMonthlyPlan = normalizedPlanCode === "pro_m";
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
@@ -171,6 +185,8 @@ export default function EditAgentPage() {
         initialValues={initialValues}
         onSubmit={handleUpdate}
         isSubmitting={isSubmitting}
+        isTrialPlan={isTrialPlan}
+        isProMonthlyPlan={isProMonthlyPlan}
       />
     </div>
   );

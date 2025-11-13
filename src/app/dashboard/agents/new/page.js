@@ -67,10 +67,16 @@ export default function NewAgentPage() {
     return null;
   }
 
-  const isTrialUser =
-    user?.is_trial ||
-    user?.subscription?.plan_code?.toLowerCase?.() === "trial" ||
-    false;
+  const normalizedPlanCode = (
+    user?.subscription?.plan_code ||
+    user?.subscription?.planCode ||
+    apiService.getPlanCode?.() ||
+    ""
+  )
+    .toString()
+    .toLowerCase();
+  const isTrialUser = Boolean(user?.is_trial || normalizedPlanCode === "trial");
+  const isProMonthlyUser = normalizedPlanCode === "pro_m";
 
   const handleCreate = async (payload) => {
     setIsSubmitting(true);
@@ -180,6 +186,8 @@ export default function NewAgentPage() {
         initialValues={prefilledData}
         onSubmit={handleCreate}
         isSubmitting={isSubmitting}
+        isTrialPlan={isTrialUser}
+        isProMonthlyPlan={isProMonthlyUser}
         startGuidedTour={showGuidedTour}
         onGuidedTourClose={handleGuidedTourClose}
       />

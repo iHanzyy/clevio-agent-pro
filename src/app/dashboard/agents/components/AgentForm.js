@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AgentFormTour from "@/components/ui/AgentFormTour";
 import mcpTools from "@/data/mcp-tools.json";
+import { Lock } from "lucide-react";
 
 export const TOOL_OPTIONS = [
   {
@@ -81,6 +83,10 @@ const MCP_TOOL_OPTIONS = Array.isArray(mcpTools)
   : [];
 
 const MCP_TOOL_IDS = MCP_TOOL_OPTIONS.map((tool) => tool.id);
+const TRIAL_LOCKED_MCP = new Set(MCP_TOOL_IDS);
+const PRO_MONTHLY_LOCKED_MCP = new Set(
+  ["docx_generate", "deep_research"].filter((id) => MCP_TOOL_IDS.includes(id))
+);
 
 const createDefaultToolState = () =>
   TOOL_IDS.reduce((accumulator, id) => {
@@ -271,6 +277,8 @@ export default function AgentForm({
   initialValues = null,
   onSubmit,
   isSubmitting = false,
+  isTrialPlan = false,
+  isProMonthlyPlan = false,
   startGuidedTour = false,
   onGuidedTourClose,
   onGuidedTourStepChange,
@@ -281,6 +289,8 @@ export default function AgentForm({
   const [serverError, setServerError] = useState("");
   const lockedToolsRef = useRef([]);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const router = useRouter();
 
   const submitLabel = useMemo(() => {
     if (submitButtonLabel) {
@@ -372,6 +382,16 @@ export default function AgentForm({
       (tool) => !KNOWN_TOOL_IDS.has(tool)
     );
   }, [initialValues]);
+  const lockedToolIds = useMemo(() => new Set(), []);
+  const lockedMcpToolIds = useMemo(() => {
+    const locked = new Set();
+    if (isTrialPlan) {
+      TRIAL_LOCKED_MCP.forEach((id) => locked.add(id));
+    } else if (isProMonthlyPlan) {
+      PRO_MONTHLY_LOCKED_MCP.forEach((id) => locked.add(id));
+    }
+    return locked;
+  }, [isTrialPlan, isProMonthlyPlan]);
 
   const handleTourClose = () => {
     setIsTourOpen(false);
@@ -379,6 +399,10 @@ export default function AgentForm({
   };
 
   const toggleTool = (toolId) => {
+    if (lockedToolIds.has(toolId)) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setValues((prev) => ({
       ...prev,
       tools: {
@@ -389,6 +413,10 @@ export default function AgentForm({
   };
 
   const toggleMcpTool = (toolId) => {
+    if (lockedMcpToolIds.has(toolId)) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setValues((prev) => ({
       ...prev,
       mcpTools: {
@@ -563,13 +591,18 @@ export default function AgentForm({
                 {MCP_TOOL_OPTIONS.map((tool) => (
                   <label
                     key={tool.id}
-                    className="flex items-start space-x-3 rounded-lg border border-surface-strong/60 bg-background p-4 cursor-pointer hover:border-accent transition"
+                    className={`flex items-start space-x-3 rounded-lg border p-4 transition ${
+                      lockedMcpToolIds.has(tool.id)
+                        ? "border-surface-strong/60 bg-surface/60 cursor-not-allowed opacity-70"
+                        : "border-surface-strong/60 bg-background cursor-pointer hover:border-accent"
+                    }`}
                   >
                     <input
                       type="checkbox"
                       checked={values.mcpTools?.[tool.id] || false}
                       onChange={() => toggleMcpTool(tool.id)}
-                      className="mt-1 h-4 w-4 text-accent border-surface-strong/60 rounded focus:ring-accent"
+                      disabled={lockedMcpToolIds.has(tool.id)}
+                      className="mt-1 h-4 w-4 text-accent border-surface-strong/60 rounded focus:ring-accent disabled:cursor-not-allowed"
                     />
                     <span>
                       <span className="block text-sm font-semibold text-foreground">
@@ -578,6 +611,12 @@ export default function AgentForm({
                       {tool.description && (
                         <span className="mt-1 block text-xs text-muted">
                           {tool.description}
+                        </span>
+                      )}
+                      {lockedMcpToolIds.has(tool.id) && (
+                        <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
+                          <Lock className="h-3 w-3" />
+                          Upgrade required
                         </span>
                       )}
                     </span>
@@ -668,6 +707,73 @@ export default function AgentForm({
           )}
         </button>
       </div>
+      {showUpgradeModal && (
+        <UpgradePromptModal
+          isTrialPlan={isTrialPlan}
+          isProMonthlyPlan={isProMonthlyPlan}
+          onClose={() => setShowUpgradeModal(false)}
+          onUpgrade={() => {
+            setShowUpgradeModal(false);
+            router.push("/payment?plan=PRO_Y&source=mcp-lock");
+          }}
+        />
+      )}
     </form>
+  );
+}
+
+function UpgradePromptModal({
+  isTrialPlan,
+  isProMonthlyPlan,
+  onClose,
+  onUpgrade,
+}) {
+  const headline = isTrialPlan
+    ? "Upgrade to unlock MCP tools"
+    : "Upgrade for premium MCP actions";
+  const message = isTrialPlan
+    ? "Trial accounts cannot use MCP tools. Upgrade to a paid plan to automate browsing, document generation, and advanced research flows."
+    : "This tool requires the Pro Yearly plan. Upgrade to unlock document generation and deep research capabilities.";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        <div className="flex items-center gap-3 text-accent">
+          <Lock className="h-6 w-6" />
+          <p className="text-xs font-semibold uppercase tracking-[0.3em]">
+            Upgrade required
+          </p>
+        </div>
+        <h3 className="mt-3 text-lg font-semibold text-foreground">
+          {headline}
+        </h3>
+        <p className="mt-2 text-sm text-muted">{message}</p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-medium text-muted hover:bg-surface/70"
+          >
+            Maybe later
+          </button>
+          <button
+            type="button"
+            onClick={onUpgrade}
+            className="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover shadow-lg"
+          >
+            Upgrade plan
+          </button>
+        </div>
+        <p className="mt-4 text-xs text-muted">
+          Need help choosing a plan? Contact{" "}
+          <a
+            href="mailto:support@clevio.ai"
+            className="text-accent font-semibold"
+          >
+            support@clevio.ai
+          </a>
+        </p>
+      </div>
+    </div>
   );
 }
