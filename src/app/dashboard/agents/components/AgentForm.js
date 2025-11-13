@@ -5,16 +5,36 @@ import AgentFormTour from "@/components/ui/AgentFormTour";
 
 export const TOOL_OPTIONS = [
   {
-    id: "gmail_send_messages",
-    label: "Gmail - Send Messages",
-    description:
-      "Compose and send email messages through the connected Gmail account.",
+    id: "google_calendar_create_event",
+    label: "Google Calendar - Create Event",
+    description: "Create calendar events in the connected Google Calendar.",
+  },
+  {
+    id: "google_calendar_list_events",
+    label: "Google Calendar - List Events",
+    description: "List scheduled events from the connected Google Calendar.",
+  },
+  {
+    id: "gmail",
+    label: "Gmail (All Actions)",
+    description: "Enable all Gmail actions with a single toggle.",
   },
   {
     id: "gmail_get_message",
     label: "Gmail - Get Message",
     description:
       "Read and retrieve a specific email message from the connected Gmail account.",
+  },
+  {
+    id: "gmail_create_draft",
+    label: "Gmail - Create Draft",
+    description: "Compose an email draft within the connected Gmail account.",
+  },
+  {
+    id: "gmail_send_message",
+    label: "Gmail - Send Message",
+    description:
+      "Send composed email messages through the connected Gmail account.",
   },
   {
     id: "gmail_read_messages",
@@ -29,10 +49,15 @@ export const TOOL_OPTIONS = [
       "List email messages from the connected Gmail account based on specified criteria.",
   },
   {
-    id: "calendar",
-    label: "Google Calendar",
+    id: "google_calendar",
+    label: "Google Calendar (All Actions)",
+    description: "Enable all Google Calendar actions with a single toggle.",
+  },
+  {
+    id: "google_calendar_get_event",
+    label: "Google Calendar - Get Event",
     description:
-      "Access and manage calendar events through the connected Google account.",
+      "Retrieve a specific event from the connected Google Calendar.",
   },
 ];
 
@@ -45,7 +70,16 @@ const createDefaultToolState = () =>
   }, {});
 
 const LEGACY_TOOL_ALIASES = {
-  gmail: TOOL_IDS.filter((toolId) => toolId.startsWith("gmail")),
+  gmail: TOOL_IDS.filter(
+    (toolId) => toolId.startsWith("gmail_") && toolId !== "gmail"
+  ),
+  google_calendar: TOOL_IDS.filter(
+    (toolId) =>
+      toolId.startsWith("google_calendar_") && toolId !== "google_calendar"
+  ),
+  google_sheets: TOOL_IDS.filter(
+    (toolId) => toolId.startsWith("google_sheets") && toolId !== "google_sheets"
+  ),
 };
 
 const KNOWN_TOOL_IDS = new Set([
