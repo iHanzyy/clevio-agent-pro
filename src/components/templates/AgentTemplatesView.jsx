@@ -342,7 +342,7 @@ export default function AgentTemplatesView({
                   </div>
                   <div className="ml-2 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-accent/10 text-accent">
                     <Image
-                      src="/icons/agent-template.svg"
+                      src="/templates/robot.svg"
                       alt=""
                       width={24}
                       height={24}

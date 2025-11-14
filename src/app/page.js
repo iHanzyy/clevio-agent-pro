@@ -1,7 +1,7 @@
 import ClevioLandingPage from "@/components/marketing/ClevioLandingPage";
 
 export const metadata = {
-  title: "Clevio AI Employees",
+  title: "Clevio AI Staff",
   description:
     "Launch AI agents for Indonesian SMEs, connect WhatsApp via QR, and scale operations without code using Clevio AI.",
 };
