@@ -860,12 +860,12 @@ export default function ClevioLandingPage() {
           <div className="container mx-auto flex h-16 items-center justify-between px-4">
             <div className="flex items-center">
               <Image
-                src="/clevioAIAssistantsLogo.png"
+                src="/clevioAISTAFF-Logo-Black.png"
                 alt="Clevio AI Staff"
                 width={150}
                 height={50}
-                className="h-auto w-[150px]"
                 priority
+                className="h-auto w-[150px]"
               />
             </div>
 
@@ -1386,7 +1386,7 @@ export default function ClevioLandingPage() {
               <div className="col-span-2 md:col-span-2 flex flex-col items-center text-center md:items-start md:text-left">
                 <div className="flex items-center justify-center md:justify-start">
                   <Image
-                    src="/clevioAIAssistantsLogo.png"
+                    src="/clevioAISTAFF-Logo-Black.png"
                     alt="Clevio AI Staff"
                     width={180}
                     height={60}

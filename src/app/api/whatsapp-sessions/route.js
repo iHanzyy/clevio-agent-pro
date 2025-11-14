@@ -10,8 +10,7 @@ import {
 } from "@/lib/server/whatsappSessionResponses";
 
 const DEFAULT_BACKEND_BASE_URL =
-  process.env.WHATSAPP_BACKEND_BASE_URL ??
-  "https://lfzlwlbz-3000.asse.devtunnels.ms";
+  process.env.WHATSAPP_BACKEND_BASE_URL ?? "https://wapi-v1.chiefaiofficer.id";
 
 const buildBackendUrl = (path = "/") => {
   const trimmedBase = DEFAULT_BACKEND_BASE_URL.replace(/\/+$/, "");

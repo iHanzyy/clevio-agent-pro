@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 
-const DEFAULT_WHATSAPP_STATUS_BASE_URL =
-  "https://lfzlwlbz-3000.asse.devtunnels.ms";
+const DEFAULT_WHATSAPP_STATUS_BASE_URL = "https://wapi-v1.chiefaiofficer.id";
 
 const resolveStatusServiceBaseUrl = () => {
   const candidates = [

@@ -10,6 +10,27 @@ import AnimatedHamburgerButton from "@/components/AnimatedHamburgerButton";
 
 const SIDEBAR_W = 256;
 
+const DashboardLogo = ({ width = 120, height = 120, priority = false }) => (
+  <>
+    <Image
+      src="/clevioAISTAFF-Logo-Black.png"
+      alt="Clevio AI Staff"
+      width={width}
+      height={height}
+      priority={priority}
+      className="dark:hidden"
+    />
+    <Image
+      src="/clevioAISTAFF-Logo-White.png"
+      alt="Clevio AI Staff"
+      width={width}
+      height={height}
+      priority={priority}
+      className="hidden dark:inline-block"
+    />
+  </>
+);
+
 export default function DashboardLayout({ children }) {
   // PERBAIKAN: Tambah logout dari useAuth
   const { user, loading, logout } = useAuth();
@@ -283,13 +304,7 @@ export default function DashboardLayout({ children }) {
             className="hidden lg:block fixed left-20 top-4 z-50"
           >
             <Link href="/dashboard" className="flex items-center">
-              <Image
-                src="/clevioAIAssistantsLogo.png"
-                alt="Clevio AI Assistants"
-                width={120}
-                height={120}
-                className="mb-0"
-              />
+              <DashboardLogo width={120} height={120} priority />
             </Link>
           </motion.div>
         )}
@@ -320,13 +335,7 @@ export default function DashboardLayout({ children }) {
             className="lg:hidden fixed left-4 top-4 z-50"
           >
             <Link href="/dashboard" className="flex items-center">
-              <Image
-                src="/clevioAIAssistantsLogo.png"
-                alt="Clevio AI Assistants"
-                width={100}
-                height={100}
-                className="mb-0"
-              />
+              <DashboardLogo width={100} height={100} priority />
             </Link>
           </motion.div>
         )}

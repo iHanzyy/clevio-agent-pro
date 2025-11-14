@@ -170,7 +170,7 @@ export default function Login() {
           <div className="flex items-center justify-center md:justify-start">
             <div className="flex w-full max-w-sm justify-center">
               <Image
-                src="/clevioAIAssistantsLogo.png"
+                src="/clevioAISTAFF-Logo-Black.png"
                 alt="Clevio AI Assistants"
                 width={216}
                 height={122}
