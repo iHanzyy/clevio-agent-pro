@@ -22,7 +22,6 @@ import {
   Menu,
   Pause,
   Play,
-  QrCode,
   Twitter,
   Volume2,
   VolumeX,
@@ -86,6 +85,18 @@ Card.displayName = "Card";
 
 const MotionCard = motion.create(Card);
 
+const WhatsAppIcon = ({ className = "h-4 w-4" }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 32 32"
+    fill="currentColor"
+    className={className}
+    aria-hidden
+  >
+    <path d="M26.576 5.363c-2.69-2.69-6.406-4.354-10.511-4.354-8.209 0-14.865 6.655-14.865 14.865 0 2.732 0.737 5.291 2.022 7.491l-0.038-0.070-2.109 7.702 7.879-2.067c2.051 1.139 4.498 1.809 7.102 1.809h0.006c8.209-0.003 14.862-6.659 14.862-14.868 0-4.103-1.662-7.817-4.349-10.507l0 0zM16.062 28.228h-0.005c-0 0-0.001 0-0.001 0-2.319 0-4.489-0.64-6.342-1.753l0.056 0.031-0.451-0.267-4.675 1.227 1.247-4.559-0.294-0.467c-1.185-1.862-1.889-4.131-1.889-6.565 0-6.822 5.531-12.353 12.353-12.353s12.353 5.531 12.353 12.353c0 6.822-5.53 12.353-12.353 12.353h-0zM22.838 18.977c-0.371-0.186-2.197-1.083-2.537-1.208-0.341-0.124-0.589-0.185-0.837 0.187-0.246 0.371-0.958 1.207-1.175 1.455-0.216 0.249-0.434 0.279-0.805 0.094-1.15-0.466-2.138-1.087-2.997-1.852l0.010 0.009c-0.799-0.74-1.484-1.587-2.037-2.521l-0.028-0.052c-0.216-0.371-0.023-0.572 0.162-0.757 0.167-0.166 0.372-0.434 0.557-0.65 0.146-0.179 0.271-0.384 0.366-0.604l0.006-0.017c0.043-0.087 0.068-0.188 0.068-0.296 0-0.131-0.037-0.253-0.101-0.357l0.002 0.003c-0.094-0.186-0.836-2.014-1.145-2.758-0.302-0.724-0.609-0.625-0.836-0.637-0.216-0.010-0.464-0.012-0.712-0.012-0.395 0.010-0.746 0.188-0.988 0.463l-0.001 0.002c-0.802 0.761-1.3 1.834-1.3 3.023 0 0.026 0 0.053 0.001 0.079l-0-0.004c0.131 1.467 0.681 2.784 1.527 3.857l-0.012-0.015c1.604 2.379 3.742 4.282 6.251 5.564l0.094 0.043c0.548 0.248 1.25 0.513 1.968 0.74l0.149 0.041c0.442 0.14 0.951 0.221 1.479 0.221 0.303 0 0.601-0.027 0.889-0.078l-0.031 0.004c1.069-0.223 1.956-0.868 2.497-1.749l0.009-0.017c0.165-0.366 0.261-0.793 0.261-1.242 0-0.185-0.016-0.366-0.047-0.542l0.003 0.019c-0.092-0.155-0.34-0.247-0.712-0.434z" />
+  </svg>
+);
+
 const FADE_UP_VARIANTS = {
   hidden: { opacity: 0, y: 24, filter: "blur(8px)" },
   show: {
@@ -133,14 +144,18 @@ const translations = {
     id: "AI Staff WhatsApp",
   },
   hero_headline: {
-    en: "AI Staff That Works Non-Stop, Priced Below Minimum Wage",
-    id: "AI Staff yang Kerja Non-Stop, Harga di Bawah UMR",
+    en: "AI Staff Working Non-Stop, Priced Below Minimum Wage",
+    id: "AI Staff Kerja Non-Stop, Harga di Bawah UMR",
   },
   hero_subheadline: {
-    en: "Focus on growing your business—AI Staff handles every WhatsApp chat, day and night.",
-    id: "Fokus kembangkan bisnis Anda, biarkan AI Staff balas semua chat WhatsApp siang malam.",
+    en: "Grow your business, AI handles every WhatsApp chat 24/7.",
+    id: "Kembangkan bisnis, AI balas semua chat WhatsApp 24/7.",
   },
-  hero_video_cta: {
+  cta_button_primary: {
+    en: "Try Free Now",
+    id: "Coba Gratis Sekarang",
+  },
+  cta_button_secondary: {
     en: "Watch Video Demo",
     id: "Lihat Video Demo",
   },
@@ -178,8 +193,8 @@ const translations = {
     id: "Lihat Cara Kerja AI Staff dalam 3 Menit",
   },
   video_subtitle: {
-    en: "No technical skills needed—follow these easy steps to activate your WhatsApp AI.",
-    id: "Tidak perlu skill teknis—cukup ikuti langkah mudah untuk mengaktifkan AI WhatsApp Anda.",
+    en: "Follow a few simple steps to activate your WhatsApp AI.",
+    id: "Ikuti langkah mudah untuk aktifkan AI WhatsApp Anda.",
   },
   video_play: {
     en: "Play product demo",
@@ -210,44 +225,52 @@ const translations = {
     id: "Hemat Biaya Drastis",
   },
   benefit_cost_desc: {
-    en: "AI Staff costs below minimum wage—no salary, bonuses, or insurance. Invest once, profit repeatedly.",
-    id: "Harga AI Staff di bawah UMR. Tidak perlu gaji, THR, atau BPJS. Investasi sekali, untung berkali-kali.",
-  },
-  benefit_cost_stat: {
-    en: "Save up to 80% of payroll and operational costs",
-    id: "Hemat hingga 80% biaya gaji & operasional",
+    en: "Priced below minimum wage. No salary, bonuses, or insurance.",
+    id: "Harga di bawah UMR. Tanpa gaji, THR, atau BPJS.",
   },
   benefit_24_7_title: {
     en: "Works 24/7 Non-Stop",
     id: "Kerja 24/7 Tanpa Henti",
   },
   benefit_24_7_desc: {
-    en: "AI never sleeps or asks for leave. Customers get replies instantly—even at midnight or on holidays.",
-    id: "AI tidak pernah tidur atau cuti. Pelanggan dibalas instan, bahkan tengah malam atau saat libur.",
-  },
-  benefit_24_7_stat: {
-    en: "0 missed chats from 100 daily conversations",
-    id: "0 chat terlewat dari 100 chat harian",
+    en: "Never sleeps or takes leave. Customers get instant replies anytime.",
+    id: "Tidak pernah tidur atau cuti. Pelanggan dibalas instan kapan pun.",
   },
   benefit_easy_title: {
     en: "Super Simple Setup",
     id: "Setup Super Mudah",
   },
   benefit_easy_desc: {
-    en: "Tap, choose a template, and AI goes live. Even a warung owner can activate it in minutes.",
-    id: "Cukup tekan-tekan, pilih template, dan AI langsung aktif. Bahkan Ibu warung pun bisa.",
+    en: "Tap, pick a template, go live. Easy for everyone.",
+    id: "Tekan, pilih template, langsung aktif. Mudah untuk semua.",
   },
-  benefit_easy_stat: {
-    en: "Live in 5 minutes",
-    id: "Aktif dalam 5 menit",
+  benefit_whatsapp_title: {
+    en: "WhatsApp Integration",
+    id: "Terintegrasi WhatsApp",
+  },
+  benefit_whatsapp_desc: {
+    en: "Connect via QR scan, no API setup or technical hassle.",
+    id: "Hubungkan lewat scan QR, tanpa setup API atau ribet teknis.",
+  },
+  stat_label_savings: {
+    en: "Cost Savings",
+    id: "Penghematan Biaya",
+  },
+  stat_label_replies: {
+    en: "Response Rate",
+    id: "Tingkat Respons",
+  },
+  stat_label_setup: {
+    en: "Setup Time",
+    id: "Waktu Setup",
+  },
+  stat_label_integration: {
+    en: "Integration",
+    id: "Integrasi",
   },
   cta_headline: {
     en: "Ready to Save Costs and Boost Sales?",
     id: "Siap Hemat Biaya dan Tingkatkan Penjualan?",
-  },
-  cta_button: {
-    en: "Try AI Staff Free Now",
-    id: "Coba AI Staff Gratis Sekarang",
   },
   cta_subtext: {
     en: "No credit card • Live in 5 minutes",
@@ -256,18 +279,6 @@ const translations = {
   cta_loading: {
     en: "Starting...",
     id: "Memulai...",
-  },
-  integrations_title: {
-    en: "Connect to WhatsApp Instantly",
-    id: "Langsung Terhubung dengan WhatsApp",
-  },
-  integrations_desc: {
-    en: "Scan a QR code and AI Staff is live—no API forms, no technical headache.",
-    id: "Scan QR dan AI Staff langsung aktif—tanpa form API, tanpa ribet teknis.",
-  },
-  integration_caption: {
-    en: "Scan QR → WhatsApp goes live → Chats flow automatically. Zero complex steps.",
-    id: "Scan QR → WhatsApp aktif → Chat otomatis jalan. Tanpa langkah rumit.",
   },
   pricing_title: {
     en: "Choose Your Plan",
@@ -290,16 +301,16 @@ const translations = {
     id: "Tahunan",
   },
   pricing_free_desc: {
-    en: "Test AI Staff without risk and launch your first WhatsApp assistant.",
-    id: "Tes AI Staff tanpa risiko dan luncurkan asisten WhatsApp pertama Anda.",
+    en: "Test AI Staff risk-free and launch a WhatsApp assistant.",
+    id: "Tes AI Staff tanpa risiko dan luncurkan asisten WhatsApp.",
   },
   pricing_monthly_desc: {
-    en: "Grow sales with AI Staff 24/7, sales insights, and priority help.",
-    id: "Naikkan penjualan dengan AI Staff 24/7, laporan penjualan, dan dukungan prioritas.",
+    en: "Grow sales with 24/7 AI, sales recaps, and priority help.",
+    id: "Naikkan penjualan dengan AI 24/7, rekap penjualan, dan dukungan prioritas.",
   },
   pricing_yearly_desc: {
-    en: "Scale nationwide with dedicated onboarding and the best savings.",
-    id: "Skalakan bisnis nasional dengan onboarding khusus dan hemat terbesar.",
+    en: "Scale with dedicated onboarding and the best savings.",
+    id: "Skala dengan onboarding khusus dan hemat terbesar.",
   },
   pricing_badge_popular: {
     en: "Most Popular",
@@ -346,24 +357,24 @@ const translations = {
     id: "Mengapa lebih murah dari karyawan?",
   },
   faq_3_a: {
-    en: "AI Staff has no salary, overtime, or insurance costs but replies to every customer instantly.",
-    id: "AI Staff tidak punya gaji, lembur, atau BPJS tapi tetap membalas setiap pelanggan secara instan.",
+    en: "AI Staff has no salary or benefits costs yet replies instantly.",
+    id: "AI Staff tanpa gaji atau BPJS tapi tetap balas instan.",
   },
   faq_4_q: {
     en: "Does AI Staff answer chats 24/7?",
     id: "Apakah AI Staff membalas 24/7?",
   },
   faq_4_a: {
-    en: "Yes. Response time stays under a minute even at midnight or during holidays.",
-    id: "Ya. Waktu respons tetap di bawah satu menit meski tengah malam atau hari libur.",
+    en: "Yes. Replies stay under a minute even at midnight or on holidays.",
+    id: "Ya. Balas kurang dari satu menit meski tengah malam atau libur.",
   },
   faq_5_q: {
     en: "How do I connect WhatsApp?",
     id: "Bagaimana cara menghubungkan WhatsApp?",
   },
   faq_5_a: {
-    en: "Open your dashboard, scan the QR, and chats sync instantly—no API approval needed.",
-    id: "Buka dashboard, scan QR, dan chat tersinkron langsung—tanpa perlu approval API.",
+    en: "Open the dashboard, scan the QR, and chats sync instantly, no API needed.",
+    id: "Buka dashboard, scan QR, dan chat tersinkron langsung, tanpa API.",
   },
   faq_6_q: {
     en: "Can I cancel anytime?",
@@ -634,21 +645,32 @@ export default function ClevioLandingPage() {
         title: t("benefit_cost_title"),
         description: t("benefit_cost_desc"),
         statValue: "80%",
-        statLabel: t("benefit_cost_stat"),
+        statLabel: t("stat_label_savings"),
+        hasWhatsApp: false,
       },
       {
         icon: "⏰",
         title: t("benefit_24_7_title"),
         description: t("benefit_24_7_desc"),
-        statValue: "0/100",
-        statLabel: t("benefit_24_7_stat"),
+        statValue: "100%",
+        statLabel: t("stat_label_replies"),
+        hasWhatsApp: true,
       },
       {
         icon: "⚡",
         title: t("benefit_easy_title"),
         description: t("benefit_easy_desc"),
         statValue: language === "id" ? "5 Menit" : "5 Minutes",
-        statLabel: t("benefit_easy_stat"),
+        statLabel: t("stat_label_setup"),
+        hasWhatsApp: false,
+      },
+      {
+        icon: "💬",
+        title: t("benefit_whatsapp_title"),
+        description: t("benefit_whatsapp_desc"),
+        statValue: language === "id" ? "1 Klik" : "1 Tap",
+        statLabel: t("stat_label_integration"),
+        hasWhatsApp: true,
       },
     ],
     [language, t]
@@ -898,10 +920,10 @@ export default function ClevioLandingPage() {
           <motion.section
             {...heroMotion}
             variants={STAGGER_CONTAINER_VARIANTS}
-            className="container mx-auto px-4 pb-24 pt-20 sm:pt-24"
+            className="container mx-auto max-w-6xl px-4 pb-20 pt-16 sm:pb-24 sm:pt-20 lg:pb-28 lg:pt-24"
           >
-            <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
-              <div className="space-y-8">
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-2 lg:items-center">
+              <div className="space-y-6 sm:space-y-7">
                 <motion.span
                   variants={FADE_UP_VARIANTS}
                   className="inline-flex items-center rounded-full border border-primary/20 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-primary"
@@ -910,34 +932,46 @@ export default function ClevioLandingPage() {
                 </motion.span>
                 <motion.h1
                   variants={FADE_UP_VARIANTS}
-                  className="text-4xl font-bold tracking-tight text-primary sm:text-5xl lg:text-6xl"
+                  className="text-3xl font-bold tracking-tight text-primary sm:text-4xl lg:text-5xl xl:text-6xl"
                 >
                   {t("hero_headline")}
                 </motion.h1>
                 <motion.p
                   variants={FADE_UP_VARIANTS}
-                  className="text-lg leading-relaxed text-muted-foreground sm:text-xl"
+                  className="text-base leading-7 text-muted-foreground sm:text-lg"
                 >
                   {t("hero_subheadline")}
                 </motion.p>
                 {heroKeywords.length > 0 && (
                   <motion.div
                     variants={FADE_UP_VARIANTS}
-                    className="flex flex-wrap gap-2"
+                    className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-start"
                   >
-                    {heroKeywords.map((keyword) => (
+                    {heroKeywords.map((keyword, index) => (
                       <span
                         key={keyword}
-                        className="rounded-full border border-border/70 bg-card/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                        className={cn(
+                          "inline-flex items-center justify-center rounded-full border border-border/70 bg-card/80 px-3 py-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground",
+                          heroKeywords.length === 3 && index === 2
+                            ? "col-span-2 justify-self-center sm:col-span-1"
+                            : ""
+                        )}
                       >
                         {keyword}
                       </span>
                     ))}
                   </motion.div>
                 )}
-                <motion.div variants={FADE_UP_VARIANTS}>
-                  <Button size="lg" onClick={handleHeroCta}>
-                    {t("hero_video_cta")}
+                <motion.div
+                  variants={FADE_UP_VARIANTS}
+                  className="flex flex-col gap-3 sm:flex-row sm:flex-wrap"
+                >
+                  <Button
+                    size="lg"
+                    onClick={handleHeroCta}
+                    className="w-full text-base sm:w-auto sm:min-w-[200px]"
+                  >
+                    {t("cta_button_secondary")}
                   </Button>
                 </motion.div>
               </div>
@@ -946,7 +980,7 @@ export default function ClevioLandingPage() {
                 variants={FADE_UP_VARIANTS}
                 className="relative"
               >
-                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/5 via-accent-sky/20 to-transparent shadow-[0_40px_120px_rgba(0,0,0,0.15)]">
+                <div className="relative aspect-[3/2] w-full overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/5 via-accent-sky/20 to-transparent shadow-[0_40px_120px_rgba(0,0,0,0.15)] sm:aspect-[4/3]">
                   <Image
                     src="/heroPicture.jpg"
                     alt={t("hero_placeholder_alt")}
@@ -966,26 +1000,26 @@ export default function ClevioLandingPage() {
             id="video-demo"
             {...sectionMotion}
             variants={STAGGER_CONTAINER_VARIANTS}
-            className="container mx-auto px-4 pb-20"
+            className="container mx-auto max-w-7xl px-4 py-16 sm:py-20 lg:py-24"
           >
             <motion.div
               variants={FADE_UP_VARIANTS}
               className="mx-auto max-w-3xl text-center"
             >
-              <span className="inline-flex items-center justify-center rounded-full border border-black/10 bg-black/5 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-black">
+              <span className="inline-flex items-center justify-center rounded-full border border-primary/20 bg-primary/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
                 {t("video_badge")}
               </span>
-              <h2 className="mt-6 text-4xl font-bold text-foreground sm:text-5xl">
+              <h2 className="mt-6 text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
                 {t("video_title")}
               </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
+              <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg">
                 {t("video_subtitle")}
               </p>
             </motion.div>
 
             <motion.div
               variants={FADE_UP_VARIANTS}
-              className="mx-auto mt-12 max-w-5xl"
+              className="mx-auto mt-10 max-w-5xl sm:mt-12 lg:mt-14"
             >
               <div className="rounded-[42px] bg-gradient-to-br from-black/15 via-black/5 to-transparent p-1 shadow-[0_30px_120px_rgba(0,0,0,0.35)]">
                 <div className="relative overflow-hidden rounded-[36px] border border-black/10 bg-black">
@@ -1072,65 +1106,70 @@ export default function ClevioLandingPage() {
           <motion.section
             {...sectionMotion}
             variants={STAGGER_CONTAINER_VARIANTS}
-            className="container mx-auto px-4 pb-12"
+            className="container mx-auto max-w-7xl px-4 py-16 sm:py-20 lg:py-24"
           >
             <motion.div
               variants={FADE_UP_VARIANTS}
               className="mx-auto max-w-2xl text-center"
             >
-              <h2 className="text-4xl font-bold text-foreground sm:text-5xl">
+              <h2 className="text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
                 {t("benefits_headline")}
               </h2>
             </motion.div>
 
-            <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:mt-12 sm:grid-cols-2 sm:gap-8 lg:mt-14 xl:grid-cols-4">
               {benefitCards.map((benefit) => (
                 <motion.div
                   key={benefit.title}
                   variants={FADE_UP_VARIANTS}
-                  className="flex h-full flex-col rounded-3xl border border-border/70 bg-card/95 p-8"
+                  className="relative flex h-full flex-col rounded-3xl border border-border/60 bg-card/95 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl hover:shadow-primary/10 sm:p-8"
                 >
-                  <div className="text-5xl" aria-hidden>
+                  {benefit.hasWhatsApp && (
+                    <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366]">
+                      <WhatsAppIcon className="h-4 w-4 text-white" />
+                    </div>
+                  )}
+                  <div className="text-4xl" aria-hidden>
                     {benefit.icon}
                   </div>
                   <h3 className="mt-6 text-2xl font-bold text-foreground">
                     {benefit.title}
                   </h3>
-                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  <p className="mt-3 text-sm leading-7 text-muted-foreground">
                     {benefit.description}
                   </p>
-                  <div className="mt-8 border-t border-border/60 pt-6">
-                    <div className="text-4xl font-bold text-primary">
-                      {benefit.statValue}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
+                  <div className="mt-auto rounded-2xl border border-border/50 bg-gradient-to-br from-primary/5 to-accent-sky/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       {benefit.statLabel}
-                    </div>
+                    </p>
+                    <p className="mt-1 text-3xl font-bold text-primary sm:text-4xl">
+                      {benefit.statValue}
+                    </p>
                   </div>
                 </motion.div>
               ))}
             </div>
           </motion.section>
 
-          <section className="container mx-auto px-4 py-16">
+          <section className="container mx-auto max-w-7xl px-4 py-12 sm:py-16 lg:py-20">
             <div className="mx-auto max-w-2xl text-center">
-              <h3 className="text-3xl font-bold text-foreground sm:text-4xl">
+              <h3 className="text-2xl font-bold text-foreground sm:text-3xl lg:text-4xl">
                 {t("cta_headline")}
               </h3>
               <Button
                 size="lg"
-                className="mt-8 w-full justify-center text-lg sm:w-auto sm:px-12 sm:py-6"
+                className="mt-6 w-full justify-center text-base sm:mt-8 sm:w-auto sm:px-10 sm:text-lg lg:px-12"
                 onClick={handleStartTrial}
                 disabled={trialLoading}
                 aria-busy={trialLoading}
               >
-                {trialLoading ? t("cta_loading") : t("cta_button")}
+                {trialLoading ? t("cta_loading") : t("cta_button_primary")}
               </Button>
-              <p className="mt-4 text-sm text-muted-foreground">
+              <p className="mt-4 text-sm leading-7 text-muted-foreground">
                 {t("cta_subtext")}
               </p>
               {trialError && (
-                <p className="mt-4 text-sm font-medium text-destructive">
+                <p className="mt-3 text-sm font-medium text-destructive">
                   {trialError}
                 </p>
               )}
@@ -1138,60 +1177,24 @@ export default function ClevioLandingPage() {
           </section>
 
           <motion.section
-            {...sectionMotion}
-            variants={STAGGER_CONTAINER_VARIANTS}
-            className="bg-primary/5 py-20"
-          >
-            <div className="container mx-auto grid gap-12 px-4 md:grid-cols-2 md:items-center">
-              <motion.div variants={FADE_UP_VARIANTS}>
-                <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
-                  {t("integrations_title")}
-                </h2>
-                <p className="mt-4 text-lg text-muted-foreground">
-                  {t("integrations_desc")}
-                </p>
-              </motion.div>
-
-              <motion.div
-                variants={FADE_UP_VARIANTS}
-                className="relative rounded-3xl border border-border/60 bg-card/95 p-8"
-              >
-                <div className="flex flex-col items-center gap-6 text-center">
-                  <div className="flex items-center gap-4 text-emerald-500">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-3xl">
-                      🟢
-                    </div>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-border/50 bg-background">
-                      <QrCode className="h-10 w-10 text-foreground" />
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {t("integration_caption")}
-                  </p>
-                </div>
-              </motion.div>
-            </div>
-          </motion.section>
-
-          <motion.section
             id="pricing"
             {...sectionMotion}
             variants={STAGGER_CONTAINER_VARIANTS}
-            className="container mx-auto px-4 py-20"
+            className="container mx-auto max-w-7xl px-4 py-16 sm:py-20 lg:py-24"
           >
             <motion.div
               variants={FADE_UP_VARIANTS}
               className="mx-auto max-w-2xl text-center"
             >
-              <h2 className="text-4xl font-bold text-foreground sm:text-5xl">
+              <h2 className="text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
                 {t("pricing_title")}
               </h2>
-              <p className="mt-4 text-muted-foreground">
+              <p className="mt-4 text-base text-muted-foreground">
                 {t("pricing_subtitle")}
               </p>
             </motion.div>
 
-            <div className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-3">
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:mt-12 sm:gap-8 lg:mt-14 lg:grid-cols-3">
               {pricingPlans.map(
                 ({
                   id,
@@ -1337,18 +1340,18 @@ export default function ClevioLandingPage() {
           <motion.section
             {...sectionMotion}
             variants={STAGGER_CONTAINER_VARIANTS}
-            className="container mx-auto px-4 py-20"
+            className="container mx-auto max-w-7xl px-4 py-16 sm:py-20 lg:py-24"
           >
             <motion.div
               variants={FADE_UP_VARIANTS}
               className="mx-auto max-w-2xl text-center"
             >
-              <h2 className="text-3xl font-bold text-foreground sm:text-4xl">
+              <h2 className="text-3xl font-bold text-foreground sm:text-4xl lg:text-5xl">
                 {t("faq_title")}
               </h2>
             </motion.div>
 
-            <div className="mt-12 space-y-4">
+            <div className="mx-auto mt-10 max-w-3xl space-y-4 sm:mt-12 lg:mt-14">
               {[1, 2, 3, 4, 5, 6, 7].map((num) => (
                 <motion.details
                   key={num}
@@ -1368,8 +1371,8 @@ export default function ClevioLandingPage() {
           </motion.section>
         </main>
 
-        <footer className="border-t border-border/70 bg-background/90 py-14">
-          <div className="container mx-auto px-4">
+        <footer className="border-t border-border/70 bg-background/90 py-12 sm:py-14 lg:py-16">
+          <div className="container mx-auto max-w-7xl px-4">
             <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
               <div className="md:col-span-2">
                 <div className="flex items-center">
