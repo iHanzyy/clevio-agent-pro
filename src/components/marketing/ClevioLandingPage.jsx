@@ -646,7 +646,6 @@ export default function ClevioLandingPage() {
         description: t("benefit_cost_desc"),
         statValue: "80%",
         statLabel: t("stat_label_savings"),
-        hasWhatsApp: false,
       },
       {
         icon: "⏰",
@@ -654,7 +653,6 @@ export default function ClevioLandingPage() {
         description: t("benefit_24_7_desc"),
         statValue: "100%",
         statLabel: t("stat_label_replies"),
-        hasWhatsApp: true,
       },
       {
         icon: "⚡",
@@ -662,19 +660,32 @@ export default function ClevioLandingPage() {
         description: t("benefit_easy_desc"),
         statValue: language === "id" ? "5 Menit" : "5 Minutes",
         statLabel: t("stat_label_setup"),
-        hasWhatsApp: false,
       },
       {
-        icon: "💬",
+        icon: "whatsapp",
         title: t("benefit_whatsapp_title"),
         description: t("benefit_whatsapp_desc"),
         statValue: language === "id" ? "1 Klik" : "1 Tap",
         statLabel: t("stat_label_integration"),
-        hasWhatsApp: true,
       },
     ],
     [language, t]
   );
+
+  const renderBenefitIcon = useCallback((icon) => {
+    if (icon === "whatsapp") {
+      return (
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#25D366]/10 text-[#25D366]">
+          <WhatsAppIcon className="h-6 w-6" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/5 text-2xl">
+        <span aria-hidden>{icon}</span>
+      </div>
+    );
+  }, []);
 
   const pricingPlans = useMemo(
     () => [
@@ -1122,16 +1133,9 @@ export default function ClevioLandingPage() {
                 <motion.div
                   key={benefit.title}
                   variants={FADE_UP_VARIANTS}
-                  className="relative flex h-full flex-col rounded-3xl border border-border/60 bg-card/95 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl hover:shadow-primary/10 sm:p-8"
+                  className="flex h-full flex-col rounded-3xl border border-border/60 bg-card/95 p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/60 hover:shadow-xl hover:shadow-primary/10 sm:p-8"
                 >
-                  {benefit.hasWhatsApp && (
-                    <div className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#25D366]">
-                      <WhatsAppIcon className="h-4 w-4 text-white" />
-                    </div>
-                  )}
-                  <div className="text-4xl" aria-hidden>
-                    {benefit.icon}
-                  </div>
+                  <div aria-hidden>{renderBenefitIcon(benefit.icon)}</div>
                   <h3 className="mt-6 text-2xl font-bold text-foreground">
                     {benefit.title}
                   </h3>
