@@ -170,11 +170,7 @@ const translations = {
       "boost sales automatically",
       "Indonesian SME growth",
     ],
-    id: [
-      "hemat biaya karyawan",
-      "AI penjualan UMKM",
-      "staff AI harga murah",
-    ],
+    id: ["hemat biaya karyawan", "AI penjualan UMKM", "staff AI harga murah"],
   },
   nav_login: {
     en: "Login",
@@ -776,7 +772,10 @@ export default function ClevioLandingPage() {
           }
         }
       } catch (error) {
-        console.warn("[ClevioLandingPage] Unable to determine client IP", error);
+        console.warn(
+          "[ClevioLandingPage] Unable to determine client IP",
+          error
+        );
       }
     };
     loadIp();
@@ -838,7 +837,10 @@ export default function ClevioLandingPage() {
 
   const handleHeroCta = useCallback(() => {
     if (videoSectionRef.current) {
-      videoSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      videoSectionRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }
   }, []);
 
@@ -919,7 +921,10 @@ export default function ClevioLandingPage() {
               </span>
               <motion.div
                 animate={canAnimate ? { y: [0, 8, 0] } : {}}
-                transition={{ repeat: canAnimate ? Infinity : 0, duration: 1.4 }}
+                transition={{
+                  repeat: canAnimate ? Infinity : 0,
+                  duration: 1.4,
+                }}
               >
                 <ArrowDown className="h-5 w-5" />
               </motion.div>
@@ -987,10 +992,7 @@ export default function ClevioLandingPage() {
                 </motion.div>
               </div>
 
-              <motion.figure
-                variants={FADE_UP_VARIANTS}
-                className="relative"
-              >
+              <motion.figure variants={FADE_UP_VARIANTS} className="relative">
                 <div className="relative aspect-[3/2] w-full overflow-hidden rounded-3xl border border-border/70 bg-gradient-to-br from-primary/5 via-accent-sky/20 to-transparent shadow-[0_40px_120px_rgba(0,0,0,0.15)] sm:aspect-[4/3]">
                   <Image
                     src="/heroPicture.jpg"
@@ -1000,7 +1002,10 @@ export default function ClevioLandingPage() {
                     className="object-cover"
                     sizes="(min-width: 1024px) 50vw, 100vw"
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/30 via-transparent" aria-hidden />
+                  <div
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/30 via-transparent"
+                    aria-hidden
+                  />
                 </div>
               </motion.figure>
             </div>
@@ -1377,9 +1382,9 @@ export default function ClevioLandingPage() {
 
         <footer className="border-t border-border/70 bg-background/90 py-12 sm:py-14 lg:py-16">
           <div className="container mx-auto max-w-7xl px-4">
-            <div className="grid grid-cols-1 gap-10 md:grid-cols-4">
-              <div className="md:col-span-2">
-                <div className="flex items-center">
+            <div className="grid grid-cols-2 gap-10 md:grid-cols-4">
+              <div className="col-span-2 md:col-span-2 flex flex-col items-center text-center md:items-start md:text-left">
+                <div className="flex items-center justify-center md:justify-start">
                   <Image
                     src="/clevioAIAssistantsLogo.png"
                     alt="Clevio AI Staff"
@@ -1391,7 +1396,7 @@ export default function ClevioLandingPage() {
                 <p className="mt-4 max-w-md text-sm text-muted-foreground">
                   {t("footer_tagline")}
                 </p>
-                <div className="mt-6 flex gap-4">
+                <div className="mt-6 flex gap-4 justify-center md:justify-start">
                   {socialLinks.map(({ id, icon: Icon }) => (
                     <a
                       key={id}
@@ -1405,41 +1410,56 @@ export default function ClevioLandingPage() {
                 </div>
               </div>
 
-              <div>
+              <div className="col-span-1">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("footer_company")}
                 </h3>
                 <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
                   <li>
-                    <a className="transition-colors hover:text-primary" href="#">
+                    <a
+                      className="transition-colors hover:text-primary"
+                      href="#"
+                    >
                       {t("footer_about")}
                     </a>
                   </li>
                   <li>
-                    <a className="transition-colors hover:text-primary" href="#">
+                    <a
+                      className="transition-colors hover:text-primary"
+                      href="#"
+                    >
                       {t("footer_contact")}
                     </a>
                   </li>
                 </ul>
               </div>
 
-              <div>
+              <div className="col-span-1">
                 <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   {t("footer_resources")}
                 </h3>
                 <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
                   <li>
-                    <a className="transition-colors hover:text-primary" href="/login">
+                    <a
+                      className="transition-colors hover:text-primary"
+                      href="/login"
+                    >
                       {t("footer_login")}
                     </a>
                   </li>
                   <li>
-                    <a className="transition-colors hover:text-primary" href="/register">
+                    <a
+                      className="transition-colors hover:text-primary"
+                      href="/register"
+                    >
                       {t("footer_register")}
                     </a>
                   </li>
                   <li>
-                    <a className="transition-colors hover:text-primary" href="#pricing">
+                    <a
+                      className="transition-colors hover:text-primary"
+                      href="#pricing"
+                    >
                       {t("footer_pricing")}
                     </a>
                   </li>
@@ -1449,7 +1469,8 @@ export default function ClevioLandingPage() {
 
             <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border/60 pt-6 text-sm text-muted-foreground md:flex-row">
               <p>
-                © {new Date().getFullYear()} Clevio AI Staff. All rights reserved.
+                © {new Date().getFullYear()} Clevio AI Staff. All rights
+                reserved.
               </p>
               <div className="flex gap-4">
                 <a className="transition-colors hover:text-primary" href="#">
