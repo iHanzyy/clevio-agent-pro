@@ -138,7 +138,6 @@ export default function AgentDetailPage() {
   const qrFlowAbortRef = useRef(null);
   const qrPreparationTimerRef = useRef(null);
   const qrExpiryTimerRef = useRef(null);
-  const qrStatusPollRef = useRef(null);
 
   const queryAuthUrl = searchParams?.get("authUrl") || null;
   const queryAuthState = searchParams?.get("authState") || null;
@@ -180,10 +179,6 @@ export default function AgentDetailPage() {
     if (qrExpiryTimerRef.current) {
       clearInterval(qrExpiryTimerRef.current);
       qrExpiryTimerRef.current = null;
-    }
-    if (qrStatusPollRef.current) {
-      clearInterval(qrStatusPollRef.current);
-      qrStatusPollRef.current = null;
     }
     setShowWhatsAppQr(false);
     setWhatsAppQr(null);
@@ -701,31 +696,6 @@ export default function AgentDetailPage() {
   }, [agent?.id, showWhatsAppQr]);
 
   useEffect(() => {
-    if (!showWhatsAppQr) {
-      if (qrStatusPollRef.current) {
-        clearInterval(qrStatusPollRef.current);
-        qrStatusPollRef.current = null;
-      }
-      return;
-    }
-
-    const pollWhatsAppStatus = () => {
-      refreshWhatsAppSession();
-    };
-
-    pollWhatsAppStatus();
-    const intervalId = setInterval(pollWhatsAppStatus, 3000);
-    qrStatusPollRef.current = intervalId;
-
-    return () => {
-      clearInterval(intervalId);
-      if (qrStatusPollRef.current === intervalId) {
-        qrStatusPollRef.current = null;
-      }
-    };
-  }, [showWhatsAppQr, refreshWhatsAppSession]);
-
-  useEffect(() => {
     if (
       showWhatsAppQr &&
       whatsAppSessionInfo.isActive &&
@@ -965,6 +935,17 @@ export default function AgentDetailPage() {
 
     return parts.join(", ");
   }, [agent?.description, googleToolIds, googleAuthPending]);
+
+  const whatsAppQrIsImage = useMemo(() => {
+    if (typeof whatsAppQr !== "string" || !whatsAppQr) {
+      return false;
+    }
+    return (
+      whatsAppQr.startsWith("data:image") ||
+      whatsAppQr.startsWith("http://") ||
+      whatsAppQr.startsWith("https://")
+    );
+  }, [whatsAppQr]);
 
   const whatsAppQrExpired =
     typeof whatsAppQrCountdown === "number" && whatsAppQrCountdown <= 0;
