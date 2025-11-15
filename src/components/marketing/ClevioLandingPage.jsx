@@ -185,8 +185,8 @@ const translations = {
     id: "Tutorial Singkat",
   },
   video_title: {
-    en: "See How AI Staff Works in 3 Minutes",
-    id: "Lihat Cara Kerja AI Staff dalam 3 Menit",
+    en: "See How AI Staff Works in 1 Minutes",
+    id: "Lihat Cara Kerja AI Staff dalam 1 Menit",
   },
   video_subtitle: {
     en: "Follow a few simple steps to activate your WhatsApp AI.",
@@ -1058,7 +1058,7 @@ export default function ClevioLandingPage() {
                     type="button"
                     onClick={toggleVideoPlayback}
                     aria-pressed={isVideoPlaying}
-                    className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                    className="absolute left-1/2 top-1/2 z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/20 bg-black/10 text-black backdrop-blur transition hover:bg-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50"
                   >
                     {isVideoPlaying ? (
                       <Pause className="h-7 w-7" />
@@ -1072,7 +1072,7 @@ export default function ClevioLandingPage() {
 
                   <div className="absolute inset-x-6 bottom-6 flex flex-wrap items-center gap-4">
                     <div
-                      className="relative flex-1 cursor-pointer rounded-full bg-white/20 p-0.5"
+                      className="relative flex-1 cursor-pointer rounded-full bg-black/20 p-0.5"
                       role="progressbar"
                       aria-valuemin={0}
                       aria-valuemax={100}
@@ -1080,18 +1080,18 @@ export default function ClevioLandingPage() {
                       onClick={handleProgressClick}
                     >
                       <span
-                        className="block h-1 rounded-full bg-white/90"
+                        className="block h-1 rounded-full bg-black/90"
                         style={{ width: `${videoProgress}%` }}
                       />
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wide text-white/90">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-black/90">
                       {displayedCurrentTime} | {displayedDuration}
                     </span>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={toggleMute}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-black/30 bg-black/10 text-black backdrop-blur transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50"
                         aria-pressed={isVideoMuted}
                       >
                         {isVideoMuted ? (
@@ -1106,7 +1106,7 @@ export default function ClevioLandingPage() {
                       <button
                         type="button"
                         onClick={handleFullscreen}
-                        className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-black/30 bg-black/10 text-black backdrop-blur transition hover:bg-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/50"
                         aria-label={t("video_fullscreen")}
                       >
                         <Maximize2 className="h-4 w-4" />
