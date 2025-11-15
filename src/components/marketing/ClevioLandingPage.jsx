@@ -119,10 +119,10 @@ const STAGGER_CONTAINER_VARIANTS = {
 };
 
 const PRODUCT_VIDEO_SOURCE = {
-  src: "https://storage.googleapis.com/coverr-main/mp4/Mt_Baker.mp4",
+  src: "/AiStaffDemo.mp4",
   poster:
     "https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?auto=format&fit=crop&w=1920&q=80",
-  durationLabel: "02:03",
+  durationLabel: "03:00",
 };
 
 const SOFTWARE_APP_SCHEMA = {
@@ -1039,7 +1039,6 @@ export default function ClevioLandingPage() {
             >
               <div className="rounded-[42px] bg-gradient-to-br from-black/15 via-black/5 to-transparent p-1 shadow-[0_30px_120px_rgba(0,0,0,0.35)]">
                 <div className="relative overflow-hidden rounded-[36px] border border-black/10 bg-black">
-                  {/* TODO: Replace with final tutorial video (MP4, <3 minutes) */}
                   <video
                     ref={productVideoRef}
                     src={PRODUCT_VIDEO_SOURCE.src}
