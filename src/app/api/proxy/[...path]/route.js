@@ -1,11 +1,9 @@
-const DEFAULT_BACKEND_BASE = "https://new-langchain.chiefaiofficer.id";
-
 export const dynamic = "force-dynamic";
 
 const backendBase =
   process.env.BACKEND_BASE_URL && process.env.BACKEND_BASE_URL.length > 0
     ? process.env.BACKEND_BASE_URL
-    : DEFAULT_BACKEND_BASE;
+    : process.env.BACKEND_BASE_URL;
 
 let backendOrigin = backendBase;
 try {
@@ -13,7 +11,7 @@ try {
 } catch (error) {
   console.warn(
     "⚠️ Invalid BACKEND_BASE_URL; using raw value for Origin header",
-    error,
+    error
   );
 }
 
@@ -34,7 +32,8 @@ async function forward(request, context, method) {
 
   const incomingHasTrailingSlash =
     incomingUrl.pathname.length > 1 && incomingUrl.pathname.endsWith("/");
-  const needsTrailingSlashForPost = method === "POST" && lastSegment === "agents";
+  const needsTrailingSlashForPost =
+    method === "POST" && lastSegment === "agents";
 
   let apiPath = `/api/v1${pathSuffix}${
     needsTrailingSlashForPost || incomingHasTrailingSlash ? "/" : ""
@@ -44,15 +43,12 @@ async function forward(request, context, method) {
     apiPath += incomingUrl.search;
   }
   const targetUrl = new URL(apiPath, backendBase).toString();
-  console.log(
-    "[proxy] forwarding",
-    {
-      incoming: request.method + " " + incomingUrl.pathname,
-      target: targetUrl,
-      pathSegments,
-      hasTrailing: incomingHasTrailingSlash,
-    },
-  );
+  console.log("[proxy] forwarding", {
+    incoming: request.method + " " + incomingUrl.pathname,
+    target: targetUrl,
+    pathSegments,
+    hasTrailing: incomingHasTrailingSlash,
+  });
 
   const headers = new Headers();
 
