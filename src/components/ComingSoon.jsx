@@ -1,64 +1,11 @@
 'use client';
 
-import { ArrowLeft, Clock, Rocket } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { ArrowLeft, Clock, Rocket, Calendar, Star } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function ComingSoon() {
-  const [pointer, setPointer] = useState({ x: 0, y: 0 });
-  const [particles, setParticles] = useState([]);
-
-  useEffect(() => {
-    setParticles(
-      Array.from({ length: 50 }, (_, id) => ({
-        id,
-        top: Math.random() * 100,
-        left: Math.random() * 100,
-        size: Math.random() * 2 + 1,
-        duration: Math.random() * 5 + 3,
-        delay: Math.random() * 3,
-      })),
-    );
-  }, []);
-
-  useEffect(() => {
-    let rafId;
-    const handlePointerMove = (event) => {
-      const { innerWidth, innerHeight } = window;
-      const relativeX = ((event.clientX ?? innerWidth / 2) / innerWidth - 0.5) * 2;
-      const relativeY = ((event.clientY ?? innerHeight / 2) / innerHeight - 0.5) * 2;
-
-      cancelAnimationFrame(rafId);
-      rafId = window.requestAnimationFrame(() =>
-        setPointer({
-          x: relativeX,
-          y: relativeY,
-        }),
-      );
-    };
-
-    window.addEventListener('mousemove', handlePointerMove);
-    return () => {
-      window.removeEventListener('mousemove', handlePointerMove);
-      cancelAnimationFrame(rafId);
-    };
-  }, []);
-
-  const orbStyles = useMemo(
-    () => [
-      {
-        className:
-          'absolute -top-32 -left-10 h-[26rem] w-[26rem] rounded-full bg-gradient-to-br from-green-500/30 via-emerald-500/20 to-transparent blur-3xl opacity-20',
-        intensity: 20,
-      },
-      {
-        className:
-          'absolute -bottom-28 -right-16 h-[22rem] w-[22rem] rounded-full bg-gradient-to-br from-emerald-500/30 via-teal-500/20 to-transparent blur-3xl opacity-20',
-        intensity: 20,
-      },
-    ],
-    [],
-  );
-
   const handleGoBack = () => {
     if (typeof window !== 'undefined') {
       window.history.back();
@@ -66,102 +13,134 @@ export default function ComingSoon() {
   };
 
   return (
-    <section className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-gray-900 via-black to-gray-900 px-6 py-16 text-white">
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {orbStyles.map((orb, index) => (
-          <div
-            key={index}
-            className={orb.className}
-            style={{
-              transform: `translate3d(${pointer.x * orb.intensity}px, ${pointer.y * orb.intensity}px, 0)`,
-              transition: 'transform 0.7s ease-out',
-            }}
-          />
-        ))}
-
-        {particles.map((particle) => (
-          <span
-            key={particle.id}
-            className="particle absolute rounded-full bg-green-400/10"
-            style={{
-              top: `${particle.top}%`,
-              left: `${particle.left}%`,
-              width: `${particle.size}px`,
-              height: `${particle.size}px`,
-              animationDuration: `${particle.duration}s`,
-              animationDelay: `${particle.delay}s`,
-            }}
-          />
-        ))}
-
-        <div className="absolute left-8 top-8 h-24 w-24 rounded-tr-3xl border-2 border-emerald-400/30 border-l-transparent border-b-transparent" />
-        <div className="absolute bottom-8 right-8 h-24 w-24 rounded-bl-3xl border-2 border-green-400/30 border-r-transparent border-t-transparent" />
-      </div>
-
-      <div className="relative z-10 flex max-w-5xl flex-col items-center gap-10 text-center">
-        <div className="relative">
-          <div className="absolute inset-0 -z-10 h-32 w-32 rounded-full bg-green-500/20 blur-3xl" />
-          <Rocket className="mx-auto h-20 w-20 text-green-400 drop-shadow-[0_0_25px_rgba(16,185,129,0.8)] animate-bounce" />
-        </div>
-
-        <div className="space-y-4">
-          <h1 className="text-6xl font-bold text-transparent md:text-8xl bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 bg-clip-text drop-shadow-[0_0_25px_rgba(34,197,94,0.6)]">
-            Coming Soon
-          </h1>
-          <p className="mx-auto max-w-2xl text-lg text-gray-400 md:text-xl">
-            We&apos;re working hard to bring you something amazing! This feature is currently under development and will
-            be available soon.
-          </p>
-        </div>
-
-        <div className="w-full max-w-3xl space-y-2 text-left">
-          <div className="flex items-center justify-between text-sm text-gray-400">
-            <span>Progress</span>
-            <span className="text-white">75%</span>
-          </div>
-          <div className="h-[2px] w-full rounded-full bg-gray-800">
-            <div className="h-full w-[75%] rounded-full bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 animate-pulse" />
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleGoBack}
-          className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-white px-6 py-3 font-semibold text-black transition duration-300 hover:scale-105 hover:shadow-[0_12px_45px_rgba(16,185,129,0.4)]"
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="min-h-[calc(100vh-12rem)] flex items-center justify-center"
         >
-          <ArrowLeft className="h-5 w-5 transition duration-300 group-hover:-translate-x-0.5" />
-          <span className="relative z-10">Go Back</span>
-          <span className="pointer-events-none absolute inset-0 -z-10 rounded-full opacity-0 transition duration-300 group-hover:opacity-100 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500" />
-        </button>
+          <div className="w-full max-w-4xl text-center space-y-8">
+            {/* Header Icon */}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-24 h-24 mx-auto"
+            >
+              <div className="w-full h-full rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                <Rocket className="h-12 w-12 text-white" />
+              </div>
+            </motion.div>
 
-        <div className="flex items-center gap-3 text-sm text-gray-500">
-          <Clock className="h-4 w-4 animate-pulse text-emerald-400" />
-          Feature in development queue
-        </div>
+            {/* Title and Description */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="space-y-4"
+            >
+              <h1 className="text-4xl md:text-6xl font-bold text-foreground">
+                <span className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 bg-clip-text text-transparent">
+                  Coming Soon
+                </span>
+              </h1>
+              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
+                We&apos;re working hard to bring you something amazing! This feature is currently under development and will be available soon.
+              </p>
+            </motion.div>
+
+            {/* Progress Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+            >
+              <Card className="card-shadow">
+                <CardContent className="p-6 md:p-8">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span className="font-medium">Development Progress</span>
+                      <span className="text-foreground font-semibold">75%</span>
+                    </div>
+                    <div className="w-full bg-surface rounded-full h-3 overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: "75%" }}
+                        transition={{ delay: 0.5, duration: 1, ease: "easeOut" }}
+                        className="h-full bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 rounded-full"
+                      />
+                    </div>
+                    <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>Q2 2024</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Star className="h-4 w-4 text-purple-600" />
+                        <span>High Priority</span>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Features Preview */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+            >
+              {[
+                { icon: "🚀", title: "Enhanced Performance", description: "Faster and more efficient" },
+                { icon: "🎨", title: "Better UI/UX", description: "Improved user experience" },
+                { icon: "🔧", title: "New Features", description: "Exciting capabilities" }
+              ].map((feature, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.6 + index * 0.1 }}
+                >
+                  <Card className="card-hover h-full">
+                    <CardContent className="p-4 text-center space-y-3">
+                      <div className="text-3xl">{feature.icon}</div>
+                      <h3 className="font-semibold text-foreground text-sm">{feature.title}</h3>
+                      <p className="text-xs text-muted-foreground">{feature.description}</p>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </motion.div>
+
+            {/* Action Button */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="space-y-4"
+            >
+              <Button
+                onClick={handleGoBack}
+                variant="outline"
+                className="group"
+                size="lg"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+                Go Back
+              </Button>
+
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4 animate-pulse text-purple-600" />
+                <span>Feature in development queue</span>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
       </div>
-
-      <style jsx>{`
-        .particle {
-          animation-name: particlePulse;
-          animation-iteration-count: infinite;
-          animation-timing-function: ease-in-out;
-        }
-
-        @keyframes particlePulse {
-          0% {
-            transform: translateY(0) scale(1);
-            opacity: 0.2;
-          }
-          50% {
-            transform: translateY(-6px) scale(1.6);
-            opacity: 0.6;
-          }
-          100% {
-            transform: translateY(0) scale(1);
-            opacity: 0.2;
-          }
-        }
-      `}</style>
-    </section>
+    </div>
   );
 }

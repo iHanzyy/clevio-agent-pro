@@ -1,7 +1,7 @@
 "use client";
 import { Suspense, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
+import { motion } from "framer-motion";
 import {
   BadgeCheck,
   CalendarClock,
@@ -10,7 +10,13 @@ import {
   ShieldCheck,
   Sparkles,
   Rocket,
-} from "lucide-react";
+  Loader2,
+  ArrowRight,
+  Crown,
+  Star,
+  Check,
+  AlertCircle,
+  } from "lucide-react";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -18,6 +24,10 @@ import {
   clearTrialAgentPayload,
 } from "@/lib/trialStorage";
 import { markTrialEmailUsed } from "@/lib/trialGuard";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const PLAN_OPTIONS = [
   {
@@ -27,48 +37,54 @@ const PLAN_OPTIONS = [
     price: "0",
     duration_days: 14,
     badge: "Start free",
-    description: "Test Clevio for two weeks with limited usage.",
+    description: "Test Clevio for two weeks with full access to core features.",
     features: [
       "Create up to 2 agents",
       "Sample knowledge base",
       "Community support",
+      "Basic automation tools",
     ],
     icon: Sparkles,
+    highlight: "0 Rp - No credit card required",
   },
   {
     code: "PRO_M",
     name: "Pro Monthly",
-    subtitle: "As your business scales",
+    subtitle: "Popular for growing businesses",
     price: "750000",
     originalPrice: "1000000",
     duration_days: 30,
     badge: "Most popular",
-    description: "Scale your team with monthly flexibility.",
+    description: "Scale your team with monthly flexibility and all features.",
     features: [
       "Unlimited agents",
       "WhatsApp automation",
       "Advanced tools & RAG",
       "Priority chat support",
+      "Custom integrations",
     ],
     icon: CalendarClock,
     recommended: true,
+    highlight: "25% OFF for limited time",
   },
   {
     code: "PRO_Y",
     name: "Pro Yearly",
-    subtitle: "For more complex businesses",
+    subtitle: "Best value for established businesses",
     price: "1000000",
     duration_days: 365,
     badge: "Best value",
-    description: "Maximize savings with full-year coverage.",
+    description: "Maximize savings with comprehensive yearly coverage.",
     features: [
       "Everything in Pro Monthly",
       "Dedicated success manager",
       "Early feature access",
       "1:1 onboarding workshop",
+      "Custom training sessions",
     ],
     icon: Rocket,
-    discountNote: "Save 17% vs monthly",
+    discountNote: "Save Rp 1.000.000 vs monthly",
+    highlight: "Most popular choice",
   },
 ];
 
@@ -76,10 +92,15 @@ export default function PaymentPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-surface text-foreground">
-          <div className="text-center space-y-2">
-            <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent mx-auto" />
-            <p className="text-sm text-muted">Loading payment details…</p>
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">Loading Payment Details</h3>
+              <p className="text-sm text-muted-foreground">Please wait while we prepare your payment options...</p>
+            </div>
           </div>
         </div>
       }
@@ -877,144 +898,214 @@ function PaymentContent() {
       return null;
     }
     const isChecking = statusState.state === "checking";
+    const isError = statusState.state === "error";
+
     return (
-      <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-        <div className="w-full max-w-md rounded-2xl bg-surface p-6 text-center shadow-xl">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-accent/15">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md rounded-2xl bg-card border border-border p-6 text-center card-shadow"
+        >
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full">
             {isChecking ? (
-              <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              <div className="bg-primary rounded-full h-16 w-16 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 text-white animate-spin" />
+              </div>
+            ) : isError ? (
+              <div className="bg-destructive rounded-full h-16 w-16 flex items-center justify-center">
+                <AlertCircle className="h-8 w-8 text-white" />
+              </div>
             ) : (
-              <svg
-                className="h-6 w-6 text-accent"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
+              <div className="bg-success rounded-full h-16 w-16 flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-white" />
+              </div>
             )}
           </div>
-          <h2 className="text-lg font-semibold text-foreground">
-            {isChecking ? "Checking Payment" : "Payment Successful"}
+          <h2 className="text-xl font-bold text-foreground mb-2">
+            {isChecking ? "Checking Payment" : isError ? "Payment Failed" : "Payment Successful"}
           </h2>
-          <p className="mt-2 text-sm text-muted">{statusState.message}</p>
-        </div>
+          <p className="text-muted-foreground">{statusState.message}</p>
+
+          {!isChecking && !isError && (
+            <div className="mt-6 space-y-3">
+              <div className="w-full bg-success/10 rounded-lg p-3">
+                <div className="flex items-center justify-center gap-2 text-sm text-success">
+                  <CheckCircle className="h-4 w-4" />
+                  <span>Transaction confirmed</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-surface to-background text-foreground flex justify-center px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-10">
-      {renderStatusOverlay()}
-      <div className="max-w-screen-xl w-full space-y-6 sm:space-y-8">
-        <div className="w-full bg-surface/80 shadow-2xl shadow-accent/10 border border-surface-strong/40 rounded-2xl sm:rounded-3xl backdrop-blur">
-          <div className="w-full p-4 sm:p-6 md:p-8 lg:p-12 space-y-6 sm:space-y-8">
-            {/* Header */}
-            <div className="text-center space-y-3 sm:space-y-4">
-              <div>
-                <h1 className="mt-2 sm:mt-3 text-2xl sm:text-3xl md:text-4xl font-extrabold leading-tight">
-                  Choose Your Plan
-                </h1>
-                <p className="mt-2 sm:mt-3 text-sm sm:text-base md:text-lg text-muted max-w-2xl mx-auto px-4">
-                  Unlock premium automations, WhatsApp workflows, and dedicated
-                  support.
-                </p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {renderStatusOverlay()}
 
-            {/* Error Messages */}
-            {statusError && (
-              <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-surface-strong/30 border border-red-200 text-red-600 rounded-lg sm:rounded-xl max-w-3xl mx-auto text-xs sm:text-sm">
-                {statusError}
-              </div>
-            )}
+        {/* Header Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-12"
+        >
+          <div className="space-y-4">
+            <Badge className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary border border-primary/20 text-sm font-medium">
+              <Sparkles className="h-4 w-4" />
+              Premium Plans
+            </Badge>
+            <h1 className="text-4xl md:text-5xl font-bold text-foreground">
+              <span className="bg-gradient-to-r from-primary via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Choose Your Perfect Plan
+              </span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+              Unlock powerful AI automation, WhatsApp workflows, and dedicated support to transform your business
+            </p>
+          </div>
+        </motion.div>
 
-            {error && (
-              <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg sm:rounded-xl max-w-3xl mx-auto text-xs sm:text-sm">
-                {error}
-              </div>
-            )}
+        {/* Trust Indicator */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex justify-center mb-12"
+        >
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <BadgeCheck className="h-4 w-4 text-primary" />
+            <span>Secure Payment Processing</span>
+          </div>
+        </motion.div>
 
-            {/* Plan Cards */}
-            <div className="grid gap-4 sm:gap-6 md:gap-8 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto">
-              {plans.map((plan) => (
-                <PlanCard
-                  key={plan.code}
-                  plan={plan}
-                  isSelected={selectedPlan === plan.code}
-                  onSelect={() => setSelectedPlan(plan.code)}
-                  formatPrice={formatPrice}
-                />
-              ))}
-            </div>
-
-            {/* Payment Button */}
-            <div className="text-center space-y-3 sm:space-y-4 mt-6 sm:mt-10">
-              <button
-                onClick={handlePayment}
-                disabled={loading || !selectedPlan}
-                className="relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-accent via-indigo-500 to-purple-500 text-white font-semibold py-3 sm:py-4 px-8 sm:px-10 rounded-xl sm:rounded-2xl shadow-lg shadow-accent/30 transition hover:shadow-xl hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto text-sm sm:text-base"
-              >
-                {loading ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8z"
-                      ></path>
-                    </svg>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="h-4 sm:h-5 w-4 sm:w-5" /> Continue to
-                    Payment
-                  </>
-                )}
-              </button>
-              {successMessage && (
-                <div className="p-3 sm:p-4 bg-accent/10 border border-accent/30 text-accent rounded-lg sm:rounded-xl max-w-xl mx-auto text-xs sm:text-sm">
-                  {successMessage}
+        {/* Error Messages */}
+        {statusError && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6"
+          >
+            <Card className="card-shadow border-l-4 border-l-destructive">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                  <p className="text-sm text-destructive">{statusError}</p>
                 </div>
-              )}
-              <div className="text-xs sm:text-sm text-muted max-w-2xl mx-auto space-y-2">
-                <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 text-xs">
-                  <span className="inline-flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-accent" />{" "}
-                    Secure checkout
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <CreditCard className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-accent" />{" "}
-                    Major cards & bank transfers
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <BadgeCheck className="h-3.5 sm:h-4 w-3.5 sm:w-4 text-accent" />{" "}
-                    7-day guarantee
-                  </span>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6"
+          >
+            <Card className="card-shadow border-l-4 border-l-destructive">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
+                  <p className="text-sm text-destructive">{error}</p>
                 </div>
-              </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Plan Cards Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="grid gap-6 md:gap-8 lg:grid-cols-3 mb-12"
+        >
+          {plans.map((plan, index) => (
+            <motion.div
+              key={plan.code}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 + index * 0.1 }}
+            >
+              <PlanCard
+                plan={plan}
+                isSelected={selectedPlan === plan.code}
+                onSelect={() => setSelectedPlan(plan.code)}
+                formatPrice={formatPrice}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
+
+        {/* Success Message */}
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mb-6"
+          >
+            <Card className="card-shadow border-l-4 border-l-success bg-success/5">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
+                  <p className="text-sm text-success">{successMessage}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+  
+        {/* Payment Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.6 }}
+          className="text-center space-y-6"
+        >
+          <Button
+            onClick={handlePayment}
+            disabled={loading || !selectedPlan}
+            size="lg"
+            className="w-full sm:w-auto px-8 py-4 bg-gradient-primary text-white hover:bg-primary/90 font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                Continue to Payment
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </>
+            )}
+          </Button>
+
+          {/* Trust Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-border">
+              <ShieldCheck className="h-4 w-4 text-success" />
+              <span>Secure Checkout</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-border">
+              <CreditCard className="h-4 w-4 text-primary" />
+              <span>Bank Transfer</span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface border border-border">
+              <BadgeCheck className="h-4 w-4 text-primary" />
+              <span>Instant Access</span>
             </div>
           </div>
-        </div>
+
+          <p className="text-xs text-muted-foreground">
+            By continuing, you agree to our Terms of Service and Privacy Policy
+          </p>
+        </motion.div>
       </div>
     </div>
   );
@@ -1023,94 +1114,106 @@ function PaymentContent() {
 function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
   const Icon = plan.icon || Sparkles;
   return (
-    <label
-      className={`relative block rounded-2xl sm:rounded-3xl border p-5 sm:p-6 md:p-8 transition-all cursor-pointer ${
+    <Card
+      className={cn(
+        "relative cursor-pointer transition-all duration-300 hover:card-hover active:scale-95",
         isSelected
-          ? "border-accent bg-gradient-to-br from-accent/5 to-accent/10 shadow-2xl shadow-accent/20 ring-2 ring-accent scale-[1.02] sm:scale-105"
-          : "border-surface-strong/30 bg-surface/50 hover:border-accent/40 hover:shadow-xl"
-      }`}
-    >
-      {plan.badge && (
-        <span
-          className={`absolute -top-2.5 sm:-top-3 left-1/2 -translate-x-1/2 rounded-full px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wider ${
-            plan.recommended
-              ? "bg-accent text-white shadow-lg"
-              : "bg-surface-strong/80 text-muted border border-surface-strong"
-          }`}
-        >
-          {plan.badge}
-        </span>
+          ? "ring-2 ring-primary bg-gradient-to-br from-primary/5 to-primary/10 border-primary"
+          : "border-border bg-card hover:border-primary/40"
       )}
-
-      <div className="text-center space-y-3 sm:space-y-4">
-        {/* Icon */}
-        <div
-          className={`inline-flex rounded-xl sm:rounded-2xl p-3 sm:p-4 ${
-            isSelected ? "bg-accent/20" : "bg-surface-strong/50"
-          }`}
-        >
-          <Icon
-            className={`h-6 sm:h-7 md:h-8 w-6 sm:w-7 md:w-8 ${
-              isSelected ? "text-accent" : "text-muted"
-            }`}
-          />
-        </div>
-
-        {/* Plan Name */}
-        <div>
-          <h3 className="text-xl sm:text-2xl font-bold text-foreground">
-            {plan.name}
-          </h3>
-          <p className="text-xs sm:text-sm text-muted mt-1">{plan.subtitle}</p>
-        </div>
-
-        {/* Price */}
-        <div className="py-4 sm:py-6 border-y border-surface-strong/30">
-          <div className="flex items-baseline justify-center gap-1">
-            <span className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-foreground">
-              {formatPrice(plan.price)}
-            </span>
-            <span className="text-sm sm:text-base md:text-lg text-muted font-medium">
-              /month
-            </span>
+      onClick={onSelect}
+    >
+      <div className="p-6 md:p-8">
+        {plan.badge && (
+          <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
+            <Badge
+              variant={plan.recommended ? "default" : "secondary"}
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold uppercase tracking-wider shadow-lg",
+                plan.recommended
+                  ? "bg-gradient-primary text-white"
+                  : "bg-surface text-muted-foreground border"
+              )}
+            >
+              {plan.badge}
+            </Badge>
           </div>
-          {plan.discountNote && (
-            <p className="text-[10px] sm:text-xs text-accent font-semibold mt-2">
-              {plan.discountNote}
-            </p>
+        )}
+
+        {/* Header */}
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-surface border border-border p-4">
+            <Icon
+              className={cn(
+                "h-8 w-8",
+                isSelected ? "text-primary" : "text-muted-foreground"
+              )}
+            />
+          </div>
+
+          <div>
+            <h3 className="text-2xl font-bold text-foreground">{plan.name}</h3>
+            <p className="text-sm text-muted-foreground mt-1">{plan.subtitle}</p>
+          </div>
+        </div>
+
+        {/* Price Section */}
+        <div className="py-6 border-y border-border space-y-4">
+          <div className="text-center">
+            <div className="flex items-baseline justify-center gap-1">
+              <span className="text-4xl md:text-5xl font-extrabold text-foreground">
+                {formatPrice(plan.price)}
+              </span>
+              <span className="text-lg md:text-xl text-muted-foreground">/month</span>
+            </div>
+
+            {plan.originalPrice && (
+              <div className="text-sm text-muted-foreground line-through">
+                {formatPrice(plan.originalPrice)}
+              </div>
+            )}
+
+            {plan.discountNote && (
+              <div className="flex items-center justify-center gap-2">
+                <Badge variant="success" className="text-xs font-semibold">
+                  {plan.discountNote}
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {plan.highlight && (
+            <div className="flex items-center justify-center gap-2">
+              <Sparkles className="h-4 w-4 text-warning" />
+              <span className="text-sm font-medium text-warning">{plan.highlight}</span>
+            </div>
           )}
         </div>
 
-        {/* CTA Button */}
-        <button
-          type="button"
+        {/* Select Button */}
+        <Button
           onClick={onSelect}
-          className={`w-full py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl font-semibold transition-all text-sm sm:text-base ${
-            isSelected
-              ? "bg-accent text-white shadow-lg shadow-accent/30 hover:bg-accent/90"
-              : "bg-surface-strong/50 text-foreground hover:bg-surface-strong/70"
-          }`}
+          variant={isSelected ? "default" : "outline"}
+          className="w-full"
+          size="lg"
         >
-          {plan.code === "TRIAL"
-            ? "Get Started"
-            : isSelected
-            ? "Current plan"
-            : `Get ${plan.name}`}
-        </button>
+          {plan.code === "TRIAL" ? "Get Started" : isSelected ? "Selected" : "Choose Plan"}
+        </Button>
 
         {/* Features */}
-        <ul className="mt-4 sm:mt-6 space-y-2 sm:space-y-3 text-left text-xs sm:text-sm">
-          {plan.features.map((feature, index) => (
-            <li key={index} className="flex items-start gap-2 sm:gap-3">
-              <CheckCircle2
-                className={`h-4 sm:h-5 w-4 sm:w-5 mt-0.5 flex-shrink-0 ${
-                  isSelected ? "text-accent" : "text-muted"
-                }`}
-              />
-              <span className="text-muted">{feature}</span>
-            </li>
-          ))}
-        </ul>
+        <div className="mt-6 space-y-3">
+          <ul className="space-y-3">
+            {plan.features.map((feature, index) => (
+              <li key={index} className="flex items-start gap-3">
+                <Check className={cn(
+                  "h-5 w-5 mt-0.5 flex-shrink-0",
+                  isSelected ? "text-primary" : "text-muted-foreground"
+                )} />
+                <span className="text-sm text-muted-foreground">{feature}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
       <input
@@ -1121,79 +1224,7 @@ function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
         onChange={onSelect}
         className="sr-only"
       />
-    </label>
+    </Card>
   );
 }
 
-function PlanComparison({ selectedPlan }) {
-  const comparison = [
-    {
-      label: "Unlimited AI Agents",
-      tiers: { PRO_M: true, PRO_Y: true },
-    },
-    {
-      label: "WhatsApp Automation",
-      tiers: { PRO_M: true, PRO_Y: true },
-    },
-    {
-      label: "Priority Support",
-      tiers: { PRO_M: true, PRO_Y: true },
-    },
-    {
-      label: "Dedicated Success Manager",
-      tiers: { PRO_Y: true },
-    },
-    {
-      label: "Onboarding Workshop",
-      tiers: { PRO_Y: true },
-    },
-  ];
-
-  return (
-    <section className="mt-4">
-      <div className="rounded-3xl border border-surface-strong/60 bg-background/60 p-6 shadow-inner">
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-          <h4 className="text-lg font-semibold">Compare plans</h4>
-          <p className="text-sm text-muted">
-            You selected <span className="font-semibold">{selectedPlan}</span>
-          </p>
-        </div>
-        <div className="overflow-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="text-muted">
-                <th className="text-left py-2">Features</th>
-                <th className="text-center py-2">Pro Monthly</th>
-                <th className="text-center py-2">Pro Yearly</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparison.map((row) => (
-                <tr
-                  key={row.label}
-                  className="border-t border-surface-strong/60"
-                >
-                  <td className="py-3 pr-4 text-foreground">{row.label}</td>
-                  <td className="py-3 text-center">
-                    {row.tiers.PRO_M ? (
-                      <CheckCircle2 className="h-4 w-4 mx-auto text-accent" />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="py-3 text-center">
-                    {row.tiers.PRO_Y ? (
-                      <CheckCircle2 className="h-4 w-4 mx-auto text-accent" />
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}

@@ -2,9 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  Settings,
+  Edit,
+  Loader2,
+  AlertCircle,
+  ArrowLeft
+} from "lucide-react";
 import AgentForm from "../../components/AgentForm";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 const mapAgentToInitialValues = (agent) => {
   if (!agent) return null;
@@ -129,10 +141,15 @@ export default function EditAgentPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="mt-4 text-muted">Loading agent...</p>
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto">
+            <Loader2 className="h-8 w-8 text-white animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-foreground">Loading Agent</h3>
+            <p className="text-sm text-muted-foreground">Please wait while we fetch your agent details...</p>
+          </div>
         </div>
       </div>
     );
@@ -140,13 +157,25 @@ export default function EditAgentPage() {
 
   if (error) {
     return (
-      <div className="max-w-3xl mx-auto">
-        <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
-          <h2 className="text-lg font-semibold text-red-700 mb-2">
-            Unable to load agent
-          </h2>
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">
+              Error Loading Agent
+            </h3>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button
+              onClick={() => window.location.reload()}
+              variant="outline"
+              className="w-full"
+            >
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -169,25 +198,78 @@ export default function EditAgentPage() {
   const isProMonthlyPlan = normalizedPlanCode === "pro_m";
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">
-          Edit Agent
-        </h1>
-        <p className="mt-2 text-sm text-muted">
-          Update the configuration, tools, and behaviour of this agent. Changes
-          take effect immediately after saving.
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header Section */}
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <Card className="card-shadow border-0 bg-gradient-to-br from-white to-gray-50">
+            <CardContent className="p-6 md:p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <Link
+                  href={`/dashboard/agents/${params.agentId}`}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-surface transition-smooth text-sm font-medium"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Agent
+                </Link>
+              </div>
 
-      <AgentForm
-        mode="edit"
-        initialValues={initialValues}
-        onSubmit={handleUpdate}
-        isSubmitting={isSubmitting}
-        isTrialPlan={isTrialPlan}
-        isProMonthlyPlan={isProMonthlyPlan}
-      />
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0">
+                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-primary flex items-center justify-center shadow-lg">
+                    <Edit className="h-8 w-8 md:h-10 md:w-10 text-white" />
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-2">
+                    Edit Agent
+                  </h1>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
+                    <span>Updating configuration for:</span>
+                    <code className="px-2 py-1 rounded-lg bg-surface text-xs font-mono break-all">
+                      {agent?.name || "Unknown Agent"}
+                    </code>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Update the configuration, tools, and behaviour of this agent. Changes take effect immediately after saving.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Agent Form */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="card-shadow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Agent Configuration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 md:p-8">
+              <AgentForm
+                mode="edit"
+                initialValues={initialValues}
+                onSubmit={handleUpdate}
+                isSubmitting={isSubmitting}
+                isTrialPlan={isTrialPlan}
+                isProMonthlyPlan={isProMonthlyPlan}
+              />
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   );
 }

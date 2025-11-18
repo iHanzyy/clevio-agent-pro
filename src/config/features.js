@@ -5,6 +5,12 @@ export const FEATURES = {
     name: 'Dashboard',
     description: 'Centralized overview of your assistants.',
   },
+  AGENTS: {
+    status: 'active',
+    path: '/dashboard/agents',
+    name: 'Agents',
+    description: 'Manage your AI agents.',
+  },
   AI_CHAT: {
     status: 'coming-soon',
     name: 'AI Assistant',
@@ -22,7 +28,7 @@ export const FEATURES = {
   },
   SETTINGS: {
     status: 'active',
-    path: '/settings',
+    path: '/dashboard/settings',
     name: 'Settings',
     description: 'Account and workspace controls.',
   },
