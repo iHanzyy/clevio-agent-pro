@@ -444,8 +444,21 @@ export default function AgentForm({
     const selectedTools = TOOL_IDS.filter((toolId) => values.tools[toolId]);
     const legacySelected = resolveLegacyKeysForSelection(selectedTools);
 
+    const googleTools = Array.from(
+      new Set(
+        [...selectedTools, ...legacySelected].filter((toolId) =>
+          toolId.startsWith("google_") || toolId.startsWith("gmail")
+        )
+      )
+    );
+
+    const selectedMcpTools = MCP_TOOL_IDS.filter(
+      (toolId) => values.mcpTools?.[toolId]
+    );
+
     const payload = {
       name: values.name.trim(),
+      google_tools: googleTools,
       config: {
         llm_model: values.model,
         temperature: values.temperature,
@@ -457,31 +470,19 @@ export default function AgentForm({
       },
     };
 
-    const mergedAllowed = new Set([
-      ...lockedToolsRef.current,
-      ...selectedTools,
-      ...legacySelected,
-    ]);
+    payload.allowed_tools = selectedMcpTools;
+    payload.tools = selectedMcpTools;
 
-    payload.allowed_tools = Array.from(mergedAllowed);
+    const mcpServerUrl =
+      process.env.NEXT_PUBLIC_MCP_SERVER_URL?.trim() ||
+      "http://0.0.0.0:8190/sse";
+    payload.mcp_servers = {
+      calculator_sse: {
+        transport: "sse",
+        url: mcpServerUrl,
+      },
+    };
 
-    if (selectedTools.length || legacySelected.length) {
-      payload.tools = Array.from(
-        new Set([...selectedTools, ...legacySelected])
-      );
-    }
-
-    const mcpServerUrl = process.env.NEXT_PUBLIC_MCP_SERVER_URL?.trim() || "";
-    payload.mcp_servers = mcpServerUrl
-      ? {
-          default: {
-            url: mcpServerUrl,
-          },
-        }
-      : {};
-    const selectedMcpTools = MCP_TOOL_IDS.filter(
-      (toolId) => values.mcpTools?.[toolId]
-    );
     payload.mcp_tools = selectedMcpTools;
 
     return payload;

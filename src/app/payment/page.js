@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import {
   BadgeCheck,
   CalendarClock,
-  CheckCircle2,
+  CheckCircle, CheckCircle2,
   CreditCard,
   ShieldCheck,
   Sparkles,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { useAuth } from "@/contexts/AuthContext"
@@ -46,17 +46,25 @@ export default function DashboardLayout({
   const { updateSubscription } = useAuth()
   const router = useRouter()
   const [darkMode, setDarkMode] = useState(false)
+  const hasRefreshedSubscription = useRef(false)
 
   // Refresh subscription info if needed
   useEffect(() => {
-    if (user && !user?.subscription?.is_active && user?.subscription?.plan_code) {
-      const timer = setTimeout(() => {
-        updateSubscription();
-      }, 2000);
-
-      return () => clearTimeout(timer);
+    if (!user) {
+      hasRefreshedSubscription.current = false
+      return
     }
-  }, [user, updateSubscription]);
+
+    if (hasRefreshedSubscription.current) return
+    hasRefreshedSubscription.current = true
+
+    console.log('[Dashboard] Current user subscription:', user.subscription)
+    const timer = setTimeout(() => {
+      updateSubscription()
+    }, 1500)
+
+    return () => clearTimeout(timer)
+  }, [user, updateSubscription])
 
   // Authentication check
   useEffect(() => {
@@ -141,22 +149,37 @@ export default function DashboardLayout({
                   variant={user?.subscription?.is_active ? "default" : "secondary"}
                   className="text-xs font-medium px-2 py-1"
                 >
-                  <span className="text-foreground">
-                    {user?.subscription?.plan_code
-                      ? user.subscription.plan_code.replace("_", " ").toUpperCase()
-                      : user?.plan_code
-                      ? user.plan_code.replace("_", " ").toUpperCase()
-                      : "NO PLAN"}
-                  </span>
-                  {user?.subscription?.is_active && (
-                    <span className="ml-1 text-xs opacity-75">
-                      {(user?.subscription?.plan_code || user?.plan_code)?.includes("Y")
-                        ? "Y"
-                        : (user?.subscription?.plan_code || user?.plan_code)?.includes("M")
-                        ? "M"
-                        : ""}
-                    </span>
-                  )}
+                  {(() => {
+                    const planCode = user?.subscription?.plan_code;
+                    if (!planCode || !user?.subscription?.is_active) {
+                      return "NO PLAN";
+                    }
+
+                    // Handle different plan codes
+                    if (planCode === "TRIAL") {
+                      return "TRIAL";
+                    }
+
+                    const cleanPlan = planCode.replace("_", " ").replace("PRO ", "").trim();
+                    let displayName: string;
+
+                    if (cleanPlan === "M") {
+                      displayName = "MONTHLY";
+                    } else if (cleanPlan === "Y") {
+                      displayName = "YEARLY";
+                    } else {
+                      displayName = cleanPlan.toUpperCase();
+                    }
+
+                    return (
+                      <>
+                        <span className="text-foreground">{displayName}</span>
+                        {planCode.includes("Y") && planCode !== "TRIAL" && (
+                          <span className="ml-1 text-xs opacity-75">Y</span>
+                        )}
+                      </>
+                    );
+                  })()}
                 </Badge>
 
                 <div className="hidden sm:block text-right">

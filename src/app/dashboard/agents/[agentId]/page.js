@@ -185,10 +185,8 @@ export default function AgentDetailPage() {
   const normalizedUserPlan = useMemo(() => {
     const planCode =
       user?.subscription?.plan_code ||
-      user?.subscription?.planCode ||
-      (typeof apiService.getPlanCode === "function"
-        ? apiService.getPlanCode()
-        : null);
+      user?.subscription?.planCode;
+    console.log('[Agent Detail] Current plan code:', planCode);
     return typeof planCode === "string" ? planCode.trim().toLowerCase() : null;
   }, [user?.subscription?.plan_code, user?.subscription?.planCode]);
 

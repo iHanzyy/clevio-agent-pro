@@ -132,11 +132,16 @@ export function AuthProvider({ children }) {
 
   const applySubscription = useCallback(
     (details = {}) => {
+      console.log('[AuthContext] applySubscription called with:', details);
+
       const resolvedPlanCode = resolvePlanCode(
         details,
         details?.plan,
         details?.subscription,
       );
+
+      console.log('[AuthContext] resolved plan code:', resolvedPlanCode);
+
       if (resolvedPlanCode) {
         apiService.setPlanCode(resolvedPlanCode);
       }
@@ -159,7 +164,7 @@ export function AuthProvider({ children }) {
             details?.active ??
             false,
         };
-        if (resolvedPlanCode && !nextSubscription.plan_code) {
+        if (resolvedPlanCode) {
           nextSubscription.plan_code = resolvedPlanCode;
         }
         if (resolvedApiKey && !nextSubscription.api_key) {
@@ -866,17 +871,25 @@ const startTrialSession = useCallback(
   const updateSubscription = async () => {
     try {
       const subscription = await apiService.getSubscriptionStatus();
+      console.log('[AuthContext] Raw subscription data:', subscription);
+
       if (subscription?.plan_code) {
         apiService.setPlanCode(subscription.plan_code);
       }
-      applySubscription({
+
+      const subscriptionData = {
         is_active: subscription?.is_active ?? false,
         plan_code: subscription?.plan_code ?? null,
         expires_at: subscription?.expires_at ?? null,
         days_remaining: subscription?.days_remaining ?? null,
-      });
+      };
+
+      console.log('[AuthContext] Applying subscription data:', subscriptionData);
+
+      applySubscription(subscriptionData);
       return subscription;
     } catch (error) {
+      console.error('[AuthContext] Error updating subscription:', error);
       return null;
     }
   };

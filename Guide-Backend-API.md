@@ -230,21 +230,26 @@ If you have access to an already activated user account, use that email/password
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
-          "name": "Research Assistant (MCP)",
-          "tools": ["google_gmail"],
+          "name": "Agent Google 4",
+          "google_tools": [
+            "gmail_get_message", "gmail_read_messages", "gmail_list_messages", "gmail_send_message", "gmail_create_draft",
+            "google_calendar_list_events", "google_calendar_create_event", "google_calendar_get_event",
+            "google_sheets_create_spreadsheet", "google_sheets_update_values", "google_sheets_get_values",
+            "google_docs_list_documents", "google_docs_get_document", "google_docs_create_document", "google_docs_append_text",
+            "google_docs", "google_sheets_list_spreadsheets"
+          ],
           "config": {
             "llm_model": "gpt-4o-mini",
             "temperature": 0.5,
-            "system_prompt": "You can call remote tools to calculate, fetch, or search information."
+            "system_prompt": "Kamu adalah assistant pribadi saya yang dapat menggunakan semua tools ini: gmail_get_message, gmail_read_messages, gmail_list_messages, gmail_send_message, gmail_create_draft, google_calendar_list_events, google_calendar_create_event, google_calendar_get_event, google_sheets_create_spreadsheet , google_sheets_update_values, google_sheets_get_values, google_docs_list_documents, google_docs_get_document, google_docs_create_document, and google_docs_append_text, google_sheets_list_spreadsheets, google_docs"
           },
           "mcp_servers": {
-            "langchain_mcp": {
+            "calculator_sse": {
               "transport": "sse",
-              "url": "http://localhost:8080/sse",
-              "headers": {"Authorization": "Bearer jango"}
+              "url": "http://0.0.0.0:8190/sse"
             }
           },
-          "allowed_tools": ["web_search", "web_fetch", "pdf_generate", "docx_generate", "deep_research", "google_calendar", "send_reminder", "send_messages"]
+          "mcp_tools": ["web_search"]
         }'
   ```
 

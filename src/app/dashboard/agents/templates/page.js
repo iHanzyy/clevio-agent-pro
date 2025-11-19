@@ -16,14 +16,11 @@ export default function AgentTemplatesPage() {
     [router],
   );
 
-  const handleCreateFromScratch = useCallback(() => {
-    router.push("/dashboard/agents/new");
-  }, [router]);
-
   return (
     <AgentTemplatesView
       onConfirmTemplate={handleConfirmTemplate}
-      onCreateFromScratch={handleCreateFromScratch}
+      allowCustomStart={false}
+      subheading="Pilih template, lanjut wawancara, lalu form otomatis terisi"
     />
   );
 }

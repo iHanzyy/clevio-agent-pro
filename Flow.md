@@ -101,28 +101,12 @@ flowchart TD
 
 # Agent Lifecycle
 
-## Manual agent creation
+## Default agent creation (template-first)
 
 ```mermaid
 flowchart LR
-    dash[/dashboard → "Create agent"/] --> form[/dashboard/agents/new/]
-    form --> payload[AgentForm builds payload]
-    payload --> submit[POST /api/proxy/agents/ (apiKey auth)]
-    submit --> response{auth_required?}
-    response -->|yes| redirect[/push("/dashboard/agents/{id}?authUrl=…")/]
-    response -->|no| redirectNo[/push("/dashboard/agents/{id}")/]
-```
-
-1. `dashboard/agents/new/page.js` optionally pre-fills the form with data saved by the template interview (read from `sessionStorage` when `fromInterview=true`).
-2. `AgentForm` enforces at least one tool (`gmail` or `calendar`), constructs `config`, `allowed_tools`, plus optional MCP server metadata from `NEXT_PUBLIC_MCP_SERVER_URL`.
-3. Submission calls `apiService.createAgent`, which POSTs via `/api/proxy/agents/` using the active API key. Any returned `auth_url`/`auth_state` are forwarded as query params.
-4. The router navigates to the agent detail page, where follow-up setup (Google auth, WhatsApp link, document upload) takes place.
-
-## Template-guided agent creation
-
-```mermaid
-flowchart LR
-    list[/dashboard/agents/templates/] --> confirm[TemplateConfirmationDialog]
+    dash[/dashboard → "Create agent" CTA/] --> gallery[/dashboard/agents/templates/]
+    gallery --> confirm[TemplateConfirmationDialog]
     confirm --> sessionId[Generate sessionId]
     sessionId --> register[PUT /api/webhook/n8n-template]
     register --> chat[/dashboard/agents/templates/chat/]
@@ -133,13 +117,30 @@ flowchart LR
     webhookPost --> store[(session store)]
     chat --> poll[GET /api/webhook/n8n-template?session=…]
     poll -->|found| stash[sessionStorage.pendingAgentData]
-    stash --> redirect[/push("/dashboard/agents/new?fromInterview=true")/]
+    stash --> form[/dashboard/agents/new?fromInterview=true/]
+    form --> payload[AgentForm builds payload (prefilled)]
+    payload --> submit[POST /api/proxy/agents/ (apiKey auth)]
+    submit --> response{auth_required?}
+    response -->|yes| redirect[/push("/dashboard/agents/{id}?authUrl=…")/]
+    response -->|no| redirectNo[/push("/dashboard/agents/{id}")/]
 ```
 
-1. The template gallery (`dashboard/agents/templates/page.js`) lets users pick a curated configuration; confirmation generates a deterministic session id and pushes to `/templates/chat`.
-2. The chat page registers the session (`PUT /api/webhook/n8n-template`) and mounts `AiAssistat`, a lightweight chat UI that POSTs messages to `N8N_MAIN/webhook/templateAgent` with template metadata.
-3. When the interview is complete, n8n POSTs `status: "completed"` plus `agent_data` back to `/api/webhook/n8n-template`.
-4. The chat page polls `GET /api/webhook/n8n-template?session=…`, normalises the payload, caches it in `sessionStorage` under `pendingAgentData`, and redirects to the regular creation form.
+1. Tombol/CTA “Create agent” **selalu** membuka galeri template (`/dashboard/agents/templates`); tidak langsung ke form kosong. Tombol “start from scratch” di galeri dinonaktifkan.
+2. Setelah memilih template, dialog konfirmasi membuat `sessionId` deterministik lalu mendaftarkan sesi ke `/api/webhook/n8n-template`; router lanjut ke halaman chat.
+3. Halaman chat menjalankan wawancara via `AiAssistat` yang POST ke `N8N_MAIN/webhook/templateAgent` dengan metadata template.
+4. Ketika n8n mengembalikan `status: "completed"` + `agent_data`, payload itu disimpan oleh `/api/webhook/n8n-template`.
+5. Chat mem-poll `GET /api/webhook/n8n-template?session=…`, menaruh hasilnya ke `sessionStorage.pendingAgentData`, lalu redirect ke `/dashboard/agents/new?fromInterview=true`.
+6. `AgentForm` memanfaatkan `pendingAgentData` untuk prefill, memvalidasi tools (minimal Gmail/Calendar), dan menambahkan metadata MCP bila ada.
+7. Submit memanggil `apiService.createAgent` melalui `/api/proxy/agents/`; jika backend mengembalikan `auth_url`/`auth_state`, query diteruskan di redirect detail page. Tanpa auth lanjutan, langsung buka detail agent.
+
+### Payload Create Agent (frontend → backend)
+- `google_tools`: daftar aksi Google/Gmail yang dipilih (dipisah dari `mcp_tools`).
+- `allowed_tools`/`tools`: hanya berisi pilihan MCP (mis. `web_search`); jangan otomatis memasukkan `google_tools`.
+- `mcp_servers`: selalu `{ calculator_sse: { transport: "sse", url: "http://0.0.0.0:8190/sse" } }` kecuali `NEXT_PUBLIC_MCP_SERVER_URL` dioverride.
+- `mcp_tools`: hanya berisi pilihan MCP (mis. `web_search`), **tidak** otomatis memasukkan `google_tools`.
+
+### Catatan bypass manual
+- Form kosong `/dashboard/agents/new` hanya boleh diakses melalui deep link (mis. troubleshooting) dan **bukan** jalur utama CTA. Setiap perubahan UX harus mempertahankan urutan: Create → Template → Interview → Form → Create.
 
 ### Trial onboarding & sandbox
 

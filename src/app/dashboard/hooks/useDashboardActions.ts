@@ -7,7 +7,7 @@ export const useDashboardActions = () => {
   const router = useRouter()
 
   const handleCreateAgent = () => {
-    router.push('/dashboard/agents/new')
+    router.push('/dashboard/agents/templates')
   }
 
   const handleAgentClick = (agent: Agent) => {

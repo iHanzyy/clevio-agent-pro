@@ -1,4 +1,6 @@
-# CLAUDE.md - Clevio AI Staff Project Guide
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 Clevio AI Staff is a Next.js-based AI Agent Management Platform focused on WhatsApp automation for the Indonesian market. The platform enables businesses to automate customer service and sales conversations through AI agents that work 24/7.
@@ -75,38 +77,52 @@ npm run vercel-build
 
 ## Key Architecture Patterns
 
-### 1. Feature Gating System
-The project implements a sophisticated feature gating system in `/src/config/features.js`:
-- **Active features**: Fully functional routes
-- **Coming soon**: Show placeholder pages with countdown
-- **Under development**: Show maintenance pages
+### 1. Dual Authentication Architecture
+The system uses a sophisticated dual-auth pattern in `/src/contexts/AuthContext.js`:
+- **Session-based auth** (traditional user login) generates both session tokens and API keys
+- **API key auth** (primary for agent operations) with automatic token resolution
+- **Trial sessions** with automatic API key generation based on user's plan
+- **Persistent sessions** via sessionStorage with automatic restoration
 
-### 2. Navigation Helpers
-Centralized navigation system in `/src/lib/navigation.js`:
-```javascript
-import { navigateTo } from '@/lib/navigation';
-// Usage: onClick={navigateTo.comingSoon}
-```
+### 2. Proxy-Based API Architecture
+All backend requests route through `/api/proxy/[...path]` (`src/lib/api.js`):
+- **Automatic token management** with intelligent fallback between API key and session token
+- **WhatsApp integration** with QR code generation, session management, and connection monitoring
+- **Environment-aware configuration** with debug mode toggling
+- **Centralized error handling** and authentication logic
 
-### 3. Authentication System
-Dual authentication system supporting:
-- **Session-based auth** (traditional user login)
-- **API key auth** (for AI agent access)
-- **Trial sessions** with automatic key generation
-- **Persistent sessions** via sessionStorage
+### 3. Feature Gating System
+Centralized feature control in `/src/config/features.js`:
+- **Three feature states**: `active`, `coming-soon`, `under-development`
+- **Runtime query functions**: `isFeatureActive()`, `getComingSoonFeatures()`
+- **Dynamic UI rendering** based on feature status
 
-### 4. API Service Pattern
-Comprehensive API service in `/src/lib/api.js`:
-- Automatic token management
-- WhatsApp integration for agent automation
-- Document upload/management
-- Error handling with debugging support
-- Environment-aware configuration
+### 4. Navigation Architecture
+Status-aware routing in `/src/lib/navigation.js`:
+- **Dual navigation support**: Both window.location.href and Next.js router
+- **Consistent UX** through centralized navigation helpers
+- **Automatic redirection** to appropriate pages based on feature status
 
-### 5. Component Architecture
-- **DashboardNav**: Status-aware navigation component
-- **Template components**: Reusable UI patterns
-- **Status pages**: 404, coming soon, under development with animations
+### 5. Agent Creation Flow (wajib ikuti)
+- CTA "Create agent" **selalu** diarahkan ke galeri template (`/dashboard/agents/templates`), lanjut wawancara chat, lalu prefilled `AgentForm`, baru POST create agent.
+- Jangan hubungkan CTA langsung ke form kosong; `/dashboard/agents/new` tanpa `fromInterview=true` hanya untuk deep link/debug dan tombol “start from scratch” di galeri dinonaktifkan.
+- Payload wawancara disimpan di `sessionStorage.pendingAgentData` dan harus dipakai untuk prefill form; jaga kontrak ini saat ubah UI template/chat.
+
+### 6. Konsistensi Kode
+- Saat mengubah atau menambah fitur, **cek keseluruhan codebase** (lint, pattern, naming, path aliases, hook reuse) supaya gaya, arsitektur, dan flow tetap konsisten dengan dokumentasi (Flow.md, guides) dan panduan ini.
+- Hindari menambahkan jalur baru yang bertabrakan dengan flow yang sudah didefinisikan; jika perlu jalur baru, selaraskan dokumentasi dan update Flow.md terlebih dulu.
+
+### 7. Create Agent Payload Rules
+- `google_tools` harus dipisah dari `mcp_tools`; hanya isi aksi Gmail/Google yang dipilih.
+- `mcp_servers` default: `{ calculator_sse: { transport: "sse", url: "http://0.0.0.0:8190/sse" } }` (override hanya via `NEXT_PUBLIC_MCP_SERVER_URL`).
+- `mcp_tools` hanya berisi MCP pilihan (contoh: `web_search`), jangan inject Google tools ke sini; `allowed_tools/tools` cukup berisi MCP yang dipilih jika diperlukan, jangan otomatis menambah Google tools.
+
+### 8. WhatsApp Integration Architecture
+Complex WhatsApp Web integration in `/src/lib/api.js`:
+- **QR code flow**: Generation, expiration handling, and session validation
+- **Session status monitoring**: Real-time connection status with automatic reconnection
+- **Multi-agent support**: Individual WhatsApp sessions per AI agent
+- **Data normalization**: Consistent UI rendering across various backend formats
 
 ## Configuration Files
 
@@ -116,28 +132,42 @@ Comprehensive API service in `/src/lib/api.js`:
 - `NEXT_PUBLIC_API_DEBUG`: Debug mode toggle
 - `NODE_ENV`: Environment (development/production)
 
-### Key Settings
-- **Unoptimized images** in Next.js config (likely for WhatsApp QR codes)
-- **File watching optimized** for Linux development
-- **Webpack polling** for better development experience
+### Development Best Practices
 
-## Important Development Notes
+### Authentication Patterns
+- Use the dual authentication system: session tokens for user management, API keys for agent operations
+- Handle trial sessions with automatic API key generation
+- Implement proper token fallback logic in API calls
 
-### WhatsApp Integration
-- QR code generation and management for WhatsApp Web
-- Session state management for active connections
-- Agent-based automation system
-- Status monitoring and reconnection capabilities
+### Feature Development
+- Use the feature gating system for new features (`src/config/features.js`)
+- Implement status-aware navigation using helpers from `src/lib/navigation.js`
+- Follow the three feature states: `active`, `coming-soon`, `under-development`
 
-### Indonesian Market Focus
+### API Integration
+- All backend requests should go through the proxy pattern in `/src/lib/api.js`
+- Use automatic token resolution with intelligent fallback
+- Implement proper WhatsApp session management for agent automation
+- Handle environment-specific debugging with `NEXT_PUBLIC_API_DEBUG`
+
+### Component Architecture
+- Use `DashboardNav` as a reference for feature-aware component patterns
+- Implement consistent error handling and user feedback
+- Maintain the Indonesian market focus in all UI text and content
+
+## Key Development Files
+
+- **`src/lib/api.js`**: Core API service with dual authentication and WhatsApp integration
+- **`src/contexts/AuthContext.js`**: Authentication state management with trial session support
+- **`src/config/features.js`**: Feature gating configuration and status management
+- **`src/lib/navigation.js`**: Centralized navigation helpers for consistent UX
+- **`src/components/DashboardNav.jsx`**: Reference implementation for feature-aware components
+- **`src/app/dashboard/layout.tsx`**: Authentication guard and subscription validation patterns
+
+## Indonesian Market Focus
 - All UI text and marketing content in Indonesian
 - Pricing references to UMR (Minimum Regional Wage)
 - Localized payment processing integration
-
-### API Proxy Pattern
-- All backend requests routed through `/api/proxy/[...path]`
-- Handles authentication, error handling, and debugging
-- Supports both session and API key authentication
 
 ## Code Quality Standards
 
@@ -170,15 +200,6 @@ Comprehensive API service in `/src/lib/api.js`:
 - `framer-motion: 12.23.24` - Complex animations
 - `tw-animate-css` - Tailwind animation utilities
 
-## Development Best Practices
-
-1. **Use the feature gating system** for new features
-2. **Follow the authentication patterns** for secure endpoints
-3. **Implement proper error handling** in API calls
-4. **Use the navigation helpers** for consistent UX
-5. **Follow the TypeScript strict mode** settings
-6. **Maintain the component structure** for consistency
-
 ## Backend Integration
 
 The project expects a backend API with these endpoints:
@@ -188,4 +209,4 @@ The project expects a backend API with these endpoints:
 - `/integrations/whatsapp/*` - WhatsApp integration
 - `/documents` - Document management
 
-API service automatically handles authentication, token management, and error handling.
+API service automatically handles authentication, token management, and error handling through the proxy pattern at `/api/proxy/[...path]`.

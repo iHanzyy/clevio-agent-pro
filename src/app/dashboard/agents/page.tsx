@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 import { motion } from "framer-motion"
 import {
   Bot,
@@ -375,7 +376,7 @@ export default function AgentsPage() {
   }, [authLoading, user, router, loadAgents])
 
   const handleCreateAgent = () => {
-    router.push('/dashboard/agents/new')
+    router.push('/dashboard/agents/templates')
   }
 
   const handleViewAgent = (agent: Agent) => {
@@ -621,14 +622,16 @@ export default function AgentsPage() {
               </h3>
 
               <p className="text-muted-foreground mb-6">
-                Scan this QR code with WhatsApp to connect "{qrModal.agent.name}"
+                Scan this QR code with WhatsApp to connect &quot;{qrModal.agent.name}&quot;
               </p>
 
               <div className="flex justify-center mb-6">
                 <div className="bg-white p-4 rounded-lg border-2 border-border">
-                  <img
+                  <Image
                     src={`data:image/png;base64,${qrModal.qrCode}`}
                     alt="WhatsApp QR Code"
+                    width={256}
+                    height={256}
                     className="w-64 h-64"
                   />
                 </div>

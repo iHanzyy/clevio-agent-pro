@@ -2,9 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { Bot, ArrowLeft, Sparkles, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import agentTemplates from "@/data/agent-templates.json";
 import AiAssistat from "@/components/ui/ai-assistat";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 export default function TemplateInterviewPageContent({
   fallbackPath,
@@ -258,46 +262,115 @@ export default function TemplateInterviewPageContent({
 
   if (isRedirecting) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-accent border-r-transparent"></div>
-          <p className="mt-4 text-muted">{redirectingCopy?.heading}</p>
-          {redirectingCopy?.description && (
-            <p className="mt-2 text-sm text-muted">
-              {redirectingCopy.description}
-            </p>
-          )}
-        </div>
-      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex min-h-screen items-center justify-center bg-background"
+      >
+        <Card className="w-full max-w-sm sm:max-w-md mx-4 border-surface-strong/60 shadow-2xl">
+          <CardContent className="p-6 sm:p-8 text-center">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+              className="mx-auto mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-gradient-to-br from-accent/20 to-accent/10"
+            >
+              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
+            </motion.div>
+            <motion.h3
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-lg sm:text-xl font-bold text-foreground mb-3"
+            >
+              {redirectingCopy?.heading}
+            </motion.h3>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="text-muted-foreground text-sm"
+            >
+              {redirectingCopy?.description}
+            </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="mt-6 flex items-center justify-center gap-2"
+            >
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+              <span className="text-xs sm:text-sm text-muted-foreground">Preparing your agent...</span>
+            </motion.div>
+          </CardContent>
+        </Card>
+      </motion.div>
     );
   }
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      <div className="border-b border-surface-strong/60 bg-surface px-6 py-4">
-        <div className="mx-auto max-w-7xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground">
-                {template.name}
-              </h1>
-              <p className="mt-1 text-sm text-muted">
-                {template.description}
-              </p>
+      {/* Compact Modern Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex-shrink-0 border-b border-surface-strong/20 bg-gradient-to-r from-surface to-surface-strong/30 backdrop-blur-sm"
+      >
+        <div className="px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center justify-between max-w-7xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+              {/* Back Button */}
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.back()}
+                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-surface-strong/60 text-muted-foreground hover:bg-surface-strong/80 hover:text-foreground transition-colors flex-shrink-0"
+              >
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </motion.button>
+
+              {/* Template Info - Responsive */}
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 flex-shrink-0">
+                  <Bot className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-base sm:text-lg sm:text-xl font-bold text-foreground truncate">
+                    {template.name}
+                  </h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block line-clamp-1">
+                    {template.description}
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
-                {template.category}
-              </span>
+
+            {/* Right Side Controls - Responsive */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <Badge
+                variant="secondary"
+                className="bg-accent/10 text-accent hover:bg-accent/20 px-2 py-1 text-xs sm:px-3"
+              >
+                <span className="hidden sm:inline">{template.category}</span>
+                <span className="sm:hidden">{template.category.slice(0, 3)}</span>
+              </Badge>
+              <div className="flex h-6 w-6 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-success/10 text-success">
+                <div className="h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-success" />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex-1 overflow-hidden">
+      {/* Chat Container - Takes full remaining space */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="flex-1 overflow-hidden min-h-0"
+      >
         <AiAssistat
-          title={`Configure ${template.name}`}
-          description="Answer a few questions to customize your AI agent"
+          title={""}
+          description=""
           webhookUrl="https://n8n-new.chiefaiofficer.id/webhook/templateAgent"
           sessionId={sessionId}
           metadata={metadata}
@@ -306,7 +379,7 @@ export default function TemplateInterviewPageContent({
           }}
           onComplete={handleInterviewComplete}
         />
-      </div>
+      </motion.div>
     </div>
   );
 }

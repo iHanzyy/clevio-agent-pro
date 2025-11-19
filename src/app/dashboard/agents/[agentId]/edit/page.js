@@ -187,11 +187,13 @@ export default function EditAgentPage() {
   const normalizedPlanCode = (
     user?.subscription?.plan_code ||
     user?.subscription?.planCode ||
-    apiService.getPlanCode?.() ||
     ""
   )
     .toString()
     .toLowerCase();
+
+  console.log('[Agent Edit] Current plan code:', normalizedPlanCode);
+
   const isTrialPlan = Boolean(
     user?.is_trial || normalizedPlanCode === "trial"
   );

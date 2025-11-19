@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   User,
-  CreditCard,
   Shield,
   LogOut,
   Eye,
@@ -17,11 +16,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
-const PLAN_LABELS = {
-  PRO_M: "Pro Monthly",
-  PRO_Y: "Pro Yearly",
-  TRIAL: "Trial"
-}
 
 interface SettingsSectionProps {
   title: string
@@ -99,7 +93,7 @@ export default function SettingsPage() {
     setLoading(true)
     try {
       const { apiService } = await import("@/lib/api")
-      await apiService.updatePassword(user?.id, formData.newPassword)
+      await apiService.updateUserPassword({ userId: user?.id, newPassword: formData.newPassword })
 
       // Clear password fields
       setFormData({
@@ -137,8 +131,7 @@ export default function SettingsPage() {
     )
   }
 
-  const planLabel = PLAN_LABELS[user?.plan_code as keyof typeof PLAN_LABELS] || "No Active Plan"
-
+  
   return (
     <div className="container-spacing space-y-6">
       {/* Header */}
@@ -245,40 +238,7 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
-        {/* Subscription Settings */}
-        <SettingsSection
-          title="Subscription"
-          description="Manage your subscription and billing information."
-        >
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 border border-border rounded-lg">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <CreditCard className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-medium text-foreground">Current Plan</h4>
-                  <p className="text-sm text-muted-foreground">
-                    {planLabel}
-                  </p>
-                </div>
-              </div>
-              <Badge variant="secondary">
-                {user?.is_active ? "Active" : "Inactive"}
-              </Badge>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <Button variant="outline">
-                Manage Billing
-              </Button>
-              <Button variant="ghost">
-                View Invoices
-              </Button>
-            </div>
-          </div>
-        </SettingsSection>
-
+  
   
         {/* Account Management */}
         <SettingsSection
