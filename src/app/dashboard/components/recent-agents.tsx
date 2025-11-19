@@ -20,6 +20,10 @@ interface Agent {
   model?: string
   createdAt?: string
   whatsappConnected?: boolean
+  is_active?: boolean | null
+  active?: boolean | null
+  isActive?: boolean | null
+  statusRaw?: string | null
 }
 
 interface RecentAgentsProps {
@@ -68,13 +72,16 @@ const AgentCard = ({
   agent: Agent;
   onClick?: (agent: Agent) => void
 }) => {
+  const normalizedActive =
+    agent.is_active ?? agent.isActive ?? (agent.statusRaw === 'active') ?? Boolean(agent.active)
+  const normalizedStatus: Agent['status'] = normalizedActive ? 'active' : agent.status
   const statusConfig = {
     active: { variant: 'success' as const, label: 'Active' },
     inactive: { variant: 'muted' as const, label: 'Inactive' },
     training: { variant: 'warning' as const, label: 'Training' }
   }
 
-  const config = statusConfig[agent.status]
+  const config = statusConfig[normalizedStatus] || statusConfig.inactive
 
   return (
     <motion.div
@@ -83,39 +90,39 @@ const AgentCard = ({
       className="hover-lift cursor-pointer"
       onClick={() => onClick?.(agent)}
     >
-      <Card className="card-shadow hover:shadow-lg transition-all duration-200">
-        <CardContent className="p-4">
+      <Card className="card-shadow hover:shadow-lg transition-all duration-200 h-full">
+        <CardContent className="p-4 sm:p-6">
           {/* Header */}
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <Bot className="h-5 w-5 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-accent/20 to-accent/10 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-foreground truncate">
+                <h4 className="font-semibold text-foreground text-base sm:text-lg truncate mb-1">
                   {agent.name}
                 </h4>
                 {agent.model && (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {agent.model}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant={config.variant} className="text-xs">
                 {config.label}
               </Badge>
               {agent.whatsappConnected && (
-                <Badge variant="success" className="text-xs">
-                  WhatsApp
+                <Badge variant="success" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200">
+                  ✓ WhatsApp
                 </Badge>
               )}
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 opacity-60 hover:opacity-100"
+                className="h-8 w-8 opacity-60 hover:opacity-100 transition-opacity flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation()
                   // Handle menu click
@@ -128,22 +135,39 @@ const AgentCard = ({
 
           {/* Description */}
           {agent.description && (
-            <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+            <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">
               {agent.description}
             </p>
           )}
 
-          {/* Stats */}
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          {/* Stats - Responsive */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
             {agent.conversations !== undefined && (
-              <div className="flex items-center gap-1">
-                <MessageSquare className="h-3 w-3" />
-                <span>{agent.conversations.toLocaleString()} chats</span>
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-surface/60">
+                  <MessageSquare className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-accent" />
+                </div>
+                <span className="font-medium">{agent.conversations.toLocaleString()} conversations</span>
               </div>
             )}
             {agent.lastActive && (
-              <div>
-                Last active {agent.lastActive}
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-surface/60">
+                  <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="font-medium">Active {agent.lastActive}</span>
+              </div>
+            )}
+            {agent.createdAt && (
+              <div className="flex items-center gap-2">
+                <div className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-surface/60">
+                  <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4l-4 4m0 0h4m-4 0V7m4 0h4m0 0l4 4m0-4v4m0 0h4m-8 0H4" />
+                  </svg>
+                </div>
+                <span className="font-medium">Created {agent.createdAt}</span>
               </div>
             )}
           </div>
@@ -213,7 +237,7 @@ export function RecentAgents({
         {loading ? (
           <LoadingState />
         ) : hasAgents ? (
-          <div className="space-y-4">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-1">
             {sortedAgents.map((agent) => (
               <AgentCard
                 key={agent.id}

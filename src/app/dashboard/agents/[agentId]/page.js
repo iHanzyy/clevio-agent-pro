@@ -354,8 +354,7 @@ export default function AgentDetailPage() {
       }
     };
 
-    addFrom(agent?.allowed_tools);
-    addFrom(agent?.allowedTools);
+    // Allowed tools deprecated; only consider tools array/object
     addFrom(agent?.tools);
 
     return collected;

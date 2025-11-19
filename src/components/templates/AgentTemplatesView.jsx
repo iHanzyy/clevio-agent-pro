@@ -246,17 +246,32 @@ export default function AgentTemplatesView({
         >
           <Card className="card-shadow">
             <CardContent className="p-0">
-              <div className="relative">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                  <Search className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center gap-3">
+                {/* Search Input */}
+                <div className="relative flex-1">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                    <Search className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search templates..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-2xl border-0 bg-transparent py-4 pl-12 pr-4 text-foreground placeholder-muted-foreground transition-all focus:outline-none focus:ring-0"
+                  />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search templates..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-2xl border-0 bg-transparent py-4 pl-12 pr-4 text-foreground placeholder-muted-foreground transition-all focus:outline-none focus:ring-0"
-                />
+
+                {/* Customize Agent Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => router.push('/dashboard/agents/new')}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-hover text-white font-medium shadow-lg shadow-accent/25 hover:shadow-accent/40 transition-all flex-shrink-0"
+                >
+                  <Sparkles className="h-5 w-5" />
+                  <span className="hidden sm:inline">Customize Agent</span>
+                  <span className="sm:hidden">Custom</span>
+                </motion.button>
               </div>
             </CardContent>
           </Card>

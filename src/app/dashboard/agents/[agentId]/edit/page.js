@@ -21,9 +21,6 @@ import Link from "next/link";
 const mapAgentToInitialValues = (agent) => {
   if (!agent) return null;
 
-  const allowedList = Array.isArray(agent.allowed_tools)
-    ? agent.allowed_tools
-    : [];
   const normalizedTools =
     agent.tools &&
     typeof agent.tools === "object" &&
@@ -35,7 +32,6 @@ const mapAgentToInitialValues = (agent) => {
   return {
     name: agent.name ?? "",
     tools: normalizedTools,
-    allowed_tools: allowedList,
     mcp_tools: mcpTools,
     systemPrompt:
       agent.config?.system_message ?? agent.config?.system_prompt ?? "",
@@ -44,7 +40,6 @@ const mapAgentToInitialValues = (agent) => {
     maxTokens: agent.config?.max_tokens ?? 1000,
     memoryType: agent.config?.memory_type ?? "buffer",
     reasoningStrategy: agent.config?.reasoning_strategy ?? "react",
-    allowedTools: allowedList,
   };
 };
 
@@ -108,17 +103,9 @@ export default function EditAgentPage() {
 
     setIsSubmitting(true);
     try {
-      const updatePayload = {
-        ...payload,
-        allowed_tools: payload.allowed_tools ?? [],
-      };
-      updatePayload.allowed_tools = Array.from(
-        new Set(updatePayload.allowed_tools)
-      );
-
       const updated = await apiService.updateAgent(
         params.agentId,
-        updatePayload
+        payload
       );
 
       const paramsSearch = new URLSearchParams();

@@ -45,19 +45,27 @@ export const useDashboardData = () => {
 
       const agentsData = await apiService.getAgents()
 
-      // Transform data to match our interface
-      const transformedAgents: Agent[] = agentsData.map(agent => ({
-        id: agent.id,
-        name: agent.name,
-        description: agent.description,
-        status: agent.is_active ? 'active' : 'inactive',
-        model: agent.model_name,
-        conversations: agent.total_messages || 0,
-        lastActive: agent.last_message_at
-          ? new Date(agent.last_message_at).toLocaleDateString()
-          : undefined,
-        whatsappConnected: false // TODO: Get from WhatsApp session data
-      }))
+      // Transform data to match our interface with robust status detection
+      const transformedAgents: Agent[] = agentsData.map(agent => {
+        const isActive =
+          agent?.is_active ??
+          agent?.isActive ??
+          (agent?.status === 'active') ??
+          Boolean(agent?.active)
+
+        return {
+          id: agent.id,
+          name: agent.name,
+          description: agent.description,
+          status: isActive ? 'active' : 'inactive',
+          model: agent.model_name,
+          conversations: agent.total_messages || 0,
+          lastActive: agent.last_message_at
+            ? new Date(agent.last_message_at).toLocaleDateString()
+            : undefined,
+          whatsappConnected: Boolean(agent?.whatsapp_connected)
+        }
+      })
 
       setAgents(transformedAgents)
 

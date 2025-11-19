@@ -115,7 +115,7 @@ Status-aware routing in `/src/lib/navigation.js`:
 ### 7. Create Agent Payload Rules
 - `google_tools` harus dipisah dari `mcp_tools`; hanya isi aksi Gmail/Google yang dipilih.
 - `mcp_servers` default: `{ calculator_sse: { transport: "sse", url: "http://0.0.0.0:8190/sse" } }` (override hanya via `NEXT_PUBLIC_MCP_SERVER_URL`).
-- `mcp_tools` hanya berisi MCP pilihan (contoh: `web_search`), jangan inject Google tools ke sini; `allowed_tools/tools` cukup berisi MCP yang dipilih jika diperlukan, jangan otomatis menambah Google tools.
+- `mcp_tools` hanya berisi MCP pilihan (contoh: `web_search`), jangan inject Google tools ke sini; field `tools` opsional—untuk MCP-only kirim kosong/tidak dikirim.
 
 ### 8. WhatsApp Integration Architecture
 Complex WhatsApp Web integration in `/src/lib/api.js`:

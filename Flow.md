@@ -135,7 +135,7 @@ flowchart LR
 
 ### Payload Create Agent (frontend → backend)
 - `google_tools`: daftar aksi Google/Gmail yang dipilih (dipisah dari `mcp_tools`).
-- `allowed_tools`/`tools`: hanya berisi pilihan MCP (mis. `web_search`); jangan otomatis memasukkan `google_tools`.
+- `tools`: **opsional**; untuk MCP-only cukup kosong/tidak dikirim agar backend tidak menolak tool id. Jangan selipkan `google_tools` di sini.
 - `mcp_servers`: selalu `{ calculator_sse: { transport: "sse", url: "http://0.0.0.0:8190/sse" } }` kecuali `NEXT_PUBLIC_MCP_SERVER_URL` dioverride.
 - `mcp_tools`: hanya berisi pilihan MCP (mis. `web_search`), **tidak** otomatis memasukkan `google_tools`.
 

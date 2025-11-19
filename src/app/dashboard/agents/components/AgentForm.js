@@ -159,19 +159,6 @@ function mapInitialValues(input) {
     };
   }
 
-  const allowedList = Array.isArray(input.allowedTools)
-    ? input.allowedTools
-    : Array.isArray(input.allowed_tools)
-    ? input.allowed_tools
-    : [];
-
-  const validAllowedTools = allowedList
-    .filter((tool) => typeof tool === "string")
-    .map((tool) => tool.trim());
-
-  const allowedSet = new Set(validAllowedTools);
-  expandLegacySelections(allowedSet);
-
   const normalizedToolsArraySource = Array.isArray(input.tools)
     ? input.tools
     : Array.isArray(input.allowed_tools)
@@ -469,9 +456,6 @@ export default function AgentForm({
         system_prompt: values.systemPrompt.trim(),
       },
     };
-
-    payload.allowed_tools = selectedMcpTools;
-    payload.tools = selectedMcpTools;
 
     const mcpServerUrl =
       process.env.NEXT_PUBLIC_MCP_SERVER_URL?.trim() ||
