@@ -117,7 +117,11 @@ Status-aware routing in `/src/lib/navigation.js`:
 - `mcp_servers` default: `{ calculator_sse: { transport: "sse", url: "http://0.0.0.0:8190/sse" } }` (override hanya via `NEXT_PUBLIC_MCP_SERVER_URL`).
 - `mcp_tools` hanya berisi MCP pilihan (contoh: `web_search`), jangan inject Google tools ke sini; field `tools` opsional—untuk MCP-only kirim kosong/tidak dikirim.
 
-### 8. WhatsApp Integration Architecture
+### 8. WhatsApp QR Modal Konsistensi
+- Gunakan gaya & UX yang sama antara `/dashboard/agents` dan `/dashboard/agents/{id}`: gradient header, card border, countdown expiry, tombol refresh status/new QR, dan tombol close di pojok.
+- QR modal harus muncul segera setelah `createWhatsAppSession` + `fetchWhatsAppQr`, tidak menunggu flag khusus.
+
+### 9. WhatsApp Integration Architecture
 Complex WhatsApp Web integration in `/src/lib/api.js`:
 - **QR code flow**: Generation, expiration handling, and session validation
 - **Session status monitoring**: Real-time connection status with automatic reconnection

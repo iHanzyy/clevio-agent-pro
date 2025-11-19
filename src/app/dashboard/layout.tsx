@@ -125,7 +125,7 @@ export default function DashboardLayout({
         <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
           <div className="container-spacing h-16 flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <DashboardLogo width={32} height={32} />
+              <DashboardLogo width={70} height={70} />
             </div>
 
             <div className="flex items-center gap-3">

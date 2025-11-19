@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useCallback } from "react"
+import React, { useEffect, useState, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { motion } from "framer-motion"
@@ -15,12 +15,15 @@ import {
   WifiOff,
   Loader2,
   MessageCircle,
-  ArrowRight
+  ArrowRight,
+  QrCode,
+  X
 } from "lucide-react"
 import Link from "next/link"
 
 import { useAuth } from "@/contexts/AuthContext"
 import { apiService } from "@/lib/api"
+import { resolveSessionQrImage } from "@/lib/whatsappQr"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
@@ -151,16 +154,26 @@ const AgentCard = ({
   onView,
   onRefreshStatus,
   onConnectWhatsApp,
+  onDisconnectWhatsApp,
   refreshLoading,
-  sessionError
+  sessionError,
+  initialLoading
 }: {
   agent: Agent
   onView: (agent: Agent) => void
   onRefreshStatus: (agent: Agent) => void
   onConnectWhatsApp: (agent: Agent) => void
+  onDisconnectWhatsApp: (agent: Agent) => void
   refreshLoading?: boolean
   sessionError?: string
+  initialLoading?: boolean
 }) => {
+  // Debug logging for WhatsApp status
+  console.log(`Agent ${agent.id} WhatsApp status:`, {
+    whatsapp_connected: agent.whatsapp_connected,
+    whatsapp_status: agent.whatsapp_status,
+    last_message_at: agent.last_message_at
+  })
   const statusConfig = {
     active: { label: 'Active', color: 'text-green-600' },
     inactive: { label: 'Inactive', color: 'text-gray-500' },
@@ -192,9 +205,21 @@ const AgentCard = ({
   }
 
   const config = statusConfig[agent.is_active ? 'active' : 'inactive']
-  const whatsappConfig = agent.whatsapp_connected
-    ? whatsappStatusConfig.connected
-    : whatsappStatusConfig.disconnected
+
+  // Dynamic WhatsApp status configuration based on agent's current status
+  const getWhatsAppConfig = () => {
+    const status = agent.whatsapp_status?.toLowerCase()
+
+    if (status === 'connected' || agent.whatsapp_connected) {
+      return whatsappStatusConfig.connected
+    } else if (status === 'connecting') {
+      return whatsappStatusConfig.connecting
+    } else {
+      return whatsappStatusConfig.disconnected
+    }
+  }
+
+  const whatsappConfig = getWhatsAppConfig()
 
   const capabilityList = Array.isArray(agent?.allowed_tools)
     ? [...agent.allowed_tools]
@@ -211,6 +236,11 @@ const AgentCard = ({
   const handleConnectWhatsApp = async (e: React.MouseEvent) => {
     e.stopPropagation()
     onConnectWhatsApp(agent)
+  }
+
+  const handleDisconnectWhatsApp = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onDisconnectWhatsApp(agent)
   }
 
   return (
@@ -326,7 +356,7 @@ const AgentCard = ({
                 <span className="ml-1 hidden sm:inline">{refreshLoading ? "Refreshing..." : "Refresh"}</span>
               </Button>
 
-              {!agent.whatsapp_connected && (
+              {!agent.whatsapp_connected ? (
                 <Button
                   variant="default"
                   size="sm"
@@ -337,6 +367,17 @@ const AgentCard = ({
                   <MessageCircle className="h-3 w-3" />
                   <span className="ml-1 hidden sm:inline">Connect</span>
                   <span className="ml-1 sm:hidden">Connect</span>
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 sm:h-8 px-3 sm:px-4 text-xs font-semibold text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 rounded-full transition-colors shadow-sm"
+                  onClick={handleDisconnectWhatsApp}
+                >
+                  <WifiOff className="h-3 w-3" />
+                  <span className="ml-1 hidden sm:inline">Disconnect</span>
+                  <span className="ml-1 sm:hidden">Disconnect</span>
                 </Button>
               )}
             </div>
@@ -370,6 +411,7 @@ const AgentCard = ({
       </Card>
     </motion.div>
   )
+
 }
 
 export default function AgentsPage() {
@@ -377,15 +419,51 @@ export default function AgentsPage() {
   const { user, loading: authLoading } = useAuth()
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingStatus, setLoadingStatus] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [whatsAppRefreshMap, setWhatsAppRefreshMap] = useState({})
+  const [whatsAppErrors, setWhatsAppErrors] = useState({})
   const [qrModal, setQrModal] = useState<{ isOpen: boolean; agent: Agent | null; qrCode: string | null }>({
     isOpen: false,
     agent: null,
     qrCode: null
   })
-  const [whatsAppRefreshMap, setWhatsAppRefreshMap] = useState({})
-  const [whatsAppErrors, setWhatsAppErrors] = useState({})
+  const [qrCountdown, setQrCountdown] = useState<number | null>(null)
+  const [qrExpired, setQrExpired] = useState(false)
+  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  const closeQrModal = useCallback(() => {
+    setQrModal({ isOpen: false, agent: null, qrCode: null })
+    setQrCountdown(null)
+    setQrExpired(false)
+    if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
+    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+  }, [])
+
+  const getApiKeyForWhatsApp = useCallback(async () => {
+    let apiKey = typeof apiService.getCurrentApiKey === "function"
+      ? apiService.getCurrentApiKey()
+      : null
+
+    if (!apiKey) {
+      try {
+        await apiService.ensureApiKey()
+        apiKey = typeof apiService.getCurrentApiKey === "function"
+          ? apiService.getCurrentApiKey()
+          : null
+      } catch (err) {
+        console.warn("Unable to resolve API key for WhatsApp", err)
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error("API key unavailable. Please refresh session or generate an API key.")
+    }
+
+    return apiKey
+  }, [])
 
   const loadAgents = useCallback(async () => {
     try {
@@ -393,7 +471,53 @@ export default function AgentsPage() {
       setError(null)
 
       const agentsData = await apiService.getAgents()
-      setAgents(agentsData || [])
+      console.log('Raw agents data:', agentsData)
+
+      // Fetch WhatsApp status for each agent to get the most up-to-date status
+      const agentsWithStatus = []
+
+      // Process agents in batches to avoid overwhelming the API
+      const batchSize = 3
+      for (let i = 0; i < (agentsData || []).length; i += batchSize) {
+        const batch = (agentsData || []).slice(i, i + batchSize)
+
+        const batchResults = await Promise.allSettled(
+          batch.map(async (agent: Agent) => {
+            try {
+              // Add small delay to prevent overwhelming the API
+              await new Promise(resolve => setTimeout(resolve, 100))
+
+              const statusData = await apiService.getWhatsAppConnectionStatus(agent.id)
+              console.log(`WhatsApp status for agent ${agent.id}:`, statusData)
+
+              return {
+                ...agent,
+                whatsapp_connected: statusData?.connected || statusData?.isActive || agent.whatsapp_connected || false,
+                whatsapp_status: statusData?.status || agent.whatsapp_status || 'unknown',
+                last_message_at: statusData?.lastConnectedAt || agent.last_message_at
+              }
+            } catch (error) {
+              console.warn(`Failed to fetch WhatsApp status for agent ${agent.id}:`, error)
+              // Keep original status if fetch fails
+              return {
+                ...agent,
+                whatsapp_connected: agent.whatsapp_connected || false,
+                whatsapp_status: agent.whatsapp_status || 'unknown'
+              }
+            }
+          })
+        )
+
+        // Add successful results to our agents list
+        batchResults.forEach(result => {
+          if (result.status === 'fulfilled') {
+            agentsWithStatus.push(result.value)
+          }
+        })
+      }
+
+      console.log('Agents with updated WhatsApp status:', agentsWithStatus)
+      setAgents(agentsWithStatus)
 
     } catch (error: any) {
       setError(error.message || "Failed to load agents")
@@ -404,6 +528,7 @@ export default function AgentsPage() {
       }
     } finally {
       setLoading(false)
+      setLoadingStatus(false)
     }
   }, [router])
 
@@ -423,6 +548,14 @@ export default function AgentsPage() {
 
     loadAgents()
   }, [authLoading, user, router, loadAgents])
+
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+    }
+  }, [])
 
   const handleCreateAgent = () => {
     router.push('/dashboard/agents/templates')
@@ -444,21 +577,26 @@ export default function AgentsPage() {
     setWhatsAppRefreshMap((prev) => ({ ...prev, [agentId]: true }))
 
     try {
+      await apiService.ensureApiKey()
       const statusData = await apiService.getWhatsAppConnectionStatus(agentId)
 
-      // Update agent with WhatsApp status
+      console.log('Status data from API:', statusData)
+
+      // Update agent with WhatsApp status - using the correct field names from the new API response
       setAgents(prevAgents =>
         prevAgents.map(a =>
           a.id === agentId
             ? {
                 ...a,
-                whatsapp_connected: statusData?.connected || false,
-                whatsapp_status: statusData?.status || 'unknown'
+                whatsapp_connected: statusData?.connected || statusData?.isActive || false,
+                whatsapp_status: statusData?.status || 'unknown',
+                last_message_at: statusData?.lastConnectedAt || a.last_message_at
               }
             : a
         )
       )
     } catch (error: any) {
+      console.error('Error refreshing WhatsApp status:', error)
       setWhatsAppErrors((prev) => ({
         ...prev,
         [agentId]: error?.message || "Unable to refresh WhatsApp status. Please try again."
@@ -474,79 +612,166 @@ export default function AgentsPage() {
 
   const handleConnectWhatsApp = async (agent: Agent) => {
     try {
-      // First, create WhatsApp session
+      await apiService.ensureApiKey()
+      const apiKey = await getApiKeyForWhatsApp()
+
+      // First, create WhatsApp session (ignore "session_created" gating; always try fetch QR)
       const sessionData = await apiService.createWhatsAppSession({
         userId: user?.user_id || '',
         agentId: agent.id,
         agentName: agent.name,
-        apiKey: user?.api_keys?.[0]?.access_token || ''
+        apiKey
       })
 
       // Then fetch QR code
-      if (sessionData?.session_created) {
-        const qrData = await apiService.fetchWhatsAppQr(agent.id)
+      const qrData = await apiService.fetchWhatsAppQr(agent.id)
+      const qrImage =
+        resolveSessionQrImage(qrData) ||
+        resolveSessionQrImage(sessionData) ||
+        qrData?.qr?.base64 ||
+        qrData?.qr?.image ||
+        null
 
-        if (qrData?.qr?.base64) {
-          // Show QR modal
-          setQrModal({
-            isOpen: true,
-            agent: agent,
-            qrCode: qrData.qr.base64
-          })
-
-          // Update agent status
-          setAgents(prevAgents =>
-            prevAgents.map(a =>
-              a.id === agent.id
-                ? {
-                    ...a,
-                    whatsapp_connected: false,
-                    whatsapp_status: 'connecting'
-                  }
-                : a
-            )
-          )
-
-          // Start polling for status updates
-          const pollInterval = setInterval(async () => {
-            try {
-              const statusData = await apiService.getWhatsAppConnectionStatus(agent.id)
-              if (statusData?.connected) {
-                clearInterval(pollInterval)
-                setQrModal({ isOpen: false, agent: null, qrCode: null })
-
-                // Update agent status to connected
-                setAgents(prevAgents =>
-                  prevAgents.map(a =>
-                    a.id === agent.id
-                      ? {
-                          ...a,
-                          whatsapp_connected: true,
-                          whatsapp_status: 'connected'
-                        }
-                      : a
-                  )
-                )
-              }
-            } catch (error) {
-              console.error('Error polling WhatsApp status:', error)
-            }
-          }, 3000)
-
-          // Stop polling after 5 minutes
-          setTimeout(() => {
-            clearInterval(pollInterval)
-            if (qrModal.isOpen) {
-              setQrModal({ isOpen: false, agent: null, qrCode: null })
-            }
-          }, 300000)
-        }
+      if (!qrImage) {
+        throw new Error('QR code unavailable right now. Please retry in a moment.')
       }
+
+      // Show QR modal
+      setQrModal({
+        isOpen: true,
+        agent: agent,
+        qrCode: qrImage
+      })
+      setQrExpired(false)
+      setQrCountdown(60)
+      if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
+      qrIntervalRef.current = setInterval(() => {
+        setQrCountdown((prev) => {
+          if (prev === null) return null
+          if (prev <= 1) {
+            setQrExpired(true)
+            if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+
+      // Update agent status
+      setAgents(prevAgents =>
+        prevAgents.map(a =>
+          a.id === agent.id
+            ? {
+                ...a,
+                whatsapp_connected: false,
+                whatsapp_status: 'connecting'
+              }
+            : a
+        )
+      )
+
+      // Start polling for status updates
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const statusData = await apiService.getWhatsAppConnectionStatus(agent.id)
+          console.log('Polling status data:', statusData)
+
+          // Check for connected status using multiple possible fields
+          const isConnected = statusData?.connected ||
+                            statusData?.isActive ||
+                            statusData?.status === 'connected'
+
+          if (isConnected) {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+            setQrModal({ isOpen: false, agent: null, qrCode: null })
+
+            // Update agent status to connected
+            setAgents(prevAgents =>
+              prevAgents.map(a =>
+                a.id === agent.id
+                  ? {
+                      ...a,
+                      whatsapp_connected: true,
+                      whatsapp_status: 'connected',
+                      last_message_at: statusData?.lastConnectedAt || a.last_message_at
+                    }
+                  : a
+              )
+            )
+          }
+        } catch (error) {
+          console.error('Error polling WhatsApp status:', error)
+        }
+      }, 3000)
+
+      // Stop polling after 5 minutes
+      setTimeout(() => {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+        setQrModal(current => current.isOpen ? { isOpen: false, agent: null, qrCode: null } : current)
+      }, 300000)
     } catch (error: any) {
       setWhatsAppErrors((prev) => ({
         ...prev,
         [agent.id]: 'Failed to connect WhatsApp: ' + (error.message || 'Unknown error')
       }))
+    }
+  }
+
+  const handleDisconnectWhatsApp = async (agent: Agent) => {
+    try {
+      // Clear any existing error
+      setWhatsAppErrors((prev) => {
+        const next = { ...prev }
+        delete next[agent.id]
+        return next
+      })
+
+      // Set loading state
+      setWhatsAppRefreshMap((prev) => ({ ...prev, [agent.id]: true }))
+
+      await apiService.ensureApiKey()
+      console.log(`Disconnecting WhatsApp for agent: ${agent.id}`)
+
+      // Call disconnect API
+      await apiService.disconnectWhatsApp(agent.id)
+
+      // Update agent status to disconnected
+      setAgents(prevAgents =>
+        prevAgents.map(a =>
+          a.id === agent.id
+            ? {
+                ...a,
+                whatsapp_connected: false,
+                whatsapp_status: 'disconnected'
+              }
+            : a
+        )
+      )
+
+      console.log(`Successfully disconnected WhatsApp for agent: ${agent.id}`)
+
+      // Optional: Refresh status after a short delay to ensure backend is updated
+      setTimeout(async () => {
+        try {
+          await handleRefreshWhatsAppStatus(agent)
+        } catch (error) {
+          console.log('Status refresh after disconnect failed, but disconnect was successful')
+        }
+      }, 1000)
+
+    } catch (error: any) {
+      console.error('Error disconnecting WhatsApp:', error)
+      setWhatsAppErrors((prev) => ({
+        ...prev,
+        [agent.id]: error?.message || "Unable to disconnect WhatsApp. Please try again."
+      }))
+    } finally {
+      setWhatsAppRefreshMap((prev) => {
+        const next = { ...prev }
+        delete next[agent.id]
+        return next
+      })
     }
   }
 
@@ -556,7 +781,7 @@ export default function AgentsPage() {
       agent?.is_active ??
       (agent as any)?.isActive ??
       ((agent as any)?.status === 'active') ??
-      Boolean((agent as any)?.active)
+      Boolean((agent as any)?.active || false)
 
     return {
       ...agent,
@@ -690,8 +915,10 @@ export default function AgentsPage() {
                 onView={handleViewAgent}
                 onRefreshStatus={handleRefreshWhatsAppStatus}
                 onConnectWhatsApp={handleConnectWhatsApp}
+                onDisconnectWhatsApp={handleDisconnectWhatsApp}
                 refreshLoading={Boolean(whatsAppRefreshMap[agent.id])}
                 sessionError={whatsAppErrors[agent.id]}
+                initialLoading={loadingStatus}
               />
             ))}
           </div>
@@ -702,60 +929,104 @@ export default function AgentsPage() {
       {qrModal.isOpen && qrModal.agent && qrModal.qrCode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9 }}
-            className="relative w-full max-w-sm rounded-2xl border border-surface-strong/60 bg-surface p-6 text-center shadow-xl"
+            className="relative w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-6 max-h-[90vh] overflow-y-auto"
           >
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={() => setQrModal({ isOpen: false, agent: null, qrCode: null })}
-              className="absolute right-3 top-3 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted hover:bg-surface-storng/60"
+            <Button
+              onClick={closeQrModal}
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-4"
             >
-              Close
-            </button>
+              <X className="h-4 w-4" />
+            </Button>
 
-            {/* Modal Header */}
-            <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">
-              Connect WhatsApp
-            </h3>
-            {qrModal.agent?.name && (
-              <p className="text-xs text-muted mb-4">
-                Agent: {qrModal.agent.name}
-              </p>
-            )}
-
-            {/* QR Code */}
-            <div className="flex justify-center mb-6">
-              <div className="bg-white p-4 rounded-lg border-2 border-border">
-                <Image
-                  src={`data:image/png;base64,${qrModal.qrCode}`}
-                  alt="WhatsApp QR Code"
-                  width={256}
-                  height={256}
-                  className="w-64 h-64"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Waiting for connection...</span>
+            <div className="text-center space-y-6">
+              <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto">
+                <QrCode className="h-8 w-8 text-white" />
               </div>
 
-              <p className="text-xs text-muted-foreground px-2">
-                QR codes expire after about 60 seconds. Refresh if the scan times out.
-              </p>
+              <h3 className="text-xl font-semibold text-foreground">
+                Connect WhatsApp
+              </h3>
 
-              <Button
-                variant="outline"
-                onClick={() => setQrModal({ isOpen: false, agent: null, qrCode: null })}
-                className="w-full"
-              >
-                Cancel
-              </Button>
+              <div className="space-y-4">
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Open WhatsApp &gt; Linked Devices and scan this QR code to connect the agent.
+                  </p>
+
+                  <div className="flex justify-center">
+                    <div className="bg-white p-4 rounded-xl border-2 border-border shadow-lg">
+                      <Image
+                        src={qrModal.qrCode.startsWith('data:') ? qrModal.qrCode : `data:image/png;base64,${qrModal.qrCode}`}
+                        alt="WhatsApp QR Code"
+                        width={256}
+                        height={256}
+                        unoptimized
+                        className="h-auto w-64"
+                      />
+                    </div>
+                  </div>
+
+                  {typeof qrCountdown === "number" && (
+                    <div className={`text-sm font-medium ${
+                      qrExpired ? "text-destructive" : "text-muted-foreground"
+                    }`}>
+                      {qrExpired
+                        ? "QR code expired. Please generate a new one."
+                        : `QR code expires in ${qrCountdown} seconds`}
+                    </div>
+                  )}
+
+                  <div className="text-left space-y-2 bg-surface rounded-lg p-4">
+                    <h4 className="font-semibold text-foreground text-sm">How to connect:</h4>
+                    <ol className="space-y-1 text-sm text-muted-foreground">
+                      <li>1. Open WhatsApp on your phone</li>
+                      <li>2. Go to <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong></li>
+                      <li>3. Scan this QR code before it expires</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {qrExpired && qrModal.agent && (
+                      <Button onClick={() => handleConnectWhatsApp(qrModal.agent!)} disabled={false} className="flex-1">
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Generate New QR
+                      </Button>
+                    )}
+
+                    <Button
+                      onClick={() => qrModal.agent && handleRefreshWhatsAppStatus(qrModal.agent)}
+                      disabled={Boolean(qrModal.agent && whatsAppRefreshMap[qrModal.agent.id])}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      {qrModal.agent && whatsAppRefreshMap[qrModal.agent.id] ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Refreshing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Refresh Status
+                        </>
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={closeQrModal}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>

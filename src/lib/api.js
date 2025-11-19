@@ -1630,23 +1630,42 @@ class ApiService {
   normalizeWhatsAppStatusSnapshot(payload) {
     if (!payload || typeof payload !== "object") {
       return {
-        isActive: false,
+        connected: false,
         status: "inactive",
+        isActive: false,
         qrImage: null,
         rawStatus: payload ?? null,
       };
     }
 
+    // Extract the main data object from the payload
     const data =
       payload.data && typeof payload.data === "object"
         ? payload.data
         : payload;
+
+    // Extract live state information with fallbacks
     const liveState =
       data.liveState ||
       data.live_state ||
       data.status ||
       {};
 
+    // Handle status from various possible locations
+    const statusFromData = data.status;
+    const statusFromLiveState = liveState.sessionState || liveState.state;
+    const rawStatus = statusFromData || statusFromLiveState || "";
+
+    const normalizedStatus = rawStatus.toString().toLowerCase();
+
+    // Determine connection status based on multiple indicators
+    const isActive =
+      normalizedStatus === "connected" ||
+      normalizedStatus === "active" ||
+      liveState.isReady === true ||
+      liveState.hasClient === true;
+
+    // Extract QR code information
     const qrSource =
       liveState.qr ||
       liveState.qr_details ||
@@ -1665,39 +1684,40 @@ class ApiService {
         ? `data:${qrContentType};base64,${qrBase64}`
         : null;
 
-    const normalizedStatus =
-      (data.status ||
-        liveState.sessionState ||
-        liveState.state ||
-        "")
-        .toString()
-        .toLowerCase();
-
-    const isActive =
-      normalizedStatus === "connected" ||
-      normalizedStatus === "active" ||
-      liveState.isReady === true ||
-      liveState.hasClient === true;
-
+    // Return comprehensive status object
     return {
-      agentId: data.agentId || data.agent_id || null,
-      status: normalizedStatus || (isActive ? "connected" : "inactive"),
+      // Primary connection status
+      connected: isActive,
       isActive,
+      status: normalizedStatus || (isActive ? "connected" : "inactive"),
+
+      // Agent identification
+      agentId: data.agentId || data.agent_id || null,
+      agentName: data.agentName || data.agent_name || null,
+
+      // QR code information
       qrImage,
       qrUrl: qrSource.url || qrSource.qrUrl || null,
       qrBase64,
       qrContentType,
       qrUpdatedAt: liveState.qrUpdatedAt || qrSource.updatedAt || null,
-      updatedAt: data.updatedAt || liveState.qrUpdatedAt || null,
+
+      // Timestamps
       lastConnectedAt: data.lastConnectedAt || null,
       lastDisconnectedAt: data.lastDisconnectedAt || null,
-      rawStatus: payload,
+      createdAt: data.createdAt || null,
+      updatedAt: data.updatedAt || liveState.qrUpdatedAt || null,
+
+      // Trace information
       traceId:
         payload.traceId ||
         payload.trace_id ||
         data.traceId ||
         data.trace_id ||
         null,
+
+      // Raw payload for debugging
+      rawStatus: payload,
     };
   }
 
@@ -1860,29 +1880,34 @@ class ApiService {
       );
     }
 
-      try {
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
+    try {
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-        if (!response.ok) {
-          const detail = await response.text();
-          throw new Error(
-            detail ||
-              `Failed to refresh WhatsApp connection status (${response.status})`
-          );
-        }
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(
+          detail ||
+            `Failed to refresh WhatsApp connection status (${response.status})`
+        );
+      }
 
-        const payload = await response.json().catch(() => ({}));
-        return this.normalizeWhatsAppStatusSnapshot(payload);
-      } catch (error) {
-        console.warn("Unable to refresh WhatsApp connection status", {
-          agentId,
-          error,
-        });
+      const payload = await response.json().catch(() => ({}));
+      debugLog("WhatsApp status response:", payload);
+
+      const normalizedStatus = this.normalizeWhatsAppStatusSnapshot(payload);
+      debugLog("Normalized WhatsApp status:", normalizedStatus);
+
+      return normalizedStatus;
+    } catch (error) {
+      console.warn("Unable to refresh WhatsApp connection status", {
+        agentId,
+        error,
+      });
       throw error;
     }
   }
@@ -1892,12 +1917,13 @@ class ApiService {
       throw new Error("Agent ID is required to delete WhatsApp session.");
     }
 
-    const url = buildWhatsAppAgentResourceUrl(agentId);
-    if (!url) {
-      throw new Error("Unable to resolve WhatsApp session endpoint.");
-    }
+    // Use the proxy endpoint to avoid CORS issues
+    // The proxy will route to: https://wapi-v1.chiefaiofficer.id/sessions/{agentId}
+    const proxyUrl = `/api/whatsapp-status/agents/${encodeURIComponent(agentId)}/sessions`;
 
-    const response = await fetch(url, {
+    debugLog(`DELETE WhatsApp session via proxy: ${proxyUrl}`);
+
+    const response = await fetch(proxyUrl, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
@@ -1914,7 +1940,21 @@ class ApiService {
       throw new Error(detail);
     }
 
+    debugLog("WhatsApp session deleted via proxy:", payload);
     return payload;
+  }
+
+  // Specific disconnect WhatsApp function for user action
+  async disconnectWhatsApp(agentId) {
+    try {
+      debugLog(`Attempting to disconnect WhatsApp for agent: ${agentId}`);
+      const result = await this.deleteWhatsAppSession(agentId);
+      debugLog(`WhatsApp disconnect successful for agent ${agentId}:`, result);
+      return { success: true, message: "WhatsApp disconnected successfully", result };
+    } catch (error) {
+      debugLog(`WhatsApp disconnect failed for agent ${agentId}:`, error);
+      throw new Error(`Failed to disconnect WhatsApp: ${error.message}`);
+    }
   }
 
   async reconnectWhatsAppSession(agentId) {
