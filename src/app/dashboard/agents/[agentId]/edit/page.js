@@ -195,12 +195,12 @@ export default function EditAgentPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <Card className="card-shadow border-0 bg-gradient-to-br from-white to-gray-50">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardContent className="p-6 md:p-8">
               <div className="flex items-center gap-4 mb-6">
                 <Link
                   href={`/dashboard/agents/${params.agentId}`}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-surface transition-smooth text-sm font-medium"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-card dark:hover:bg-gray-800 transition-smooth text-sm font-medium"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Back to Agent
@@ -220,7 +220,7 @@ export default function EditAgentPage() {
                   </h1>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-muted-foreground">
                     <span>Updating configuration for:</span>
-                    <code className="px-2 py-1 rounded-lg bg-surface text-xs font-mono break-all">
+                    <code className="px-2 py-1 rounded-lg bg-card dark:bg-gray-800 text-xs font-mono break-all">
                       {agent?.name || "Unknown Agent"}
                     </code>
                   </div>
@@ -239,7 +239,7 @@ export default function EditAgentPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <Card className="card-shadow">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />

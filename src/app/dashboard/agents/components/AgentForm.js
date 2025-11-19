@@ -172,6 +172,13 @@ function mapInitialValues(input) {
   const arraySet = new Set(normalizedToolsArray);
   expandLegacySelections(arraySet);
 
+  const allowedSet = new Set(
+    Array.isArray(input.allowed_tools)
+      ? input.allowed_tools.filter((item) => typeof item === "string").map((item) => item.trim())
+      : []
+  );
+  expandLegacySelections(allowedSet);
+
   const normalizedToolsObject =
     input.tools &&
     typeof input.tools === "object" &&

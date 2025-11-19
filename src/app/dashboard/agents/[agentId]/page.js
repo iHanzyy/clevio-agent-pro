@@ -1063,7 +1063,7 @@ export default function AgentDetailPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <Card className="card-shadow border-0 bg-gradient-to-br from-white to-gray-50">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardContent className="p-6 md:p-8">
               <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -1085,16 +1085,10 @@ export default function AgentDetailPage() {
                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <span className="text-xs uppercase tracking-wide font-medium">ID:</span>
-                        <code className="px-2 py-1 rounded-lg bg-surface text-xs font-mono break-all">
+                        <code className="px-2 py-1 rounded-lg bg-card dark:bg-gray-800 text-xs font-mono break-all">
                           {agent.id}
                         </code>
                       </div>
-                      {agentDescription && (
-                        <div className="flex items-center gap-1">
-                          <Info className="h-3 w-3" />
-                          <span className="text-xs">{agentDescription}</span>
-                        </div>
-                      )}
                     </div>
                     {deleteError && (
                       <div className="mt-3 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
@@ -1107,7 +1101,7 @@ export default function AgentDetailPage() {
                 <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
                   <Link
                     href={`/dashboard/agents/${agent.id}/edit`}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-surface transition-smooth text-sm font-medium"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-border bg-background hover:bg-card dark:bg-gray-800 transition-smooth text-sm font-medium"
                   >
                     <Settings className="h-4 w-4" />
                     Edit
@@ -1271,7 +1265,7 @@ export default function AgentDetailPage() {
           transition={{ delay: 0.2 }}
           className="mb-8"
         >
-          <Card className="card-shadow">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Settings className="h-5 w-5" />
@@ -1282,56 +1276,20 @@ export default function AgentDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">LLM Model</span>
+                    <Smartphone className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Channel</span>
                   </div>
-                  <p className="text-sm font-mono bg-surface rounded-lg px-3 py-2 border border-border">
-                    {agent.config?.model || agent.config?.llm_model || "Default"}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Settings className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Temperature</span>
-                  </div>
-                  <p className="text-sm bg-surface rounded-lg px-3 py-2 border border-border">
-                    {agent.config?.temperature ?? 0.7}
+                  <p className="text-sm bg-card dark:bg-gray-800 rounded-lg px-3 py-2 border border-border">
+                    {agentDescription?.includes('WhatsApp') ? 'WhatsApp' : 'Default'}
                   </p>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Max Tokens</span>
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Created</span>
                   </div>
-                  <p className="text-sm bg-surface rounded-lg px-3 py-2 border border-border">
-                    {agent.config?.max_tokens ?? 1000}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <HardDrive className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Memory Type</span>
-                  </div>
-                  <p className="text-sm bg-surface rounded-lg px-3 py-2 border border-border">
-                    {agent.config?.memory_type ?? "buffer"}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <ChevronRight className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reasoning Strategy</span>
-                  </div>
-                  <p className="text-sm bg-surface rounded-lg px-3 py-2 border border-border">
-                    {agent.config?.reasoning_strategy ?? "react"}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Info className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Capabilities</span>
-                  </div>
-                  <p className="text-sm bg-surface rounded-lg px-3 py-2 border border-border break-words">
-                    {agentDescription}
+                  <p className="text-sm bg-card dark:bg-gray-800 rounded-lg px-3 py-2 border border-border">
+                    {agent.created_at ? formatDateTime(agent.created_at) : "Unknown"}
                   </p>
                 </div>
               </div>
@@ -1343,7 +1301,7 @@ export default function AgentDetailPage() {
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">System Prompt</span>
                   </div>
                   <div className="relative">
-                    <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground bg-surface rounded-xl p-4 border border-border overflow-x-auto font-mono">
+                    <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground bg-card dark:bg-gray-800 rounded-xl p-4 border border-border overflow-x-auto font-mono">
                       {agent.config.system_message || agent.config.system_prompt}
                     </pre>
                   </div>
@@ -1491,7 +1449,7 @@ export default function AgentDetailPage() {
           transition={{ delay: 0.3 }}
           className="mb-8"
         >
-          <Card className="card-shadow">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Upload className="h-5 w-5" />
@@ -1607,7 +1565,7 @@ export default function AgentDetailPage() {
                 </div>
 
                 {selectedKnowledgeFiles.length > 0 && (
-                  <div className="rounded-lg border border-dashed border-border bg-surface p-3">
+                  <div className="rounded-lg border border-dashed border-border bg-card dark:bg-gray-800 p-3">
                     <p className="text-sm font-medium text-foreground mb-2">
                       Files ready to upload:
                     </p>
@@ -1643,7 +1601,7 @@ export default function AgentDetailPage() {
                     {knowledge.map((doc) => (
                       <div
                         key={doc.id}
-                        className="rounded-lg border border-border bg-surface p-3 sm:p-4"
+                        className="rounded-lg border border-border bg-card dark:bg-gray-800 p-3 sm:p-4"
                       >
                         <div className="flex flex-col gap-3 text-sm">
                           <div className="flex items-start justify-between gap-2">
@@ -1731,7 +1689,7 @@ export default function AgentDetailPage() {
           transition={{ delay: 0.4 }}
           className="mb-8"
         >
-          <Card className="card-shadow">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
@@ -1744,7 +1702,7 @@ export default function AgentDetailPage() {
               </p>
 
               <div className="space-y-4">
-                <div className="h-64 sm:h-72 overflow-y-auto rounded-lg border border-border bg-surface p-3 sm:p-4 flex flex-col space-y-3 sm:space-y-4">
+                <div className="h-64 sm:h-72 overflow-y-auto rounded-lg border border-border bg-card dark:bg-gray-800 p-3 sm:p-4 flex flex-col space-y-3 sm:space-y-4">
                   {chatMessages.length === 0 ? (
                     <div className="m-auto text-center text-sm text-muted-foreground px-4">
                       <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center mx-auto mb-4">
@@ -1765,7 +1723,7 @@ export default function AgentDetailPage() {
                         ? "ml-auto bg-primary text-primary-foreground"
                         : message.error
                         ? "mr-auto bg-destructive text-destructive-foreground"
-                        : "mr-auto bg-surface text-foreground";
+                        : "mr-auto bg-card dark:bg-gray-800 text-foreground";
 
                       return (
                         <div key={message.id} className="max-w-[85%] sm:max-w-[80%]">
@@ -1873,7 +1831,7 @@ export default function AgentDetailPage() {
                     value={chatInput}
                     onChange={(event) => setChatInput(event.target.value)}
                     placeholder="Type a message..."
-                    className="flex-1 rounded-full border border-border bg-surface px-3 py-2 sm:px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="flex-1 rounded-full border border-border bg-card dark:bg-gray-800 px-3 py-2 sm:px-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     disabled={isSending}
                   />
                   <Button
@@ -1993,7 +1951,7 @@ export default function AgentDetailPage() {
                           </div>
                         )}
 
-                        <div className="text-left space-y-2 bg-surface rounded-lg p-4">
+                        <div className="text-left space-y-2 bg-card dark:bg-gray-800 rounded-lg p-4">
                           <h4 className="font-semibold text-foreground text-sm">How to connect:</h4>
                           <ol className="space-y-1 text-sm text-muted-foreground">
                             <li>1. Open WhatsApp on your phone</li>

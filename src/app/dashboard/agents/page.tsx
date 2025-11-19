@@ -64,7 +64,7 @@ const AgentsPageSkeleton = () => (
     {/* Agents Grid Skeleton */}
     <div className="grid gap-4 sm:gap-5 md:gap-6 grid-cols-1 lg:grid-cols-2">
       {[1, 2, 3, 4, 5, 6].map((i) => (
-        <Card key={i} className="card-shadow overflow-hidden bg-gradient-to-br from-white to-gray-50">
+        <Card key={i} className="card-shadow overflow-hidden bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
           {/* Card Header Skeleton */}
           <div className="h-1 sm:h-2 bg-gradient-to-r from-primary via-primary/80 to-primary/60"></div>
           <CardContent className="p-4 sm:p-6">
@@ -123,7 +123,7 @@ const EmptyState = ({ onCreateAgent }: { onCreateAgent: () => void }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
-    className="rounded-xl border border-dashed border-surface-strong/60 p-6 sm:p-10 text-center bg-surface"
+    className="rounded-xl border border-dashed border-border p-6 sm:p-10 text-center bg-card dark:bg-gray-800/50"
   >
     <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto mb-6">
       <Bot className="h-8 w-8 text-white" />
@@ -250,7 +250,7 @@ const AgentCard = ({
       className="hover-lift cursor-pointer group w-full h-full"
       onClick={() => onView(agent)}
     >
-      <Card className="card-shadow hover:shadow-2xl transition-all duration-300 overflow-hidden border-0 bg-gradient-to-br from-white to-gray-50 h-full rounded-2xl sm:rounded-3xl">
+      <Card className="card-shadow hover:shadow-2xl transition-all duration-300 overflow-hidden border-0 bg-gradient-to-br from-background to-muted/50 h-full rounded-2xl sm:rounded-3xl dark:from-gray-900 dark:to-gray-800/50">
         {/* Card Header with Gradient */}
         <div className="h-1 sm:h-2 bg-gradient-to-r from-primary via-primary/80 to-primary/60"></div>
 
@@ -931,7 +931,7 @@ export default function AgentsPage() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="relative w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-6 max-h-[90vh] overflow-y-auto"
+            className="relative w-full max-w-md rounded-2xl bg-card dark:bg-gray-800 border border-border dark:border-gray-700 shadow-xl p-6 max-h-[90vh] overflow-y-auto"
           >
             <Button
               onClick={closeQrModal}
@@ -980,7 +980,7 @@ export default function AgentsPage() {
                     </div>
                   )}
 
-                  <div className="text-left space-y-2 bg-surface rounded-lg p-4">
+                  <div className="text-left space-y-2 bg-card rounded-lg p-4 dark:bg-gray-800/50">
                     <h4 className="font-semibold text-foreground text-sm">How to connect:</h4>
                     <ol className="space-y-1 text-sm text-muted-foreground">
                       <li>1. Open WhatsApp on your phone</li>
