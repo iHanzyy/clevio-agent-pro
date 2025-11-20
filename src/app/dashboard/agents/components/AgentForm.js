@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AgentFormTour from "@/components/ui/AgentFormTour";
 import mcpTools from "@/data/mcp-tools.json";
-import { Lock } from "lucide-react";
+import { Lock, Mail, Calendar, X, Check, ChevronRight } from "lucide-react";
 
 export const TOOL_OPTIONS = [
   {
@@ -134,6 +134,238 @@ const resolveLegacyKeysForSelection = (selectedTools) => {
     }
   });
   return legacyKeys;
+};
+
+const GmailToolsPopup = ({ isOpen, onClose, values, onSave }) => {
+  if (!isOpen) return null;
+
+  const gmailTools = [
+    {
+      id: "gmail_get_message",
+      label: "Read Email",
+      description: "Baca email tertentu dari Gmail",
+      icon: Mail
+    },
+    {
+      id: "gmail_create_draft",
+      label: "Create Draft",
+      description: "Buat draf email baru",
+      icon: Mail
+    },
+    {
+      id: "gmail_send_message",
+      label: "Send Email",
+      description: "Kirim email melalui Gmail",
+      icon: Mail
+    },
+    {
+      id: "gmail_read_messages",
+      label: "Read Multiple Emails",
+      description: "Baca beberapa email sekaligus",
+      icon: Mail
+    },
+    {
+      id: "gmail_list_messages",
+      label: "List Emails",
+      description: "Daftar email berdasarkan kriteria",
+      icon: Mail
+    }
+  ];
+
+  const handleToggle = (toolId) => {
+    const event = { target: { checked: !values.tools[toolId] } };
+    onSave(toolId, event);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
+              <Mail className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Gmail Tools</h3>
+              <p className="text-sm text-muted">Pilih aksi Gmail yang diinginkan</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-surface hover:bg-surface-strong/60 flex items-center justify-center transition-colors"
+          >
+            <X className="h-4 w-4 text-muted" />
+          </button>
+        </div>
+
+        {/* Tools List */}
+        <div className="space-y-3 mb-6">
+          {gmailTools.map((tool) => {
+            const Icon = tool.icon;
+            const isEnabled = values.tools[tool.id];
+
+            return (
+              <div
+                key={tool.id}
+                onClick={() => handleToggle(tool.id)}
+                className={`
+                  flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all
+                  ${isEnabled
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className={`
+                  w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors
+                  ${isEnabled
+                    ? 'border-accent bg-accent'
+                    : 'border-surface-strong/60'
+                  }
+                `}>
+                  {isEnabled && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-surface-strong/60 flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-muted" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-foreground">{tool.label}</div>
+                  <div className="text-sm text-muted">{tool.description}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition-colors"
+          >
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CalendarToolsPopup = ({ isOpen, onClose, values, onSave }) => {
+  if (!isOpen) return null;
+
+  const calendarTools = [
+    {
+      id: "google_calendar_create_event",
+      label: "Create Event",
+      description: "Buat event baru di kalender",
+      icon: Calendar
+    },
+    {
+      id: "google_calendar_list_events",
+      label: "List Events",
+      description: "Lihat daftar event terjadwal",
+      icon: Calendar
+    },
+    {
+      id: "google_calendar_get_event",
+      label: "Get Event",
+      description: "Ambil detail event spesifik",
+      icon: Calendar
+    }
+  ];
+
+  const handleToggle = (toolId) => {
+    const event = { target: { checked: !values.tools[toolId] } };
+    onSave(toolId, event);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Calendar Tools</h3>
+              <p className="text-sm text-muted">Pilih aksi Kalender yang diinginkan</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-surface hover:bg-surface-strong/60 flex items-center justify-center transition-colors"
+          >
+            <X className="h-4 w-4 text-muted" />
+          </button>
+        </div>
+
+        {/* Tools List */}
+        <div className="space-y-3 mb-6">
+          {calendarTools.map((tool) => {
+            const Icon = tool.icon;
+            const isEnabled = values.tools[tool.id];
+
+            return (
+              <div
+                key={tool.id}
+                onClick={() => handleToggle(tool.id)}
+                className={`
+                  flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all
+                  ${isEnabled
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className={`
+                  w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors
+                  ${isEnabled
+                    ? 'border-accent bg-accent'
+                    : 'border-surface-strong/60'
+                  }
+                `}>
+                  {isEnabled && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-surface-strong/60 flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-muted" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-foreground">{tool.label}</div>
+                  <div className="text-sm text-muted">{tool.description}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition-colors"
+          >
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const DEFAULT_VALUES = {
@@ -284,6 +516,8 @@ export default function AgentForm({
   const lockedToolsRef = useRef([]);
   const [isTourOpen, setIsTourOpen] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showGmailPopup, setShowGmailPopup] = useState(false);
+  const [showCalendarPopup, setShowCalendarPopup] = useState(false);
   const router = useRouter();
 
   const submitLabel = useMemo(() => {
@@ -420,6 +654,16 @@ export default function AgentForm({
     }));
   };
 
+  const toggleGmailTool = (toolId) => {
+    setValues((prev) => ({
+      ...prev,
+      tools: {
+        ...prev.tools,
+        [toolId]: !prev.tools[toolId],
+      },
+    }));
+  };
+
   const validate = () => {
     const errors = {};
     if (!values.name.trim()) {
@@ -543,32 +787,83 @@ export default function AgentForm({
           </div>
 
           <div data-tour="agent-tools">
-            <label className="block text-sm font-medium text-muted mb-2">
+            <label className="block text-sm font-medium text-muted mb-4">
               Google Workspace Tools
             </label>
             <div className="grid md:grid-cols-2 gap-4">
-              {TOOL_OPTIONS.map((tool) => (
-                <label
-                  key={tool.id}
-                  className="flex items-start space-x-3 rounded-lg border border-surface-strong/60 bg-background p-4 cursor-pointer hover:border-accent transition"
-                >
-                  <input
-                    type="checkbox"
-                    checked={values.tools[tool.id] || false}
-                    onChange={() => toggleTool(tool.id)}
-                    className="mt-1 h-4 w-4 text-accent border-surface-strong/60 rounded focus:ring-accent"
-                  />
-                  <span>
-                    <span className="block text-sm font-semibold text-foreground">
-                      {tool.label}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted">
-                      {tool.description}
-                    </span>
-                  </span>
-                </label>
-              ))}
+              {/* Gmail Card */}
+              <div
+                onClick={() => setShowGmailPopup(true)}
+                className={`
+                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
+                  ${Object.keys(values.tools).filter(id => id.startsWith('gmail_')).some(id => values.tools[id])
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
+                    <Mail className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground">Gmail</h3>
+                    <p className="text-sm text-muted">Assistant Gmail</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted" />
+                </div>
+                {Object.keys(values.tools).filter(id => id.startsWith('gmail_')).some(id => values.tools[id]) && (
+                  <div className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"></div>
+                )}
+              </div>
+
+              {/* Calendar Card */}
+              <div
+                onClick={() => setShowCalendarPopup(true)}
+                className={`
+                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
+                  ${values.tools.google_calendar || values.tools.google_calendar_create_event || values.tools.google_calendar_list_events || values.tools.google_calendar_get_event
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
+                    <Calendar className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground">Calendar</h3>
+                    <p className="text-sm text-muted">Kelola Kalender</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted" />
+                </div>
+                {(values.tools.google_calendar || values.tools.google_calendar_create_event || values.tools.google_calendar_list_events || values.tools.google_calendar_get_event) && (
+                  <div className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"></div>
+                )}
+              </div>
             </div>
+
+            {/* Selected tools summary */}
+            <div className="mt-4 p-3 rounded-lg bg-surface/50 border border-surface-strong/30">
+              <p className="text-xs text-muted">
+                {(() => {
+                  const gmailCount = Object.keys(values.tools).filter(id => id.startsWith('gmail_')).filter(id => values.tools[id]).length;
+                  const calendarCount = Object.keys(values.tools).filter(id => id.startsWith('google_calendar_')).filter(id => values.tools[id]).length;
+
+                  if (gmailCount === 0 && calendarCount === 0) {
+                    return 'Pilih tools untuk mengaktifkan kemampuan agent';
+                  }
+
+                  const parts = [];
+                  if (gmailCount > 0) parts.push(`${gmailCount} Gmail tools`);
+                  if (calendarCount > 0) parts.push(`${calendarCount} Calendar tools`);
+
+                  return `Aktif: ${parts.join(', ')}`;
+                })()}
+              </p>
+            </div>
+
             {formErrors.tools && (
               <p className="mt-2 text-sm text-red-600">{formErrors.tools}</p>
             )}
@@ -710,6 +1005,22 @@ export default function AgentForm({
           }}
         />
       )}
+
+      {/* Gmail Tools Popup */}
+      <GmailToolsPopup
+        isOpen={showGmailPopup}
+        onClose={() => setShowGmailPopup(false)}
+        values={values}
+        onSave={toggleGmailTool}
+      />
+
+      {/* Calendar Tools Popup */}
+      <CalendarToolsPopup
+        isOpen={showCalendarPopup}
+        onClose={() => setShowCalendarPopup(false)}
+        values={values}
+        onSave={toggleGmailTool}
+      />
     </form>
   );
 }

@@ -107,6 +107,7 @@ Status-aware routing in `/src/lib/navigation.js`:
 - CTA "Create agent" **selalu** diarahkan ke galeri template (`/dashboard/agents/templates`), lanjut wawancara chat, lalu prefilled `AgentForm`, baru POST create agent.
 - Jangan hubungkan CTA langsung ke form kosong; `/dashboard/agents/new` tanpa `fromInterview=true` hanya untuk deep link/debug dan tombol “start from scratch” di galeri dinonaktifkan.
 - Payload wawancara disimpan di `sessionStorage.pendingAgentData` dan harus dipakai untuk prefill form; jaga kontrak ini saat ubah UI template/chat.
+- **UI/UX parity rule:** Template gallery, interview chat, dan AgentForm pada jalur trial (`/trial/*`) wajib identik dengan jalur berbayar (PRO_M/PRO_Y). Jika kamu mengubah desain, copy, atau struktur komponen pada salah satunya, segera samakan di jalur satunya agar context wawancara → form tidak pecah. Perbedaan hanya boleh pada logika (plan code, locking, provisioning), bukan tampilan/experience.
 
 ### 6. Konsistensi Kode
 - Saat mengubah atau menambah fitur, **cek keseluruhan codebase** (lint, pattern, naming, path aliases, hook reuse) supaya gaya, arsitektur, dan flow tetap konsisten dengan dokumentasi (Flow.md, guides) dan panduan ini.

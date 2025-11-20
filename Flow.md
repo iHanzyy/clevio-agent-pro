@@ -150,6 +150,8 @@ flowchart LR
 4. After login the standard dashboard layout loads; subscription refreshes pick up the `TRIAL` plan that was activated via n8n. The legacy `/trial/chat` route remains for authenticated trial accounts who already created an agent and want a sandboxed console.
 5. Every time a trial account is activated, the browser stores the normalised email in `localStorage.trialUsedEmails`. The register form checks this list before attempting another trial signup, showing a modal that explains the trial has already been consumed on this device.
 
+> **UI/UX parity rule:** The template gallery (`/dashboard/agents/templates` and `/trial/templates`), interview/chat experience, and AgentForm shell must look and behave the same across the paid flow (PRO_M/PRO_Y) and the trial flow. Only the underlying logic (plan codes, tool locking, provisioning behaviour) may diverge. Any design tweaks to one surface must be applied to the other to avoid losing the interview-to-form context.
+
 ## Agent detail operations
 
 - Loads agent metadata via `apiService.getAgent(agentId)` and immediately guards unauthenticated viewers by redirecting through `/login`.

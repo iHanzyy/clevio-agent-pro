@@ -244,7 +244,7 @@ export default function AgentTemplatesView({
           transition={{ delay: 0.4 }}
           className="mb-6"
         >
-          <Card className="card-shadow">
+          <Card className="card-shadow border-0 bg-gradient-to-br from-background to-muted/50 dark:from-gray-900 dark:to-gray-800/50">
             <CardContent className="p-0">
               <div className="flex items-center gap-3">
                 {/* Search Input */}
@@ -340,7 +340,8 @@ export default function AgentTemplatesView({
           transition={{ delay: 0.5 }}
           className="mb-8"
         >
-          <div className="flex flex-wrap gap-3">
+          <div className="overflow-x-auto scrollbar-hide pb-2 sm:pb-0 sm:overflow-x-visible">
+            <div className="flex flex-nowrap gap-3 sm:flex-wrap min-w-max sm:min-w-0">
             {CATEGORIES.map((category, index) => {
               const isActive = selectedCategory === category.id;
               const count =
@@ -378,6 +379,7 @@ export default function AgentTemplatesView({
                 </motion.button>
               );
             })}
+            </div>
           </div>
         </motion.div>
         {/* Templates Grid */}

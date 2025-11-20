@@ -17,7 +17,13 @@ import {
   MessageCircle,
   ArrowRight,
   QrCode,
-  X
+  X,
+  Mail,
+  Calendar,
+  Globe,
+  FileText,
+  Calculator,
+  Search as SearchIcon
 } from "lucide-react"
 import Link from "next/link"
 
@@ -221,12 +227,81 @@ const AgentCard = ({
 
   const whatsappConfig = getWhatsAppConfig()
 
-  const capabilityList = Array.isArray(agent?.allowed_tools)
-    ? [...agent.allowed_tools]
-    : []
-  if (!capabilityList.includes("WhatsApp")) {
-    capabilityList.push("WhatsApp")
+  const getCapabilityIcon = (capability) => {
+    const iconMap = {
+      'gmail': Mail,
+      'gmail_get_message': Mail,
+      'gmail_create_draft': Mail,
+      'gmail_send_message': Mail,
+      'gmail_read_messages': Mail,
+      'gmail_list_messages': Mail,
+      'google_calendar': Calendar,
+      'google_calendar_create_event': Calendar,
+      'google_calendar_list_events': Calendar,
+      'google_calendar_get_event': Calendar,
+      'web_search': SearchIcon,
+      'docx_generate': FileText,
+      'deep_research': SearchIcon,
+      'calculator_sse': Calculator,
+      'WhatsApp': MessageCircle,
+      'whatsapp': MessageCircle,
+    };
+
+    // Check for Gmail tools
+    if (capability.toLowerCase().includes('gmail') || capability.toLowerCase().includes('google_') && capability.toLowerCase().includes('mail')) {
+      return Mail;
+    }
+
+    // Check for Calendar tools
+    if (capability.toLowerCase().includes('calendar') || capability.toLowerCase().includes('google_') && capability.toLowerCase().includes('cal')) {
+      return Calendar;
+    }
+
+    // Check for web/search tools
+    if (capability.toLowerCase().includes('search') || capability.toLowerCase().includes('web')) {
+      return SearchIcon;
+    }
+
+    // Check for document tools
+    if (capability.toLowerCase().includes('doc') || capability.toLowerCase().includes('generate') || capability.toLowerCase().includes('file')) {
+      return FileText;
+    }
+
+    // Check for calculator
+    if (capability.toLowerCase().includes('calc') || capability.toLowerCase().includes('number')) {
+      return Calculator;
+    }
+
+    // Default to globe for unknown tools
+    return Globe;
+  };
+
+  // Create unique capabilities with icons
+  const uniqueCapabilities: Array<{ id: string; icon: any; name: string }> = [];
+
+  // Add Gmail if any Gmail tool is enabled
+  if (agent?.allowed_tools?.some(tool => tool.toLowerCase().includes('gmail'))) {
+    uniqueCapabilities.push({ id: 'gmail', icon: Mail, name: 'Gmail' });
   }
+
+  // Add Calendar if any Calendar tool is enabled
+  if (agent?.allowed_tools?.some(tool => tool.toLowerCase().includes('calendar'))) {
+    uniqueCapabilities.push({ id: 'calendar', icon: Calendar, name: 'Calendar' });
+  }
+
+  // Add WhatsApp (always present)
+  uniqueCapabilities.push({ id: 'whatsapp', icon: MessageCircle, name: 'WhatsApp' });
+
+  // Add other MCP tools
+  agent?.allowed_tools?.forEach(tool => {
+    const toolLower = tool.toLowerCase();
+    if (!toolLower.includes('gmail') && !toolLower.includes('calendar') && !toolLower.includes('whatsapp')) {
+      const icon = getCapabilityIcon(tool);
+      uniqueCapabilities.push({ id: tool, icon, name: tool });
+    }
+  });
+
+  const capabilityList = uniqueCapabilities;
 
   const handleRefreshStatus = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -307,19 +382,25 @@ const AgentCard = ({
           <div className="mb-4 sm:mb-6 flex-shrink-0">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] text-muted">
               <span className="font-medium text-muted">Capabilities</span>
-              <div className="flex flex-wrap gap-1 sm:gap-1.5">
-                {capabilityList.slice(0, 3).map((capability) => (
-                  <span
-                    key={capability}
-                    className="rounded-full border border-surface-strong bg-background px-2 sm:px-3 py-0.5 sm:py-1 font-medium text-muted"
-                  >
-                    {capability}
-                  </span>
-                ))}
-                {capabilityList.length > 3 && (
-                  <span className="rounded-full border border-surface-strong bg-background px-2 sm:px-3 py-0.5 sm:py-1 font-medium text-muted">
-                    +{capabilityList.length - 3}
-                  </span>
+              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                {capabilityList.slice(0, 5).map((capability) => {
+                  const Icon = capability.icon;
+                  return (
+                    <div
+                      key={capability.id}
+                      className="w-8 h-8 rounded-lg border border-surface-strong/60 bg-surface flex items-center justify-center group-hover:border-accent transition-colors"
+                      title={capability.name}
+                    >
+                      <Icon className="h-4 w-4 text-muted" />
+                    </div>
+                  );
+                })}
+                {capabilityList.length > 5 && (
+                  <div className="w-8 h-8 rounded-lg border border-surface-strong/60 bg-surface flex items-center justify-center">
+                    <span className="text-xs font-medium text-muted">
+                      +{capabilityList.length - 5}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -474,7 +555,7 @@ export default function AgentsPage() {
       console.log('Raw agents data:', agentsData)
 
       // Fetch WhatsApp status for each agent to get the most up-to-date status
-      const agentsWithStatus = []
+      const agentsWithStatus: Agent[] = []
 
       // Process agents in batches to avoid overwhelming the API
       const batchSize = 3
@@ -778,9 +859,9 @@ export default function AgentsPage() {
   // Filter agents based on search
   const normalizedAgents = agents.map((agent) => {
     const normalizedActive =
-      agent?.is_active ??
-      (agent as any)?.isActive ??
-      ((agent as any)?.status === 'active') ??
+      agent?.is_active ||
+      (agent as any)?.isActive ||
+      ((agent as any)?.status === 'active') ||
       Boolean((agent as any)?.active || false)
 
     return {

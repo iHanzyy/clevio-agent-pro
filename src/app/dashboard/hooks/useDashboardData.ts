@@ -48,9 +48,9 @@ export const useDashboardData = () => {
       // Transform data to match our interface with robust status detection
       const transformedAgents: Agent[] = agentsData.map(agent => {
         const isActive =
-          agent?.is_active ??
-          agent?.isActive ??
-          (agent?.status === 'active') ??
+          agent?.is_active ||
+          agent?.isActive ||
+          (agent?.status === 'active') ||
           Boolean(agent?.active)
 
         return {

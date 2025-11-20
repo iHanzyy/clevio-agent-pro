@@ -16,17 +16,11 @@ export default function TrialTemplatesPage() {
     [router],
   );
 
-  const handleCreateFromScratch = useCallback(() => {
-    router.push("/trial/agent-form");
-  }, [router]);
-
   return (
     <AgentTemplatesView
-      heading="Pick a starter agent"
-      subheading="Walk through a template interview to auto-configure your trial agent."
-      actionLabel="Skip to configuration"
+      heading="Choose Agent Template"
+      subheading="Pilih template, lanjut wawancara, lalu form otomatis terisi"
       onConfirmTemplate={handleConfirmTemplate}
-      onCreateFromScratch={handleCreateFromScratch}
       allowCustomStart={false}
     />
   );

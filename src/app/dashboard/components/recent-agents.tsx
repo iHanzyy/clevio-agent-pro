@@ -73,7 +73,7 @@ const AgentCard = ({
   onClick?: (agent: Agent) => void
 }) => {
   const normalizedActive =
-    agent.is_active ?? agent.isActive ?? (agent.statusRaw === 'active') ?? Boolean(agent.active)
+    agent.is_active || agent.isActive || (agent.statusRaw === 'active') || Boolean(agent.active)
   const normalizedStatus: Agent['status'] = normalizedActive ? 'active' : agent.status
   const statusConfig = {
     active: { variant: 'success' as const, label: 'Active' },

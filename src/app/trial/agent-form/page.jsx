@@ -6,6 +6,8 @@ import AgentForm from "@/app/dashboard/agents/components/AgentForm";
 import { buildPrefilledFormValues } from "@/lib/agentInterviewUtils";
 import { saveTrialAgentPayload } from "@/lib/trialStorage";
 
+const TRIAL_TOUR_STORAGE_KEY = "trialAgentTourSeen";
+
 function TrialAgentFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -14,6 +16,7 @@ function TrialAgentFormContent() {
   const [isReady, setIsReady] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [shouldShowGuidedTour, setShouldShowGuidedTour] = useState(false);
 
   useEffect(() => {
     const fromInterview = searchParams.get("fromInterview") === "true";
@@ -70,6 +73,28 @@ function TrialAgentFormContent() {
     [metadata, router],
   );
 
+  useEffect(() => {
+    if (!prefilledData || typeof window === "undefined") {
+      return;
+    }
+
+    const hasSeenTour = window.localStorage.getItem(TRIAL_TOUR_STORAGE_KEY);
+    if (!hasSeenTour) {
+      setShouldShowGuidedTour(true);
+    }
+  }, [prefilledData]);
+
+  const handleGuidedTourClose = useCallback(() => {
+    setShouldShowGuidedTour(false);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(TRIAL_TOUR_STORAGE_KEY, "1");
+      } catch (error) {
+        console.warn("Failed to persist trial guided tour state", error);
+      }
+    }
+  }, []);
+
   if (!isReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -124,6 +149,9 @@ function TrialAgentFormContent() {
         initialValues={prefilledData}
         onSubmit={handleSaveDraft}
         isSubmitting={isSubmitting}
+        isTrialPlan
+        startGuidedTour={shouldShowGuidedTour}
+        onGuidedTourClose={handleGuidedTourClose}
         submitButtonLabel="Save & Continue"
       />
     </div>
