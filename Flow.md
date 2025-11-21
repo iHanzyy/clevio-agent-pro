@@ -41,7 +41,7 @@ flowchart LR
 1. `Register` page calls `apiService.register(email, password)` → `/api/proxy/auth/register` (credentials now live solely in the POST payload to avoid leaking into query strings). Registration now requires a valid email address—phone-based signups are disabled—so the response is normalised to extract `user_id` & `email`.
 2. On success the UI clears any stale payment state (`apiService.clearLastOrderId`) and pushes the browser to `/payment?user_id=…&email=…`.
 3. The payment screen initialises `ApiService` with the plan coming from the query string, restores pending registration info, and waits for the user to pick a plan.
-4. Submitting a plan invokes `apiService.notifyPaymentWebhook`, which POSTs `{user_id, email, plan_code, charge, order_suffix}` to `N8N_MAIN/webhook/pembayaranMidtrans`.
+4. Submitting a plan invokes `apiService.notifyPaymentWebhook`, which POSTs `{user_id, email, plan_code, charge, order_suffix}` to the Midtrans bridge defined by `NEXT_PUBLIC_PAYMENT_WEBHOOK_URL` (defaulting to `N8N_MAIN/webhook/pembayaranMidtrans`).
 5. The N8N response may contain:
    - `order_id` – cached via `apiService.setLastOrderId`.
    - `redirect_url`/`snap_url` – if present the browser navigates straight to Midtrans.
@@ -131,7 +131,8 @@ flowchart LR
 4. Ketika n8n mengembalikan `status: "completed"` + `agent_data`, payload itu disimpan oleh `/api/webhook/n8n-template`.
 5. Chat mem-poll `GET /api/webhook/n8n-template?session=…`, menaruh hasilnya ke `sessionStorage.pendingAgentData`, lalu redirect ke `/dashboard/agents/new?fromInterview=true`.
 6. `AgentForm` memanfaatkan `pendingAgentData` untuk prefill, memvalidasi tools (minimal Gmail/Calendar), dan menambahkan metadata MCP bila ada.
-7. Submit memanggil `apiService.createAgent` melalui `/api/proxy/agents/`; jika backend mengembalikan `auth_url`/`auth_state`, query diteruskan di redirect detail page. Tanpa auth lanjutan, langsung buka detail agent.
+7. Submit memanggil `apiService.createAgent` melalui `/api/proxy/agents/`; setelah sukses, frontend wajib memicu OAuth per agent lewat `POST /auth/google` dengan body `{ scopes, agent_id }` (diturunkan dari agent yang baru dibuat). Respons `auth_url`/`auth_state` diteruskan di redirect detail page.
+8. Untuk akun berbayar (PRO_M/PRO_Y), ketika redirect ke `/dashboard/agents/{id}` selesai dan agent memiliki `google_tools`, halaman detail otomatis memunculkan modal “Connect Google”. Modal ini menjalankan `/auth/google` dengan `agent_id` tersebut; CTA “Connect” membuka OAuth, sedangkan “Lanjut tanpa Google” membutuhkan konfirmasi dan menampilkan peringatan bahwa Gmail/Calendar tidak akan berfungsi sampai koneksi diselesaikan.
 
 ### Payload Create Agent (frontend → backend)
 - `google_tools`: daftar aksi Google/Gmail yang dipilih (dipisah dari `mcp_tools`).
@@ -158,7 +159,7 @@ flowchart LR
 - **Chat sandbox** – submits prompts to `apiService.executeAgent(agentId, input, {}, sessionId)` and streams replies into a local transcript with intermediate step hints.
 - **Knowledge management** – lists existing uploads (with detailed metadata) via `apiService.getAgentDocuments`, supports multi-file `uploadAgentDocuments`, and removal through `deleteAgentDocument`.
 - **WhatsApp connectivity** – polls `apiService.getWhatsAppSession(agentId)` and triggers new sessions through `createWhatsAppSession({ userId, agentId, apiKey })`.
-- **Google Workspace auth** – detects Gmail/Calendar tooling and repeatedly calls `apiService.checkGoogleAuthStatus`. When an `auth_url` is returned, it prompts the operator to authorise and polls until tokens appear.
+- **Google Workspace auth (per agent)** – detects Gmail/Calendar tooling and repeatedly calls `apiService.checkGoogleAuthStatus` (POST `/auth/refresh-status-google`). OAuth is now scoped per agent: setiap agent baru harus dijalankan `/auth/google` dengan `agent_id`. Ketika `auth_url` dikembalikan, UI memandu user untuk authorize dan polling berjalan sampai token masuk.
 - **API key discovery** – multiple helper methods (`getCurrentApiKey`, `ensureApiKey`) are reused to power both integrations without exposing secrets to the DOM.
 
 ## Knowledge upload flow
@@ -202,23 +203,47 @@ flowchart LR
 3. After ~30 seconds the frontend calls `/api/whatsapp-sessions/qr`, which proxies to the backend (`POST /sessions/:agentId/qr`), waits for the base64 QR, caches it per agent, and resolves the promise.
 4. The detail page can still call `getWhatsAppSession`/`GET /api/whatsapp-sessions?agentId=…` to read back the cached payload for badges and manual refreshes.
 
-## Google Workspace connector flow
+## Google Workspace connector flow (per-agent auth)
 
 ```mermaid
 flowchart LR
-    detect[Agent uses Gmail/Calendar] --> statusPing[GET /api/proxy/auth/google]
-    statusPing -->|auth_url| prompt[Show "Connect Google" CTA]
-    prompt --> oauth[User authorises via auth_url]
-    oauth --> callback[(Backend stores tokens)]
-    callback --> statusPing
-    statusPing -->|tokens[]| connected[Mark Google Connected]
-    connected --> refresh[Allow manual "Refresh status"]
+    detect[Agent created with google_tools] --> modal[Auto-show Google Connect Modal]
+    modal --> userAction{User clicks "Connect with Google"}
+    userAction -->|yes| startAuth[POST /auth/google with agent_id]
+    userAction -->|skip| skipFlow[Show warning that Gmail/Calendar won't work]
+    startAuth --> authUrl[Receive auth_url → open OAuth popup]
+    authUrl --> startPolling[Start polling every 3 seconds]
+    startPolling --> checkStatus[POST /auth/refresh-status-google with agent_id]
+    checkStatus -->|tokens[]| connected[Mark as Connected]
+    checkStatus -->|auth_url| keepPolling[Continue polling]
+    connected --> stopPolling[Stop polling]
+    skipFlow --> continue[Continue without Google features]
 ```
 
-1. The detail page infers Google tool usage from `allowed_tools` and only surfaces the card when relevant.
-2. `apiService.checkGoogleAuthStatus` returns either an `auth_url` (pending) or a list of tokens (connected). The UI stores these in `googleAuthInfo`.
-3. While pending, the page polls every 5 s; when tokens arrive it stops polling, clears query params, and marks the connector as ready.
-4. Operators can manually refresh the status if an auth URL remains valid but tokens haven’t landed yet.
+1. **Per-agent authentication**: Setiap agent baru dengan `google_tools` harus melakukan OAuth terpisah melalui `/auth/google` dengan `agent_id` di payload. Tidak ada auto-refresh status tanpa user action.
+
+2. **Trigger flow**:
+   - Saat agent berhasil dibuat dengan `google_tools`, modal "Connect Google" otomatis muncul
+   - User dapat menekan tombol "Connect with Google" atau "Continue with Google" di card integration
+   - Modal tidak akan auto-close sampai user selesai OAuth atau eksplisit skip
+
+3. **Manual-only polling**: Status check hanya dimulai setelah user klik tombol "Connect" atau "Refresh Status":
+   - `POST /auth/google` dengan payload `{ scopes, agent_id }` → dapat `auth_url`
+   - Buka OAuth popup lalu mulai polling `/auth/refresh-status-google` setiap 3 detik
+   - Stop polling ketika `tokens[]` ada atau user menutup modal
+   - **Page visibility**: Polling otomatis berhenti saat user navigasi ke halaman lain (document.hidden)
+
+4. **User experience**:
+   - Tidak ada auto-refresh background yang mengganggu
+   - User harus eksplisit klik tombol untuk memulai dan refresh status
+   - Modal menampilkan peringatan keras jika user memilih skip tanpa connect
+   - Status tetap terlihat di card integration manual
+   - **SessionStorage cleanup**: Setelah Google auth berhasil, `pendingGoogleConnectAgent` dan `GOOGLE_CONNECT_PROMPT_KEY` dihapus dari sessionStorage
+
+5. **API contracts**:
+   - `POST /auth/google` dengan body `{ scopes: [...], agent_id: "..." }`
+   - `POST /auth/refresh-status-google` dengan body `{ agent_id: "..." }`
+   - Kedua endpoint wajib menyertakan `agent_id` karena auth terikat per agent, bukan per user
 
 # Security defaults
 

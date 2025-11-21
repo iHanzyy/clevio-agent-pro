@@ -24,7 +24,12 @@ import {
   Shield,
   Smartphone,
   Zap,
-  ChevronRight
+  ChevronRight,
+  Power,
+  Mail,
+  Calendar,
+  User,
+  ExternalLink,
 } from "lucide-react";
 import {
   describeWhatsAppStatus,
@@ -110,6 +115,9 @@ const formatGoogleToolLabel = (toolId) => {
 
 const WHATSAPP_QR_PREPARATION_SECONDS = 30;
 const WHATSAPP_QR_EXPIRY_SECONDS = 60;
+const GOOGLE_CONNECT_PROMPT_KEY = "pendingGoogleConnectAgent";
+const DEFAULT_GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+const DEFAULT_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar";
 
 const EMPTY_WHATSAPP_SESSION = {
   status: "inactive",
@@ -159,12 +167,17 @@ export default function AgentDetailPage() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [selectedUpgradePlan, setSelectedUpgradePlan] = useState("PRO_M");
   const [upgradeProcessing, setUpgradeProcessing] = useState(false);
+  const [showGoogleConnectModal, setShowGoogleConnectModal] = useState(false);
+  const [googleAuthStarting, setGoogleAuthStarting] = useState(false);
+  const [confirmSkipGoogleConnect, setConfirmSkipGoogleConnect] = useState(false);
+  const [googleAuthPollingEnabled, setGoogleAuthPollingEnabled] = useState(false);
   const qrPollAbortRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
   const whatsAppQrUserClosedRef = useRef(false);
   const qrFlowAbortRef = useRef(null);
   const qrPreparationTimerRef = useRef(null);
   const qrExpiryTimerRef = useRef(null);
+  const autoGooglePromptShownRef = useRef(false);
 
   const queryAuthUrl = searchParams?.get("authUrl") || null;
   const queryAuthState = searchParams?.get("authState") || null;
@@ -175,6 +188,9 @@ export default function AgentDetailPage() {
     authUrl: queryAuthUrl,
     authState: queryAuthState,
     tokens: [],
+    requiredScopes: [],
+    grantedScopes: [],
+    missingScopes: [],
     lastCheckedAt: null,
   }));
   const [googleAuthError, setGoogleAuthError] = useState("");
@@ -256,6 +272,9 @@ export default function AgentDetailPage() {
         authUrl: upcomingAuthUrl,
         authState: upcomingAuthState,
         tokens: [],
+        requiredScopes: [],
+        grantedScopes: [],
+        missingScopes: [],
         lastCheckedAt: null,
       };
     });
@@ -356,6 +375,11 @@ export default function AgentDetailPage() {
 
     // Allowed tools deprecated; only consider tools array/object
     addFrom(agent?.tools);
+    addFrom(agent?.allowed_tools);
+    addFrom(agent?.allowedTools);
+    addFrom(agent?.google_tools);
+    addFrom(agent?.config?.google_tools);
+    addFrom(agent?.config?.allowed_tools);
 
     return collected;
   }, [agent]);
@@ -366,6 +390,7 @@ export default function AgentDetailPage() {
   );
 
   const requiresGoogleAuth = googleToolIds.length > 0;
+  const showGoogleIntegrationCard = !isTrialPlan || googleAuthInfo.status === "connected";
 
   const googleAuthStatus = googleAuthInfo.status;
   const googleAuthPending = googleAuthStatus === "pending";
@@ -376,10 +401,52 @@ export default function AgentDetailPage() {
     : [];
   const googleAuthPrimaryToken =
     googleAuthTokens.length > 0 ? googleAuthTokens[0] : null;
+  const googleGrantedScopes = Array.isArray(googleAuthInfo.grantedScopes)
+    ? googleAuthInfo.grantedScopes
+    : [];
   const googleToolSummary = useMemo(() => {
     const labels = googleToolIds.map(formatGoogleToolLabel);
     return Array.from(new Set(labels)).join(", ");
   }, [googleToolIds]);
+
+  const googleGrantedScopesDisplay = useMemo(() => {
+    const items = [];
+    const pushUnique = (key, label, Icon) => {
+      if (!items.some((entry) => entry.key === key)) {
+        items.push({ key, label, Icon });
+      }
+    };
+
+    googleGrantedScopes.forEach((scope) => {
+      const value = (scope || "").toLowerCase();
+      if (!value) return;
+
+      if (
+        value.includes("mail.google.com") ||
+        value.includes("gmail.readonly")
+      ) {
+        pushUnique(
+          "gmail-readonly",
+          "Baca email (tanpa mengirim/mengedit)",
+          Mail
+        );
+        return;
+      }
+
+      if (
+        value.includes("userinfo.email") ||
+        value.includes("userinfo.profile") ||
+        value === "openid"
+      ) {
+        pushUnique("profile", "Lihat profil & alamat email", User);
+        return;
+      }
+
+      pushUnique(value, scope, Info);
+    });
+
+    return items;
+  }, [googleGrantedScopes]);
 
   const clearGoogleAuthPoll = useCallback(() => {
     if (googleAuthPollRef.current) {
@@ -406,11 +473,11 @@ export default function AgentDetailPage() {
   }, []);
 
   const checkGoogleAuthStatus = useCallback(async () => {
-    if (!user || !requiresGoogleAuth) {
-      return null;
+    if (!user || !requiresGoogleAuth || !agentIdParam) {
+      return { status: "idle", authUrl: null };
     }
     if (googleAuthCheckingRef.current) {
-      return null;
+      return { status: "idle", authUrl: null };
     }
 
     googleAuthCheckingRef.current = true;
@@ -418,25 +485,55 @@ export default function AgentDetailPage() {
     setGoogleAuthError("");
 
     try {
-      const response = await apiService.checkGoogleAuthStatus();
+      const response = await apiService.checkGoogleAuthStatus(agentIdParam);
+      const statusValue =
+        typeof response?.status === "string"
+          ? response.status.toLowerCase()
+          : null;
+      const refreshed = response?.refreshed === true;
+      const tokens = Array.isArray(response?.tokens) ? response.tokens : [];
+      const requiredScopes = Array.isArray(response?.required_scopes)
+        ? response.required_scopes
+        : [];
+      const grantedScopes = Array.isArray(response?.granted_scopes)
+        ? response.granted_scopes
+        : [];
+      const missingScopes = Array.isArray(response?.missing_scopes)
+        ? response.missing_scopes
+        : [];
+      const hasTokens = tokens.length > 0;
+      const hasMissing = missingScopes.length > 0;
 
-      if (Array.isArray(response?.tokens) && response.tokens.length > 0) {
-        const tokens = response.tokens;
+      // Mark connected only when all required scopes are satisfied.
+      if ((hasTokens || statusValue === "authenticated" || refreshed) && !hasMissing) {
         setGoogleAuthInfo({
           agentId: agentIdParam,
           status: "connected",
           authUrl: null,
           authState: null,
           tokens,
+          requiredScopes,
+          grantedScopes,
+          missingScopes,
           lastCheckedAt: Date.now(),
         });
         clearGoogleAuthPoll();
+
+        // Clear sessionStorage after successful Google auth connection
+        if (typeof window !== "undefined") {
+          try {
+            window.sessionStorage.removeItem(GOOGLE_CONNECT_PROMPT_KEY);
+            window.sessionStorage.removeItem("pendingGoogleConnectAgent");
+          } catch (error) {
+            console.warn("Failed to clear Google auth sessionStorage:", error);
+          }
+        }
 
         if (agentIdParam && (queryAuthUrl || queryAuthState)) {
           router.replace(`/dashboard/agents/${agentIdParam}`);
         }
 
-        return "connected";
+        return { status: "connected", authUrl: null };
       }
 
       if (response?.auth_url) {
@@ -445,30 +542,57 @@ export default function AgentDetailPage() {
           status: "pending",
           authUrl: response.auth_url,
           authState: response.auth_state || null,
-          tokens: [],
+          tokens: response?.tokens || [],
+          requiredScopes,
+          grantedScopes,
+          missingScopes,
           lastCheckedAt: Date.now(),
         });
-        return "pending";
+        return { status: "pending", authUrl: response.auth_url };
       }
 
-      setGoogleAuthInfo((previous) => ({
-        agentId: agentIdParam,
-        status: previous?.status === "connected" ? "connected" : "pending",
-        authUrl:
-          previous?.status === "connected" ? null : previous?.authUrl || null,
-        authState:
-          previous?.status === "connected" ? null : previous?.authState || null,
-        tokens: previous?.status === "connected" ? previous.tokens : [],
-        lastCheckedAt: Date.now(),
-      }));
+      setGoogleAuthInfo((previous) => {
+        const fallbackStatus =
+          previous?.status === "connected" && !hasMissing
+            ? "connected"
+            : hasMissing
+            ? "pending"
+            : "idle";
+        return {
+          agentId: agentIdParam,
+          status: fallbackStatus,
+          authUrl:
+            previous?.status === "connected" && !hasMissing
+              ? null
+              : response?.auth_url || previous?.authUrl || null,
+          authState:
+            previous?.status === "connected" && !hasMissing
+              ? null
+              : response?.auth_state || previous?.authState || null,
+          tokens:
+            previous?.status === "connected" && !hasMissing
+              ? previous.tokens
+              : tokens,
+          requiredScopes: requiredScopes.length
+            ? requiredScopes
+            : previous?.requiredScopes || [],
+          grantedScopes: grantedScopes.length
+            ? grantedScopes
+            : previous?.grantedScopes || [],
+          missingScopes: missingScopes.length
+            ? missingScopes
+            : previous?.missingScopes || [],
+          lastCheckedAt: Date.now(),
+        };
+      });
 
-      return "unknown";
+      return { status: hasMissing ? "pending" : "idle", authUrl: null };
     } catch (err) {
       const fallback =
         err?.message ||
         "Unable to verify Google authentication status right now.";
       setGoogleAuthError(fallback);
-      return "error";
+      return { status: "error", authUrl: null };
     } finally {
       googleAuthCheckingRef.current = false;
       setGoogleAuthChecking(false);
@@ -483,43 +607,222 @@ export default function AgentDetailPage() {
     clearGoogleAuthPoll,
   ]);
 
-  useEffect(() => {
-    if (!requiresGoogleAuth || !user || authLoading) {
-      return;
-    }
-
-    if (googleAuthInfo.status !== "connected") {
-      void checkGoogleAuthStatus();
-    }
-  }, [
-    requiresGoogleAuth,
-    user,
-    authLoading,
-    googleAuthInfo.status,
-    checkGoogleAuthStatus,
-  ]);
+  // Manual-only: do not auto refresh status; polling starts only after user explicitly clicks refresh/connect button
+  // Additionally, stop polling when page is not visible (user navigated away)
 
   useEffect(() => {
-    if (!requiresGoogleAuth || googleAuthInfo.status !== "pending") {
+    if (
+      !requiresGoogleAuth ||
+      googleAuthInfo.status !== "pending" ||
+      !googleAuthPollingEnabled
+    ) {
       clearGoogleAuthPoll();
       return;
     }
 
-    if (!googleAuthPollRef.current) {
-      googleAuthPollRef.current = setInterval(() => {
-        void checkGoogleAuthStatus();
-      }, 5000);
+    const startPolling = () => {
+      if (!googleAuthPollRef.current) {
+        googleAuthPollRef.current = setInterval(() => {
+          // Only check if page is visible
+          if (typeof document !== 'undefined' && !document.hidden) {
+            void checkGoogleAuthStatus();
+          }
+        }, 3000);
+      }
+    };
+
+    const stopPolling = () => {
+      clearGoogleAuthPoll();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else if (googleAuthPollingEnabled && googleAuthInfo.status === "pending") {
+        startPolling();
+      }
+    };
+
+    // Start polling if conditions are met
+    startPolling();
+
+    // Add visibility change listener
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
     return () => {
-      clearGoogleAuthPoll();
+      stopPolling();
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
     };
   }, [
     requiresGoogleAuth,
     googleAuthInfo.status,
+    googleAuthPollingEnabled,
     checkGoogleAuthStatus,
     clearGoogleAuthPoll,
   ]);
+
+  const openGoogleConnectModal = useCallback(() => {
+    if (!requiresGoogleAuth || isTrialPlan) {
+      return;
+    }
+    setConfirmSkipGoogleConnect(false);
+    setShowGoogleConnectModal(true);
+    if (!googleAuthConnected) {
+      void checkGoogleAuthStatus();
+    }
+  }, [
+    requiresGoogleAuth,
+    isTrialPlan,
+    googleAuthConnected,
+    checkGoogleAuthStatus,
+  ]);
+
+  const closeGoogleConnectModal = useCallback(() => {
+    setShowGoogleConnectModal(false);
+    setConfirmSkipGoogleConnect(false);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !agent?.id ||
+      isTrialPlan ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+    const pendingAgentId = window.sessionStorage.getItem(
+      GOOGLE_CONNECT_PROMPT_KEY
+    );
+    if (
+      pendingAgentId &&
+      pendingAgentId === agent.id.toString() &&
+      requiresGoogleAuth
+    ) {
+      window.sessionStorage.removeItem(GOOGLE_CONNECT_PROMPT_KEY);
+      openGoogleConnectModal();
+    }
+  }, [agent?.id, requiresGoogleAuth, isTrialPlan, openGoogleConnectModal]);
+
+  useEffect(() => {
+    if (
+      autoGooglePromptShownRef.current ||
+      !googleAuthInfo?.authUrl ||
+      !requiresGoogleAuth ||
+      isTrialPlan
+    ) {
+      return;
+    }
+    autoGooglePromptShownRef.current = true;
+    openGoogleConnectModal();
+  }, [
+    googleAuthInfo?.authUrl,
+    requiresGoogleAuth,
+    isTrialPlan,
+    openGoogleConnectModal,
+  ]);
+
+  useEffect(() => {
+    if (googleAuthConnected && showGoogleConnectModal) {
+      closeGoogleConnectModal();
+    }
+    if (googleAuthConnected) {
+      setGoogleAuthPollingEnabled(false);
+    }
+  }, [googleAuthConnected, showGoogleConnectModal, closeGoogleConnectModal]);
+
+  const fetchRequiredGoogleScopes = useCallback(async () => {
+    if (!requiresGoogleAuth) {
+      return [];
+    }
+
+    const uniqueTools = Array.from(new Set(googleToolIds));
+    if (!uniqueTools.length) {
+      return [DEFAULT_GMAIL_SCOPE];
+    }
+
+    try {
+      const response = await apiService.getRequiredToolScopes(uniqueTools);
+      if (Array.isArray(response?.scopes) && response.scopes.length > 0) {
+        return response.scopes;
+      }
+    } catch (error) {
+      console.warn("Failed to fetch required Google scopes:", error);
+    }
+
+    const fallback = new Set([DEFAULT_GMAIL_SCOPE]);
+    if (uniqueTools.some((tool) => tool.includes("calendar"))) {
+      fallback.add(DEFAULT_CALENDAR_SCOPE);
+    }
+    return Array.from(fallback);
+  }, [requiresGoogleAuth, googleToolIds]);
+
+  const handleGoogleConnectNow = useCallback(async () => {
+    if (!agent?.id || (!requiresGoogleAuth && !googleAuthConnected)) {
+      return;
+    }
+
+    if (googleAuthStarting) {
+      return;
+    }
+
+    setGoogleAuthError("");
+
+    if (googleAuthUrl && typeof window !== "undefined") {
+      window.open(googleAuthUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    setGoogleAuthStarting(true);
+    setGoogleAuthPollingEnabled(true);
+    try {
+      const scopes = await fetchRequiredGoogleScopes();
+      const response = await apiService.startGoogleAuth(scopes, agent.id);
+      const authLink = response?.auth_url || response?.authUrl || null;
+      const authState = response?.auth_state || response?.authState || null;
+
+      if (authLink && typeof window !== "undefined") {
+        window.open(authLink, "_blank", "noopener,noreferrer");
+        setGoogleAuthInfo((previous) => ({
+          ...previous,
+          agentId: agent.id,
+          status: "pending",
+          authUrl: authLink,
+          authState,
+        }));
+      } else {
+        setGoogleAuthError(
+          response?.message ||
+            "We couldn't generate a Google authorization link. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Failed to start Google OAuth:", error);
+      setGoogleAuthError(
+        error?.message || "Unable to start Google authorization."
+      );
+    } finally {
+      setGoogleAuthStarting(false);
+    }
+  }, [
+    agent?.id,
+    requiresGoogleAuth,
+    googleAuthConnected,
+    googleAuthUrl,
+    googleAuthStarting,
+    fetchRequiredGoogleScopes,
+  ]);
+
+  const handleSkipGoogleConnect = useCallback(() => {
+    if (!confirmSkipGoogleConnect) {
+      setConfirmSkipGoogleConnect(true);
+      return;
+    }
+    closeGoogleConnectModal();
+  }, [confirmSkipGoogleConnect, closeGoogleConnectModal]);
 
   useEffect(
     () => () => {
@@ -1137,119 +1440,168 @@ export default function AgentDetailPage() {
         </motion.div>
 
         {/* Google Auth Section */}
-        {requiresGoogleAuth && (
+        {showGoogleIntegrationCard && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="mb-8"
           >
-            <Card className={cn(
-              "border-l-4",
-              googleAuthConnected
-                ? "border-l-success bg-success/5"
-                : googleAuthError
-                ? "border-l-destructive bg-destructive/5"
-                : "border-l-warning bg-warning/5"
-            )}>
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className={cn(
-                    "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
-                    googleAuthConnected
-                      ? "bg-success text-white"
-                      : googleAuthError
-                      ? "bg-destructive text-white"
-                      : "bg-warning text-white"
-                  )}>
-                    {googleAuthConnected ? (
-                      <CheckCircle className="h-5 w-5" />
-                    ) : googleAuthError ? (
-                      <AlertCircle className="h-5 w-5" />
-                    ) : (
-                      <Shield className="h-5 w-5" />
-                    )}
+            <Card className="border border-border bg-card shadow-lg">
+              <CardContent className="p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-blue-600" />
+                    <CardTitle className="text-lg">Google Integration</CardTitle>
                   </div>
+                  <Badge
+                    variant={googleAuthConnected ? "success" : googleAuthPending ? "warning" : "muted"}
+                    className={cn(
+                      "px-3 py-1 text-xs font-semibold",
+                      googleAuthConnected
+                        ? "bg-emerald-100 text-emerald-700"
+                        : googleAuthPending
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-200 text-slate-700"
+                    )}
+                  >
+                    {googleAuthConnected
+                      ? "Connected"
+                      : googleAuthPending
+                      ? "Waiting for approval"
+                      : "Not connected"}
+                  </Badge>
+                </div>
 
-                  <div className="flex-1 min-w-0 space-y-3">
-                    {googleAuthConnected ? (
-                      <>
-                        <div>
-                          <h3 className="font-semibold text-foreground">Google Workspace Connected</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {googleToolSummary
-                              ? `${googleToolSummary} tools are ready to use with this account.`
-                              : "Google Workspace tools are ready to use with this account."}
-                          </p>
-                        </div>
-                        {googleAuthPrimaryToken?.expires_at && (
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>
-                              Access valid until {formatDateTime(googleAuthPrimaryToken.expires_at)}.
-                              Run check if you need to refresh permissions later.
-                            </span>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <h3 className="font-semibold text-foreground">Connect Google Workspace</h3>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {googleToolSummary
-                              ? `This agent needs permission to use ${googleToolSummary}. Click below to continue the Google authorization flow.`
-                              : "This agent needs permission to use Google Workspace tools. Click below to continue the Google authorization flow."}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                          {googleAuthUrl && (
-                            <a
-                              href={googleAuthUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors"
-                            >
-                              <Shield className="h-4 w-4" />
-                              Continue with Google
-                            </a>
-                          )}
-
-                          <Button
-                            onClick={() => void checkGoogleAuthStatus()}
-                            disabled={googleAuthChecking}
-                            variant="outline"
-                            size="sm"
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  {requiresGoogleAuth ? (
+                    <p>
+                      {googleAuthConnected
+                        ? "Google Workspace actions are active for this agent."
+                        : googleToolSummary
+                        ? `This agent needs access to ${googleToolSummary}.`
+                        : "Connect your Google Workspace account so Gmail and Calendar automations can run."}
+                    </p>
+                  ) : (
+                    <p>
+                      Aktifkan Gmail atau Calendar dari AgentForm terlebih dahulu supaya koneksi Google
+                      tersedia. Setelah menambahkan tools tersebut, kembali ke halaman ini untuk menghubungkan akun.
+                    </p>
+                  )}
+                  {googleAuthPrimaryToken?.expires_at && googleAuthConnected && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span>
+                        Access valid until {formatDateTime(googleAuthPrimaryToken.expires_at)}. Reconnect if the date
+                        passes.
+                      </span>
+                    </div>
+                  )}
+                  {googleGrantedScopesDisplay.length > 0 && (
+                    <div className="text-xs text-muted-foreground space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Info className="h-3.5 w-3.5" />
+                        <span>Akses Google yang sudah diizinkan:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {googleGrantedScopesDisplay.map(({ key, label, Icon }) => (
+                          <div
+                            key={key}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-slate-700"
                           >
-                            {googleAuthChecking ? (
-                              <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Checking...
-                              </>
-                            ) : (
-                              <>
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Refresh Status
-                              </>
-                            )}
-                          </Button>
-                        </div>
+                            <Icon className="h-3.5 w-3.5" />
+                            <span>{label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                          <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                          <p>
-                            Keep this window open. We will update the status automatically
-                            once Google confirms the authorization.
-                          </p>
+                {requiresGoogleAuth && googleToolSummary && (
+                  <div className="flex flex-wrap gap-2">
+                    {googleToolSummary.split(",").map((label) => {
+                      const trimmed = label.trim();
+                      if (!trimmed) return null;
+                      const icon = trimmed.toLowerCase().includes("calendar") ? Calendar : Mail;
+                      return (
+                        <div
+                          key={trimmed}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-xs font-medium text-slate-700"
+                        >
+                          {icon === Calendar ? (
+                            <Calendar className="h-3 w-3 text-blue-500" />
+                          ) : (
+                            <Mail className="h-3 w-3 text-red-500" />
+                          )}
+                          <span>{trimmed}</span>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button
+                    onClick={openGoogleConnectModal}
+                    disabled={
+                      googleAuthChecking ||
+                      googleAuthStarting ||
+                      (!requiresGoogleAuth && !googleAuthConnected)
+                    }
+                    className={cn(
+                      "text-white shadow-lg",
+                      googleAuthConnected
+                        ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                        : "bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700"
+                    )}
+                  >
+                    {googleAuthStarting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Opening Google...
+                      </>
+                    ) : googleAuthConnected ? (
+                      <>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Manage Google Access
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="h-4 w-4 mr-2" />
+                        Connect Google
                       </>
                     )}
-                  </div>
+                  </Button>
+
+                  <Button
+                    onClick={() => {
+                      setGoogleAuthPollingEnabled(true);
+                      void checkGoogleAuthStatus();
+                    }}
+                    disabled={
+                      googleAuthChecking ||
+                      (!requiresGoogleAuth && !googleAuthConnected)
+                    }
+                    variant="outline"
+                    size="sm"
+                  >
+                    {googleAuthChecking ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Refresh Status
+                      </>
+                    )}
+                  </Button>
                 </div>
 
                 {googleAuthError && (
-                  <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
                     <p className="text-sm text-destructive">{googleAuthError}</p>
                   </div>
                 )}
@@ -1304,6 +1656,90 @@ export default function AgentDetailPage() {
                     <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground bg-card dark:bg-gray-800 rounded-xl p-4 border border-border overflow-x-auto font-mono">
                       {agent.config.system_message || agent.config.system_prompt}
                     </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* Google Integration Section */}
+              {(agent?.config?.google_tools && Array.isArray(agent.config.google_tools) && agent.config.google_tools.length > 0) && (
+                <div className="border-t border-border pt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded bg-gradient-to-br from-red-500 to-blue-500 flex items-center justify-center">
+                        <div className="w-3 h-3 bg-white rounded-sm"></div>
+                      </div>
+                      <CardTitle className="text-lg">Google Integration</CardTitle>
+                    </div>
+                    <Badge
+                      variant={googleAuthInfo.status === 'connected' ? "success" : "muted"}
+                      className="px-3 py-1"
+                    >
+                      {googleAuthInfo.status === 'connected' ? 'Connected' : 'Not Connected'}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-card dark:bg-gray-800 rounded-xl p-4 border border-border">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        {googleAuthInfo.status === 'connected' ? (
+                          <CheckCircle className="h-6 w-6 text-green-500" />
+                        ) : (
+                          <AlertCircle className="h-6 w-6 text-amber-500" />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-foreground mb-1">
+                          {googleAuthInfo.status === 'connected'
+                            ? 'Google Workspace Connected'
+                            : 'Google Workspace Required'}
+                        </h4>
+
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {googleAuthInfo.status === 'connected'
+                            ? 'Your agent can access Gmail and Calendar to perform automated tasks.'
+                            : 'Connect your Google account to enable Gmail and Calendar automation for this agent.'}
+                        </p>
+
+                        {/* Active Google Tools */}
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {agent.config.google_tools.map((tool, index) => {
+                            let icon = Mail;
+                            let label = tool;
+
+                            if (tool.toLowerCase().includes('gmail')) {
+                              icon = Mail;
+                              label = 'Gmail';
+                            } else if (tool.toLowerCase().includes('calendar')) {
+                              icon = Calendar;
+                              label = 'Calendar';
+                            }
+
+                            return (
+                              <div key={index} className="flex items-center gap-1 px-2 py-1 bg-surface dark:bg-gray-700 rounded-lg border border-surface-strong dark:border-gray-600">
+                                {icon === Mail ? (
+                                  <Mail className="h-3 w-3 text-red-500" />
+                                ) : (
+                                  <Calendar className="h-3 w-3 text-blue-500" />
+                                )}
+                                <span className="text-xs font-medium text-foreground">{label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Action Button */}
+                        {googleAuthInfo.status !== 'connected' && (
+                          <Button
+                            onClick={() => setShowGoogleConnectModal(true)}
+                            className="w-full sm:w-auto bg-gradient-to-r from-red-500 to-blue-500 hover:from-red-600 hover:to-blue-600 text-white font-medium"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Connect Google Account
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2113,6 +2549,90 @@ export default function AgentDetailPage() {
                   )}
                 </Button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Google Connect Modal */}
+      {showGoogleConnectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="relative w-full max-w-lg rounded-3xl bg-card border border-border p-6 max-h-[90vh] overflow-y-auto"
+          >
+            <Button
+              onClick={closeGoogleConnectModal}
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-4"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+
+            <div className="space-y-5 text-center">
+              <div className="w-16 h-16 rounded-full bg-blue-600/10 flex items-center justify-center mx-auto text-blue-600">
+                <Power className="h-8 w-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-foreground">
+                  Connect Google to Activate Tools
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {googleToolSummary
+                    ? `You selected ${googleToolSummary}. Authorise Google Workspace so the agent can act on your behalf.`
+                    : "Authorise Google Workspace so the agent can use Gmail/Calendar actions."}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Button
+                  onClick={handleGoogleConnectNow}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={googleAuthChecking || googleAuthStarting}
+                >
+                  {googleAuthStarting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Preparing Google flow...
+                    </>
+                  ) : (
+                    <>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Connect with Google
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleSkipGoogleConnect}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {confirmSkipGoogleConnect
+                    ? "Lanjut tanpa Google (Saya paham risikonya)"
+                    : "Lanjut tanpa Google"}
+                </Button>
+              </div>
+
+              {confirmSkipGoogleConnect && (
+                <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-left">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                    <div className="text-sm text-amber-800 space-y-1">
+                      <p>
+                        Gmail dan Google Calendar tidak akan berfungsi sampai kamu
+                        menyelesaikan koneksi ini. Agency harus memiliki akses resmi
+                        untuk mengirim email dan membuat event.
+                      </p>
+                      <p>
+                        Klik tombol di atas sekali lagi jika kamu ingin tetap melanjutkan
+                        tanpa koneksi Google.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>

@@ -108,6 +108,7 @@ Status-aware routing in `/src/lib/navigation.js`:
 - Jangan hubungkan CTA langsung ke form kosong; `/dashboard/agents/new` tanpa `fromInterview=true` hanya untuk deep link/debug dan tombol “start from scratch” di galeri dinonaktifkan.
 - Payload wawancara disimpan di `sessionStorage.pendingAgentData` dan harus dipakai untuk prefill form; jaga kontrak ini saat ubah UI template/chat.
 - **UI/UX parity rule:** Template gallery, interview chat, dan AgentForm pada jalur trial (`/trial/*`) wajib identik dengan jalur berbayar (PRO_M/PRO_Y). Jika kamu mengubah desain, copy, atau struktur komponen pada salah satunya, segera samakan di jalur satunya agar context wawancara → form tidak pecah. Perbedaan hanya boleh pada logika (plan code, locking, provisioning), bukan tampilan/experience.
+- Setelah agent berbayar dibuat dan dialihkan ke `/dashboard/agents/{id}`, bila konfigurasi mengandung `google_tools`, wajib munculkan modal “Connect Google” secara otomatis. Modal sama juga harus muncul saat user menekan tombol “Continue with Google” di kartu konektor. CTA “Connect” membuka OAuth, sementara “Lanjut tanpa Google” butuh klik kedua setelah peringatan bahwa Gmail/Calendar tidak akan berfungsi sampai koneksi selesai.
 
 ### 6. Konsistensi Kode
 - Saat mengubah atau menambah fitur, **cek keseluruhan codebase** (lint, pattern, naming, path aliases, hook reuse) supaya gaya, arsitektur, dan flow tetap konsisten dengan dokumentasi (Flow.md, guides) dan panduan ini.
@@ -122,7 +123,17 @@ Status-aware routing in `/src/lib/navigation.js`:
 - Gunakan gaya & UX yang sama antara `/dashboard/agents` dan `/dashboard/agents/{id}`: gradient header, card border, countdown expiry, tombol refresh status/new QR, dan tombol close di pojok.
 - QR modal harus muncul segera setelah `createWhatsAppSession` + `fetchWhatsAppQr`, tidak menunggu flag khusus.
 
-### 9. WhatsApp Integration Architecture
+### 9. Google Integration Architecture (Per-Agent OAuth)
+Google Workspace integration in `/src/lib/api.js` and `/src/app/dashboard/agents/[agentId]/page.js`:
+- **Per-agent authentication**: Each agent requires separate OAuth via `/auth/google` with `agent_id` in payload
+- **Manual-only status checking**: No auto-refresh; polling starts only after user clicks "Connect" or "Refresh Status"
+- **Page visibility awareness**: Polling automatically stops when user navigates away (uses `document.visibilitychange` API)
+- **Modal-driven flow**: Auto-show "Connect Google" modal when agent created with `google_tools`
+- **SessionStorage cleanup**: Automatically clears `pendingGoogleConnectAgent` and `GOOGLE_CONNECT_PROMPT_KEY` after successful connection
+- **API contracts**: `POST /auth/google` and `POST /auth/refresh-status-google` both require `agent_id`
+- **User experience**: User must explicitly trigger actions; no background polling when page is not visible
+
+### 10. WhatsApp Integration Architecture
 Complex WhatsApp Web integration in `/src/lib/api.js`:
 - **QR code flow**: Generation, expiration handling, and session validation
 - **Session status monitoring**: Real-time connection status with automatic reconnection

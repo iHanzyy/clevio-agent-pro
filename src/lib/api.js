@@ -15,6 +15,8 @@ const debugLog = (...args) => {
   }
 };
 const DEFAULT_WHATSAPP_STATUS_BASE = "/api/whatsapp-status";
+const DEFAULT_PAYMENT_WEBHOOK =
+  "https://n8n-new.chiefaiofficer.id/webhook/pembayaranMidtrans";
 
 const resolveWhatsAppStatusBaseUrl = () => {
   if (typeof process !== "undefined") {
@@ -117,6 +119,21 @@ const buildWhatsAppAgentResourceUrl = (agentId, suffix = "") => {
       ? `/${suffix.replace(/^\/+/, "")}`
       : "";
   return `${normalizedBase}/${encodeURIComponent(agentId)}${normalizedSuffix}`;
+};
+
+const resolvePaymentWebhookUrl = () => {
+  if (typeof process !== "undefined") {
+    const candidates = [
+      process.env.NEXT_PUBLIC_PAYMENT_WEBHOOK_URL,
+      process.env.NEXT_PUBLIC_N8N_PAYMENT_WEBHOOK_URL,
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+  return DEFAULT_PAYMENT_WEBHOOK;
 };
 const joinBaseAndEndpoint = (base, endpoint) => {
   if (!base) return endpoint || "";
@@ -807,15 +824,22 @@ class ApiService {
     });
   }
 
-  async checkGoogleAuthStatus({ method = "GET" } = {}) {
-    const verb =
-      typeof method === "string" && method.toUpperCase() === "GET"
-        ? "GET"
-        : "POST";
+  async checkGoogleAuthStatus(arg = null) {
+    // Backward compatible signature: accepts agentId or an options object.
+    let agentId = null;
+    if (typeof arg === "string" || typeof arg === "number") {
+      agentId = arg;
+    } else if (arg && typeof arg === "object") {
+      agentId = arg.agentId || arg.agent_id || null;
+    }
 
-    return this.request("/auth/google", {
-      method: verb,
-      authType: "session",
+    const payload = agentId ? { agent_id: agentId } : {};
+
+    return this.request("/auth/refresh-status-google", {
+      method: "POST",
+      authType: "apiKey",
+      authFallback: "session",
+      body: JSON.stringify(payload),
       suppressErrorLog: true,
     });
   }
@@ -824,6 +848,50 @@ class ApiService {
     return this.request("/auth/google", {
       authType: "session",
       suppressErrorLog: true,
+    });
+  }
+
+  async getRequiredToolScopes(tools = []) {
+    const normalized =
+      Array.isArray(tools) && tools.length
+        ? tools
+            .map((tool) =>
+              typeof tool === "string" ? tool.trim() : ""
+            )
+            .filter(Boolean)
+        : [];
+    const search =
+      normalized.length > 0
+        ? `?tools=${encodeURIComponent(normalized.join(","))}`
+        : "";
+    return this.request(`/tools/scopes/required${search}`, {
+      authType: "session",
+      suppressErrorLog: true,
+    });
+  }
+
+  async startGoogleAuth(scopes = [], agentId = null) {
+    const normalizedScopes =
+      Array.isArray(scopes) && scopes.length
+        ? scopes
+            .map((scope) =>
+              typeof scope === "string" ? scope.trim() : ""
+            )
+            .filter(Boolean)
+        : [];
+
+    const payload = {
+      scopes: normalizedScopes,
+    };
+
+    if (agentId) {
+      payload.agent_id = agentId;
+    }
+
+    return this.request("/auth/google", {
+      method: "POST",
+      authType: "session",
+      body: JSON.stringify(payload),
     });
   }
 
@@ -973,16 +1041,18 @@ class ApiService {
   }
 
   async notifyPaymentWebhook(payload) {
-    const response = await fetch(
-      "https://n8n-new.chiefaiofficer.id/webhook/pembayaranMidtrans",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      }
-    );
+    const webhookUrl = resolvePaymentWebhookUrl();
+    if (!webhookUrl) {
+      throw new Error("Payment webhook URL is not configured.");
+    }
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
 
     if (!response.ok) {
       let detail = "Failed to trigger payment webhook";

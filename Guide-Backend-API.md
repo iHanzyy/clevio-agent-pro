@@ -152,7 +152,9 @@ If you have access to an already activated user account, use that email/password
         }'
   ```
 
-  Successful responses mirror the standard API key payload with `plan_code` set to `TRIAL` and include an expiration timestamp. When the trial window ends, the key is revoked automatically. The Next.js frontend stores this key inside `sessionStorage.trialSession`, walks the user through `/trial/templates → /trial/agent-form`, and stashes the create-agent payload in `localStorage.trialPendingAgentPayload` so the payment screen can auto-provision the agent after the visitor selects the “Free Trial” plan.
+Successful responses mirror the standard API key payload with `plan_code` set to `TRIAL` and include an expiration timestamp. When the trial window ends, the key is revoked automatically. The Next.js frontend stores this key inside `sessionStorage.trialSession`, walks the user through `/trial/templates → /trial/agent-form`, and stashes the create-agent payload in `localStorage.trialPendingAgentPayload` so the payment screen can auto-provision the agent after the visitor selects the “Free Trial” plan.
+
+> **Front-end note:** the payment page posts Midtrans kickoffs to the URL defined in `NEXT_PUBLIC_PAYMENT_WEBHOOK_URL`. Update this env when the n8n dev tunnel or domain changes so `notifyPaymentWebhook` keeps working.
 
   > **Note:** The browser also records the normalised email in `localStorage.trialUsedEmails` after a trial account is activated. Future attempts to register another trial from the same device surface a modal explaining the trial has already been used and prompting the user to upgrade instead.
 
@@ -186,14 +188,23 @@ If you have access to an already activated user account, use that email/password
 
   Updates the authenticated user’s password. The `new_password` accepts plaintext or a bcrypt hash (preferred `$2b$12$…`, legacy `$bcrypt-sha256$…` still supported).
 
-- **GET /google**
+- **POST /google** (per-agent Google OAuth; `agent_id` required)
 
   ```bash
-  curl -X GET "$BASE_URL$API_PREFIX/auth/google" \
-    -H "Authorization: Bearer $TOKEN"
+  curl -X POST "$BASE_URL$API_PREFIX/auth/google" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+          "scopes": [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/calendar"
+          ],
+          "agent_id": "'"$AGENT_ID"'"
+        }'
   ```
 
-  Initiates Google OAuth authentication or returns the latest token payload when already linked. No request body is required.
+  Initiates Google OAuth **per agent** (not per account). You must include `agent_id` and run this flow for every new agent that needs Gmail/Calendar access. The response includes `auth_url` + `auth_state`; open the URL to continue the OAuth flow.
+  Trigger this immediately after creating the agent (use its returned `id`). Use `/auth/refresh-status-google` only to poll status **after** `/auth/google` has been called for that agent.
 
   **Note:** The system automatically handles scope changes from Google. When requesting `drive.file` scope, Google may add broader Drive scopes (`drive`, `drive.photos.readonly`, `drive.appdata`) which are accepted as long as all requested scopes are granted.
 
@@ -219,7 +230,20 @@ If you have access to an already activated user account, use that email/password
   curl "$BASE_URL$API_PREFIX/auth/google" \
     -H "Authorization: Bearer $TOKEN"
   ```
-  Lists every stored auth token for the signed-in user. Look for entries where `service` is `google` to confirm a Google account has been linked and to inspect granted scopes and expirations.
+  Lists the stored Google auth tokens for the signed-in user. Use this to confirm a Google account has been linked and to inspect granted scopes and expirations.
+
+- **POST /refresh-status-google**
+
+  ```bash
+  curl -X POST "$BASE_URL$API_PREFIX/auth/refresh-status-google" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{
+          "agent_id": "'"$AGENT_ID"'"
+        }'
+  ```
+
+  Forces a fresh Google OAuth status check for the specified agent. Use this after completing OAuth or when the dashboard shows a stale Google auth state so the backend can return the latest linkage/expiration information.
 
 ## Agent Routes (`$API_PREFIX/agents`)
 

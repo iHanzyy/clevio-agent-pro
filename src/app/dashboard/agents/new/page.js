@@ -9,6 +9,8 @@ import AgentForm from "../components/AgentForm";
 import { ArrowLeft, Bot, Sparkles, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+const FALLBACK_GOOGLE_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+
 export default function NewAgentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -132,11 +134,65 @@ export default function NewAgentPage() {
         throw new Error("Agent created but response did not include an ID.");
       }
 
+      if (
+        typeof window !== "undefined" &&
+        Array.isArray(payload?.google_tools) &&
+        payload.google_tools.length > 0
+      ) {
+        try {
+          window.sessionStorage.setItem(
+            "pendingGoogleConnectAgent",
+            agent.id.toString()
+          );
+        } catch (error) {
+          console.warn("Failed to persist pending Google connect context", error);
+        }
+      }
+
       const params = new URLSearchParams();
-      if (agent.auth_required && agent.auth_url) {
-        params.set("authUrl", agent.auth_url);
-        if (agent.auth_state) {
-          params.set("authState", agent.auth_state);
+
+      // Per-agent Google OAuth: kick off /auth/google immediately after creation.
+      let authUrl = null;
+      let authState = null;
+
+      const googleTools =
+        Array.isArray(payload?.google_tools) && payload.google_tools.length > 0
+          ? payload.google_tools
+          : [];
+
+      if (googleTools.length > 0) {
+        let scopes = [];
+        try {
+          const scopesResp = await apiService.getRequiredToolScopes(googleTools);
+          if (Array.isArray(scopesResp?.scopes) && scopesResp.scopes.length > 0) {
+            scopes = scopesResp.scopes;
+          }
+        } catch (error) {
+          console.warn("Failed to fetch required Google scopes", error);
+        }
+
+        if (scopes.length === 0) {
+          scopes = [FALLBACK_GOOGLE_SCOPE];
+        }
+
+        try {
+          const googleAuth = await apiService.startGoogleAuth(scopes, agent.id);
+          authUrl = googleAuth?.auth_url || googleAuth?.authUrl || null;
+          authState = googleAuth?.auth_state || googleAuth?.authState || null;
+        } catch (error) {
+          console.error("Failed to initiate Google OAuth for new agent", error);
+        }
+      }
+
+      if (!authUrl && agent.auth_required && agent.auth_url) {
+        authUrl = agent.auth_url;
+        authState = agent.auth_state || null;
+      }
+
+      if (authUrl) {
+        params.set("authUrl", authUrl);
+        if (authState) {
+          params.set("authState", authState);
         }
       }
 

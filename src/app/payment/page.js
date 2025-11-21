@@ -652,9 +652,13 @@ function PaymentContent() {
       return;
     }
 
-    const activeEmail =
-      user?.email || pendingRegistration?.email || queryEmail || "";
-    const activeUserId = user?.user_id || pendingRegistration?.user_id || "";
+    const registrationEmail =
+      pendingRegistration?.email || queryEmail || "";
+    const registrationUserId =
+      pendingRegistration?.user_id || queryUserId || "";
+
+    const activeEmail = registrationEmail || user?.email || "";
+    const activeUserId = registrationUserId || user?.user_id || "";
 
     if (!activeEmail || !activeUserId) {
       setError(
@@ -1227,4 +1231,3 @@ function PlanCard({ plan, isSelected, onSelect, formatPrice }) {
     </Card>
   );
 }
-

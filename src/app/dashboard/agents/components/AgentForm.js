@@ -681,13 +681,14 @@ export default function AgentForm({
   const buildPayload = () => {
     const selectedTools = TOOL_IDS.filter((toolId) => values.tools[toolId]);
     const legacySelected = resolveLegacyKeysForSelection(selectedTools);
+    const combinedTools = Array.from(
+      new Set([...selectedTools, ...legacySelected])
+    );
 
-    const googleTools = Array.from(
-      new Set(
-        [...selectedTools, ...legacySelected].filter((toolId) =>
-          toolId.startsWith("google_") || toolId.startsWith("gmail")
-        )
-      )
+    const googleTools = combinedTools.filter(
+      (toolId) =>
+        toolId.startsWith("google_") ||
+        toolId.startsWith("gmail")
     );
 
     const selectedMcpTools = MCP_TOOL_IDS.filter(
@@ -696,7 +697,6 @@ export default function AgentForm({
 
     const payload = {
       name: values.name.trim(),
-      google_tools: googleTools,
       config: {
         llm_model: values.model,
         temperature: values.temperature,
@@ -706,6 +706,11 @@ export default function AgentForm({
           values.reasoningStrategy || DEFAULT_VALUES.reasoningStrategy,
         system_prompt: values.systemPrompt.trim(),
       },
+      tools: combinedTools,
+      allowed_tools: Array.from(
+        new Set([...lockedToolsRef.current, ...combinedTools])
+      ),
+      google_tools: Array.from(new Set(googleTools)),
     };
 
     const mcpServerUrl =
