@@ -239,6 +239,17 @@ const AgentCard = ({
       'google_calendar_create_event': Calendar,
       'google_calendar_list_events': Calendar,
       'google_calendar_get_event': Calendar,
+      'google_sheets': FileText,
+      'google_sheets_get_values': FileText,
+      'google_sheets_update_values': FileText,
+      'google_sheets_create_spreadsheet': FileText,
+      'google_sheets_list_spreadsheets': FileText,
+      'google_docs': FileText,
+      'google_docs_list_documents': FileText,
+      'google_docs_get_document': FileText,
+      'google_docs_create_document': FileText,
+      'google_docs_append_text': FileText,
+      'google_docs_delete_document': FileText,
       'web_search': SearchIcon,
       'docx_generate': FileText,
       'deep_research': SearchIcon,
@@ -279,13 +290,21 @@ const AgentCard = ({
   // Create unique capabilities with icons
   const uniqueCapabilities: Array<{ id: string; icon: any; name: string }> = [];
 
+  const googleTools = agent?.google_tools || [];
+
   // Add Gmail if any Gmail tool is enabled
-  if (agent?.allowed_tools?.some(tool => tool.toLowerCase().includes('gmail'))) {
+  if (
+    googleTools.some(tool => tool.toLowerCase().includes('gmail')) ||
+    agent?.allowed_tools?.some(tool => tool.toLowerCase().includes('gmail'))
+  ) {
     uniqueCapabilities.push({ id: 'gmail', icon: Mail, name: 'Gmail' });
   }
 
   // Add Calendar if any Calendar tool is enabled
-  if (agent?.allowed_tools?.some(tool => tool.toLowerCase().includes('calendar'))) {
+  if (
+    googleTools.some(tool => tool.toLowerCase().includes('calendar')) ||
+    agent?.allowed_tools?.some(tool => tool.toLowerCase().includes('calendar'))
+  ) {
     uniqueCapabilities.push({ id: 'calendar', icon: Calendar, name: 'Calendar' });
   }
 
@@ -293,7 +312,13 @@ const AgentCard = ({
   uniqueCapabilities.push({ id: 'whatsapp', icon: MessageCircle, name: 'WhatsApp' });
 
   // Add other MCP tools
-  agent?.allowed_tools?.forEach(tool => {
+  const capabilitySources = [
+    ...(googleTools || []),
+    ...(agent?.allowed_tools || []),
+    ...(agent?.mcp_tools || []),
+  ];
+
+  capabilitySources.forEach(tool => {
     const toolLower = tool.toLowerCase();
     if (!toolLower.includes('gmail') && !toolLower.includes('calendar') && !toolLower.includes('whatsapp')) {
       const icon = getCapabilityIcon(tool);

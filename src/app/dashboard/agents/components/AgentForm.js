@@ -4,7 +4,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AgentFormTour from "@/components/ui/AgentFormTour";
 import mcpTools from "@/data/mcp-tools.json";
-import { Lock, Mail, Calendar, X, Check, ChevronRight } from "lucide-react";
+import {
+  Lock,
+  Mail,
+  Calendar,
+  X,
+  Check,
+  ChevronRight,
+  FileSpreadsheet,
+  FileText,
+} from "lucide-react";
 
 export const TOOL_OPTIONS = [
   {
@@ -62,6 +71,66 @@ export const TOOL_OPTIONS = [
     description:
       "Retrieve a specific event from the connected Google Calendar.",
   },
+  {
+    id: "google_sheets",
+    label: "Google Sheets (All Actions)",
+    description: "Enable all Google Sheets actions with a single toggle.",
+  },
+  {
+    id: "google_sheets_get_values",
+    label: "Google Sheets - Get Values",
+    description: "Read values from a sheet range.",
+  },
+  {
+    id: "google_sheets_update_values",
+    label: "Google Sheets - Update Values",
+    description: "Write/update values in a sheet range.",
+  },
+  {
+    id: "google_sheets_create_spreadsheet",
+    label: "Google Sheets - Create Spreadsheet",
+    description: "Create a new spreadsheet in Google Drive.",
+  },
+  {
+    id: "google_sheets_list_spreadsheets",
+    label: "Google Sheets - List Spreadsheets",
+    description: "List spreadsheets available to the connected account.",
+  },
+  {
+    id: "google_docs",
+    label: "Google Docs (All Actions)",
+    description: "Enable all Google Docs actions with a single toggle.",
+  },
+  {
+    id: "google_docs_list_documents",
+    label: "Google Docs - List Documents",
+    description: "List Google Docs files available to the account.",
+  },
+  {
+    id: "google_docs_get_document",
+    label: "Google Docs - Get Document",
+    description: "Retrieve a specific Google Doc content.",
+  },
+  {
+    id: "google_docs_create_document",
+    label: "Google Docs - Create Document",
+    description: "Create a new Google Doc file.",
+  },
+  {
+    id: "google_docs_append_text",
+    label: "Google Docs - Append Text",
+    description: "Append text to an existing Google Doc.",
+  },
+  {
+    id: "google_docs_update_text",
+    label: "Google Docs - Update Text",
+    description: "Update/replace text inside a Google Doc.",
+  },
+  {
+    id: "google_docs_delete_document",
+    label: "Google Docs - Delete Document",
+    description: "Delete a Google Doc (drive.file scope).",
+  },
 ];
 
 const TOOL_IDS = TOOL_OPTIONS.map((tool) => tool.id);
@@ -110,6 +179,9 @@ const LEGACY_TOOL_ALIASES = {
   ),
   google_sheets: TOOL_IDS.filter(
     (toolId) => toolId.startsWith("google_sheets") && toolId !== "google_sheets"
+  ),
+  google_docs: TOOL_IDS.filter(
+    (toolId) => toolId.startsWith("google_docs") && toolId !== "google_docs"
   ),
 };
 
@@ -368,6 +440,241 @@ const CalendarToolsPopup = ({ isOpen, onClose, values, onSave }) => {
   );
 };
 
+const SheetsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
+  if (!isOpen) return null;
+
+  const sheetsTools = [
+    {
+      id: "google_sheets_get_values",
+      label: "Get Values",
+      description: "Baca nilai dari rentang sheet",
+      icon: FileSpreadsheet,
+    },
+    {
+      id: "google_sheets_update_values",
+      label: "Update Values",
+      description: "Tulis atau update nilai di sheet",
+      icon: FileSpreadsheet,
+    },
+    {
+      id: "google_sheets_create_spreadsheet",
+      label: "Create Spreadsheet",
+      description: "Buat spreadsheet baru",
+      icon: FileSpreadsheet,
+    },
+    {
+      id: "google_sheets_list_spreadsheets",
+      label: "List Spreadsheets",
+      description: "Lihat daftar spreadsheet",
+      icon: FileSpreadsheet,
+    },
+  ];
+
+  const handleToggle = (toolId) => {
+    const event = { target: { checked: !values.tools[toolId] } };
+    onSave(toolId, event);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center">
+              <FileSpreadsheet className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Sheets Tools</h3>
+              <p className="text-sm text-muted">Pilih aksi Google Sheets</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-surface hover:bg-surface-strong/60 flex items-center justify-center transition-colors"
+          >
+            <X className="h-4 w-4 text-muted" />
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {sheetsTools.map((tool) => {
+            const Icon = tool.icon;
+            const isEnabled = values.tools[tool.id];
+            return (
+              <div
+                key={tool.id}
+                onClick={() => handleToggle(tool.id)}
+                className={`
+                  flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all
+                  ${isEnabled
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className={`
+                  w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors
+                  ${isEnabled
+                    ? 'border-accent bg-accent'
+                    : 'border-surface-strong/60'
+                  }
+                `}>
+                  {isEnabled && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-surface-strong/60 flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-muted" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-foreground">{tool.label}</div>
+                  <div className="text-sm text-muted">{tool.description}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition-colors"
+          >
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DocsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
+  if (!isOpen) return null;
+
+  const docsTools = [
+    {
+      id: "google_docs_list_documents",
+      label: "List Documents",
+      description: "Lihat daftar dokumen Google Docs",
+      icon: FileText,
+    },
+    {
+      id: "google_docs_get_document",
+      label: "Get Document",
+      description: "Ambil konten dokumen",
+      icon: FileText,
+    },
+    {
+      id: "google_docs_create_document",
+      label: "Create Document",
+      description: "Buat dokumen baru",
+      icon: FileText,
+    },
+    {
+      id: "google_docs_append_text",
+      label: "Append Text",
+      description: "Tambahkan teks ke dokumen",
+      icon: FileText,
+    },
+    {
+      id: "google_docs_update_text",
+      label: "Update Text",
+      description: "Perbarui teks di dokumen",
+      icon: FileText,
+    },
+    {
+      id: "google_docs_delete_document",
+      label: "Delete Document",
+      description: "Hapus dokumen (drive.file)",
+      icon: FileText,
+    },
+  ];
+
+  const handleToggle = (toolId) => {
+    const event = { target: { checked: !values.tools[toolId] } };
+    onSave(toolId, event);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+      <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-violet-500 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Docs Tools</h3>
+              <p className="text-sm text-muted">Pilih aksi Google Docs</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-surface hover:bg-surface-strong/60 flex items-center justify-center transition-colors"
+          >
+            <X className="h-4 w-4 text-muted" />
+          </button>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {docsTools.map((tool) => {
+            const Icon = tool.icon;
+            const isEnabled = values.tools[tool.id];
+            return (
+              <div
+                key={tool.id}
+                onClick={() => handleToggle(tool.id)}
+                className={`
+                  flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all
+                  ${isEnabled
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className={`
+                  w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors
+                  ${isEnabled
+                    ? 'border-accent bg-accent'
+                    : 'border-surface-strong/60'
+                  }
+                `}>
+                  {isEnabled && <Check className="h-3 w-3 text-white" />}
+                </div>
+                <div className="w-10 h-10 rounded-lg bg-surface-strong/60 flex items-center justify-center">
+                  <Icon className="h-5 w-5 text-muted" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-foreground">{tool.label}</div>
+                  <div className="text-sm text-muted">{tool.description}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition-colors"
+          >
+            Simpan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 const DEFAULT_VALUES = {
   name: "",
   tools: createDefaultToolState(),
@@ -393,8 +700,12 @@ function mapInitialValues(input) {
 
   const normalizedToolsArraySource = Array.isArray(input.tools)
     ? input.tools
+    : Array.isArray(input.google_tools)
+    ? input.google_tools
     : Array.isArray(input.allowed_tools)
     ? input.allowed_tools
+    : Array.isArray(input.config?.google_tools)
+    ? input.config.google_tools
     : [];
 
   const normalizedToolsArray = normalizedToolsArraySource
@@ -405,8 +716,12 @@ function mapInitialValues(input) {
   expandLegacySelections(arraySet);
 
   const allowedSet = new Set(
-    Array.isArray(input.allowed_tools)
+    Array.isArray(input.google_tools)
+      ? input.google_tools.filter((item) => typeof item === "string").map((item) => item.trim())
+      : Array.isArray(input.allowed_tools)
       ? input.allowed_tools.filter((item) => typeof item === "string").map((item) => item.trim())
+      : Array.isArray(input.config?.google_tools)
+      ? input.config.google_tools.filter((item) => typeof item === "string").map((item) => item.trim())
       : []
   );
   expandLegacySelections(allowedSet);
@@ -518,6 +833,8 @@ export default function AgentForm({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showGmailPopup, setShowGmailPopup] = useState(false);
   const [showCalendarPopup, setShowCalendarPopup] = useState(false);
+  const [showSheetsPopup, setShowSheetsPopup] = useState(false);
+  const [showDocsPopup, setShowDocsPopup] = useState(false);
   const router = useRouter();
 
   const submitLabel = useMemo(() => {
@@ -693,7 +1010,11 @@ export default function AgentForm({
 
     const selectedMcpTools = MCP_TOOL_IDS.filter(
       (toolId) => values.mcpTools?.[toolId]
-    );
+    ).filter((toolId) => {
+      const lower = toolId.toLowerCase();
+      // Prevent Google tool IDs from leaking into MCP list
+      return !lower.includes("google") && !lower.includes("gmail");
+    });
 
     const payload = {
       name: values.name.trim(),
@@ -707,9 +1028,6 @@ export default function AgentForm({
         system_prompt: values.systemPrompt.trim(),
       },
       tools: combinedTools,
-      allowed_tools: Array.from(
-        new Set([...lockedToolsRef.current, ...combinedTools])
-      ),
       google_tools: Array.from(new Set(googleTools)),
     };
 
@@ -846,8 +1164,81 @@ export default function AgentForm({
                 {(values.tools.google_calendar || values.tools.google_calendar_create_event || values.tools.google_calendar_list_events || values.tools.google_calendar_get_event) && (
                   <div className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"></div>
                 )}
+            </div>
+            <div className="grid md:grid-cols-2 gap-4 mt-4">
+              {/* Sheets Card */}
+              <div
+                onClick={() => setShowSheetsPopup(true)}
+                className={`
+                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
+                  ${Object.keys(values.tools).filter(id => id.startsWith('google_sheets')).some(id => values.tools[id])
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
+                    <FileSpreadsheet className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground">Google Sheets</h3>
+                    <p className="text-sm text-muted">Baca & tulis spreadsheet</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted" />
+                </div>
+                {Object.keys(values.tools).filter(id => id.startsWith('google_sheets')).some(id => values.tools[id]) && (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                    {(() => {
+                      const selected = Object.keys(values.tools).filter(
+                        id => id.startsWith('google_sheets') && values.tools[id]
+                      );
+                      const parts = [];
+                      const sheetsCount = selected.length;
+                      if (sheetsCount > 0) parts.push(`${sheetsCount} Sheets tools`);
+                      return parts.join(" • ");
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Docs Card */}
+              <div
+                onClick={() => setShowDocsPopup(true)}
+                className={`
+                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
+                  ${Object.keys(values.tools).filter(id => id.startsWith('google_docs')).some(id => values.tools[id])
+                    ? 'border-accent bg-accent/5'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-foreground">Google Docs</h3>
+                    <p className="text-sm text-muted">Kelola dokumen</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted" />
+                </div>
+                {Object.keys(values.tools).filter(id => id.startsWith('google_docs')).some(id => values.tools[id]) && (
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
+                    {(() => {
+                      const selected = Object.keys(values.tools).filter(
+                        id => id.startsWith('google_docs') && values.tools[id]
+                      );
+                      const parts = [];
+                      const docsCount = selected.length;
+                      if (docsCount > 0) parts.push(`${docsCount} Docs tools`);
+                      return parts.join(" • ");
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
+          </div>
 
             {/* Selected tools summary */}
             <div className="mt-4 p-3 rounded-lg bg-surface/50 border border-surface-strong/30">
@@ -1024,7 +1415,23 @@ export default function AgentForm({
         isOpen={showCalendarPopup}
         onClose={() => setShowCalendarPopup(false)}
         values={values}
-        onSave={toggleGmailTool}
+        onSave={toggleTool}
+      />
+
+      {/* Sheets Tools Popup */}
+      <SheetsToolsPopup
+        isOpen={showSheetsPopup}
+        onClose={() => setShowSheetsPopup(false)}
+        values={values}
+        onSave={toggleTool}
+      />
+
+      {/* Docs Tools Popup */}
+      <DocsToolsPopup
+        isOpen={showDocsPopup}
+        onClose={() => setShowDocsPopup(false)}
+        values={values}
+        onSave={toggleTool}
       />
     </form>
   );

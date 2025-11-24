@@ -204,6 +204,11 @@ Successful responses mirror the standard API key payload with `plan_code` set to
   ```
 
   Initiates Google OAuth **per agent** (not per account). You must include `agent_id` and run this flow for every new agent that needs Gmail/Calendar access. The response includes `auth_url` + `auth_state`; open the URL to continue the OAuth flow.
+
+  - Set the agent’s Google capabilities in `google_tools` when creating/updating the agent; the backend derives the required scopes from that list and passes them to `/auth/google`.
+  - `mcp_tools` are sent in the same create/update payload (see below) and are unrelated to Google OAuth.
+  - `allowed_tools` is no longer used—omit it. Do not place any `gmail_*` or `google_*` IDs in `mcp_tools`; keep them in `google_tools` only.
+  - Scope mapping reference: see `src/data/google_scope_tools.json` for the exact OAuth scopes per Google tool. The backend should load the same mapping (GOOGLE_TOOL_SCOPE_MAP) to build the `scopes` array when calling `/auth/google`.
   Trigger this immediately after creating the agent (use its returned `id`). Use `/auth/refresh-status-google` only to poll status **after** `/auth/google` has been called for that agent.
 
   **Note:** The system automatically handles scope changes from Google. When requesting `drive.file` scope, Google may add broader Drive scopes (`drive`, `drive.photos.readonly`, `drive.appdata`) which are accepted as long as all requested scopes are granted.
@@ -279,6 +284,10 @@ Successful responses mirror the standard API key payload with `plan_code` set to
 
   The response payload includes the stored MCP configuration. You can confirm the tools are available by running an execution that prompts the model to call one of the MCP tools (e.g., a calculator request) and checking the execution logs for tool usage.
 
+## Google Tool Scopes (reference)
+
+See `src/data/google_scope_tools.json` for the authoritative list of OAuth scopes per Google Workspace tool. Backend implementations should use this map (`GOOGLE_TOOL_SCOPE_MAP`) to derive the scopes sent to `/auth/google`, ensuring only the minimum required permissions are requested.
+
 - **PUT /{agent_id}** update agent details
 
   ```bash
@@ -286,16 +295,16 @@ Successful responses mirror the standard API key payload with `plan_code` set to
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
     -d '{
-          "name": "Research Assistant v2",
+          "name": "Updated Email Assistant",
           "config": {
             "system_prompt": "Keep conversations concise and always cite sources."
           },
-          "allowed_tools": ["web_search", "calculator"],
-          "tools": ["web_search", "calculator"]
+          "mcp_tools": ["web_search", "web_fetch", "pdf_generate", "docx_generate", "deep_research", "send_reminder", "send_messages"],
+          "google_tools": ["gmail_get_message", "google_calendar_list_events"]
         }'
   ```
 
-  All fields are optional—omit anything you do not want to change. Providing only `config.system_prompt` updates the system message without resetting other LLM settings. `allowed_tools` controls which MCP/remote tools an agent may call at runtime, while `tools` updates the core LangChain tool list.
+  All fields are optional—omit anything you do not want to change. `mcp_tools` sets which MCP/remote tools the agent can call; `google_tools` triggers per‑agent Google OAuth scopes (run `/auth/google` after adding or changing these). Providing only `config.system_prompt` updates the prompt without touching other settings.
 
   If you want every agent to access tools hosted on your FastMCP server, declare the following environment variables before starting the API (see `mcp-server.md`). Streamable HTTP is preferred, with SSE as an optional fallback:
 
@@ -333,6 +342,7 @@ Successful responses mirror the standard API key payload with `plan_code` set to
     -d '{
           "name": "Research Assistant (MCP)",
           "tools": ["gmail"],
+          "google_tools": ["gmail_get_message", "google_calendar_list_events"],
           "config": {
             "llm_model": "gpt-4o-mini",
             "temperature": 0.5,
@@ -345,7 +355,7 @@ Successful responses mirror the standard API key payload with `plan_code` set to
               "headers": {"Authorization": "Bearer jango"}
             }
           },
-          "allowed_tools": ["web_search", "web_fetch", "pdf_generate", "docx_generate", "deep_research", "google_calendar", "send_reminder", "send_messages"]
+          "mcp_tools": ["web_search", "web_fetch", "pdf_generate", "docx_generate", "deep_research"]
         }'
   ```
 

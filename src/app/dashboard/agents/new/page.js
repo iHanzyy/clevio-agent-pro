@@ -8,8 +8,23 @@ import { apiService } from "@/lib/api";
 import AgentForm from "../components/AgentForm";
 import { ArrowLeft, Bot, Sparkles, Info } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import GOOGLE_SCOPE_MAP from "@/data/google_scope_tools.json";
 
 const FALLBACK_GOOGLE_SCOPE = "https://www.googleapis.com/auth/gmail.readonly";
+
+const collectScopesFromMap = (toolIds = []) => {
+  const scopes = new Set();
+  (toolIds || []).forEach((toolId) => {
+    const normalized =
+      typeof toolId === "string" ? toolId.trim().toLowerCase() : "";
+    if (!normalized) return;
+    const mapped = GOOGLE_SCOPE_MAP?.[normalized];
+    if (Array.isArray(mapped)) {
+      mapped.forEach((scope) => scope && scopes.add(scope));
+    }
+  });
+  return Array.from(scopes);
+};
 
 export default function NewAgentPage() {
   const router = useRouter();
@@ -161,14 +176,17 @@ export default function NewAgentPage() {
           : [];
 
       if (googleTools.length > 0) {
-        let scopes = [];
-        try {
-          const scopesResp = await apiService.getRequiredToolScopes(googleTools);
-          if (Array.isArray(scopesResp?.scopes) && scopesResp.scopes.length > 0) {
-            scopes = scopesResp.scopes;
+        let scopes = collectScopesFromMap(googleTools);
+
+        if (scopes.length === 0) {
+          try {
+            const scopesResp = await apiService.getRequiredToolScopes(googleTools);
+            if (Array.isArray(scopesResp?.scopes) && scopesResp.scopes.length > 0) {
+              scopes = scopesResp.scopes;
+            }
+          } catch (error) {
+            console.warn("Failed to fetch required Google scopes", error);
           }
-        } catch (error) {
-          console.warn("Failed to fetch required Google scopes", error);
         }
 
         if (scopes.length === 0) {

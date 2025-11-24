@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import GOOGLE_SCOPE_MAP from "@/data/google_scope_tools.json";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import { apiService } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -128,6 +129,21 @@ const EMPTY_WHATSAPP_SESSION = {
   raw: null,
 };
 
+const collectScopesFromMap = (toolIds = []) => {
+  const scopes = new Set();
+  (toolIds || []).forEach((toolId) => {
+    const normalized = normalizeToolId(toolId);
+    if (!normalized) return;
+    const mapped = GOOGLE_SCOPE_MAP?.[normalized];
+    if (Array.isArray(mapped)) {
+      mapped.forEach((scope) => {
+        if (scope) scopes.add(scope);
+      });
+    }
+  });
+  return Array.from(scopes);
+};
+
 export default function AgentDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -174,10 +190,11 @@ export default function AgentDetailPage() {
   const qrPollAbortRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
   const whatsAppQrUserClosedRef = useRef(false);
-  const qrFlowAbortRef = useRef(null);
-  const qrPreparationTimerRef = useRef(null);
-  const qrExpiryTimerRef = useRef(null);
-  const autoGooglePromptShownRef = useRef(false);
+const qrFlowAbortRef = useRef(null);
+const qrPreparationTimerRef = useRef(null);
+const qrExpiryTimerRef = useRef(null);
+const autoGooglePromptShownRef = useRef(false);
+const autoGoogleFirstLoadRef = useRef(false);
 
   const queryAuthUrl = searchParams?.get("authUrl") || null;
   const queryAuthState = searchParams?.get("authState") || null;
@@ -379,6 +396,8 @@ export default function AgentDetailPage() {
     addFrom(agent?.allowedTools);
     addFrom(agent?.google_tools);
     addFrom(agent?.config?.google_tools);
+    addFrom(agent?.mcp_tools); // fallback if backend mislabels Google tools
+    addFrom(agent?.config?.mcp_tools);
     addFrom(agent?.config?.allowed_tools);
 
     return collected;
@@ -666,18 +685,19 @@ export default function AgentDetailPage() {
   ]);
 
   const openGoogleConnectModal = useCallback(() => {
-    if (!requiresGoogleAuth || isTrialPlan) {
-      return;
-    }
+    const hasAuthPending = googleAuthInfo?.status === "pending" || !!googleAuthInfo?.authUrl;
+    if (isTrialPlan) return;
+    // Always allow manual open; we'll show error message inside if truly not needed
     setConfirmSkipGoogleConnect(false);
     setShowGoogleConnectModal(true);
     if (!googleAuthConnected) {
       void checkGoogleAuthStatus();
     }
   }, [
-    requiresGoogleAuth,
     isTrialPlan,
     googleAuthConnected,
+    googleAuthInfo?.status,
+    googleAuthInfo?.authUrl,
     checkGoogleAuthStatus,
   ]);
 
@@ -699,13 +719,12 @@ export default function AgentDetailPage() {
     );
     if (
       pendingAgentId &&
-      pendingAgentId === agent.id.toString() &&
-      requiresGoogleAuth
+      pendingAgentId === agent.id.toString()
     ) {
       window.sessionStorage.removeItem(GOOGLE_CONNECT_PROMPT_KEY);
       openGoogleConnectModal();
     }
-  }, [agent?.id, requiresGoogleAuth, isTrialPlan, openGoogleConnectModal]);
+  }, [agent?.id, isTrialPlan, openGoogleConnectModal]);
 
   useEffect(() => {
     if (
@@ -725,6 +744,27 @@ export default function AgentDetailPage() {
     openGoogleConnectModal,
   ]);
 
+  // Fallback: if agent has Google tools but no authUrl yet, still open modal once.
+  useEffect(() => {
+    if (
+      autoGoogleFirstLoadRef.current ||
+      isTrialPlan ||
+      googleAuthConnected ||
+      !requiresGoogleAuth ||
+      !agent?.id
+    ) {
+      return;
+    }
+    autoGoogleFirstLoadRef.current = true;
+    openGoogleConnectModal();
+  }, [
+    agent?.id,
+    requiresGoogleAuth,
+    isTrialPlan,
+    googleAuthConnected,
+    openGoogleConnectModal,
+  ]);
+
   useEffect(() => {
     if (googleAuthConnected && showGoogleConnectModal) {
       closeGoogleConnectModal();
@@ -735,13 +775,15 @@ export default function AgentDetailPage() {
   }, [googleAuthConnected, showGoogleConnectModal, closeGoogleConnectModal]);
 
   const fetchRequiredGoogleScopes = useCallback(async () => {
-    if (!requiresGoogleAuth) {
-      return [];
-    }
-
     const uniqueTools = Array.from(new Set(googleToolIds));
     if (!uniqueTools.length) {
       return [DEFAULT_GMAIL_SCOPE];
+    }
+
+    // Local mapping first
+    const mappedScopes = collectScopesFromMap(uniqueTools);
+    if (mappedScopes.length > 0) {
+      return mappedScopes;
     }
 
     try {
@@ -761,7 +803,7 @@ export default function AgentDetailPage() {
   }, [requiresGoogleAuth, googleToolIds]);
 
   const handleGoogleConnectNow = useCallback(async () => {
-    if (!agent?.id || (!requiresGoogleAuth && !googleAuthConnected)) {
+    if (!agent?.id) {
       return;
     }
 
@@ -1544,11 +1586,7 @@ export default function AgentDetailPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <Button
                     onClick={openGoogleConnectModal}
-                    disabled={
-                      googleAuthChecking ||
-                      googleAuthStarting ||
-                      (!requiresGoogleAuth && !googleAuthConnected)
-                    }
+                    disabled={googleAuthChecking || googleAuthStarting}
                     className={cn(
                       "text-white shadow-lg",
                       googleAuthConnected
@@ -1579,10 +1617,7 @@ export default function AgentDetailPage() {
                       setGoogleAuthPollingEnabled(true);
                       void checkGoogleAuthStatus();
                     }}
-                    disabled={
-                      googleAuthChecking ||
-                      (!requiresGoogleAuth && !googleAuthConnected)
-                    }
+                    disabled={googleAuthChecking}
                     variant="outline"
                     size="sm"
                   >

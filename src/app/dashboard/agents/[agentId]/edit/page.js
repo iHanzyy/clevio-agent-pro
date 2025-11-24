@@ -17,21 +17,60 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import GOOGLE_SCOPE_MAP from "@/data/google_scope_tools.json";
+
+const collectScopesFromMap = (toolIds = []) => {
+  const scopes = new Set();
+  (toolIds || []).forEach((toolId) => {
+    const normalized =
+      typeof toolId === "string" ? toolId.trim().toLowerCase() : "";
+    if (!normalized) return;
+    const mapped = GOOGLE_SCOPE_MAP?.[normalized];
+    if (Array.isArray(mapped)) {
+      mapped.forEach((scope) => scope && scopes.add(scope));
+    }
+  });
+  return Array.from(scopes);
+};
 
 const mapAgentToInitialValues = (agent) => {
   if (!agent) return null;
 
-  const normalizedTools =
-    agent.tools &&
-    typeof agent.tools === "object" &&
-    !Array.isArray(agent.tools)
-      ? agent.tools
-      : {};
-  const mcpTools = Array.isArray(agent.mcp_tools) ? agent.mcp_tools : [];
+  const toolSet = new Set();
+  const addArray = (arr) => {
+    (arr || []).forEach((t) => {
+      if (typeof t === "string") toolSet.add(t.trim());
+    });
+  };
+  const addObject = (obj) => {
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      Object.entries(obj).forEach(([k, v]) => {
+        if (v && typeof k === "string") toolSet.add(k.trim());
+      });
+    }
+  };
+
+  addArray(agent.tools);
+  addObject(agent.tools);
+  addArray(agent.allowed_tools);
+  addArray(agent.google_tools);
+  addArray(agent.config?.google_tools);
+
+  const mcpTools = Array.isArray(agent.mcp_tools)
+    ? agent.mcp_tools
+    : Array.isArray(agent.config?.mcp_tools)
+    ? agent.config.mcp_tools
+    : [];
+  const googleTools = Array.isArray(agent.google_tools)
+    ? agent.google_tools
+    : Array.isArray(agent.config?.google_tools)
+    ? agent.config.google_tools
+    : [];
 
   return {
     name: agent.name ?? "",
-    tools: normalizedTools,
+    tools: Array.from(toolSet),
+    google_tools: googleTools,
     mcp_tools: mcpTools,
     systemPrompt:
       agent.config?.system_message ?? agent.config?.system_prompt ?? "",
@@ -103,16 +142,47 @@ export default function EditAgentPage() {
 
     setIsSubmitting(true);
     try {
-      const updated = await apiService.updateAgent(
-        params.agentId,
-        payload
-      );
+      const updated = await apiService.updateAgent(params.agentId, payload);
+
+      let authUrl = updated?.auth_url || null;
+      let authState = updated?.auth_state || null;
+
+      // If google tools selected, kick off auth
+      const googleTools =
+        Array.isArray(payload?.google_tools) && payload.google_tools.length > 0
+          ? payload.google_tools
+          : Array.isArray(updated?.google_tools) && updated.google_tools.length > 0
+          ? updated.google_tools
+          : [];
+
+      if (googleTools.length > 0) {
+        try {
+          let scopes = collectScopesFromMap(googleTools);
+          if (scopes.length === 0) {
+            const scopesResp = await apiService.getRequiredToolScopes(googleTools);
+            if (Array.isArray(scopesResp?.scopes) && scopesResp.scopes.length > 0) {
+              scopes = scopesResp.scopes;
+            }
+          }
+          if (scopes.length === 0) {
+            scopes = ["https://www.googleapis.com/auth/gmail.readonly"];
+          }
+          const googleAuth = await apiService.startGoogleAuth(scopes, updated.id);
+          authUrl = googleAuth?.auth_url || googleAuth?.authUrl || authUrl;
+          authState = googleAuth?.auth_state || googleAuth?.authState || authState;
+          if (typeof window !== "undefined") {
+            window.sessionStorage.setItem("pendingGoogleConnectAgent", updated.id.toString());
+          }
+        } catch (error) {
+          console.error("Failed to initiate Google OAuth on update", error);
+        }
+      }
 
       const paramsSearch = new URLSearchParams();
-      if (updated?.auth_required && updated?.auth_url) {
-        paramsSearch.set("authUrl", updated.auth_url);
-        if (updated.auth_state) {
-          paramsSearch.set("authState", updated.auth_state);
+      if (authUrl) {
+        paramsSearch.set("authUrl", authUrl);
+        if (authState) {
+          paramsSearch.set("authState", authState);
         }
       }
 
