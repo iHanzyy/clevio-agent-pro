@@ -420,15 +420,16 @@ const autoGoogleFirstLoadRef = useRef(false);
     : [];
   const googleAuthPrimaryToken =
     googleAuthTokens.length > 0 ? googleAuthTokens[0] : null;
-  const googleGrantedScopes = Array.isArray(googleAuthInfo.grantedScopes)
-    ? googleAuthInfo.grantedScopes
-    : [];
   const googleToolSummary = useMemo(() => {
     const labels = googleToolIds.map(formatGoogleToolLabel);
     return Array.from(new Set(labels)).join(", ");
   }, [googleToolIds]);
 
   const googleGrantedScopesDisplay = useMemo(() => {
+    const googleGrantedScopes = Array.isArray(googleAuthInfo.grantedScopes)
+      ? googleAuthInfo.grantedScopes
+      : [];
+
     const items = [];
     const pushUnique = (key, label, Icon) => {
       if (!items.some((entry) => entry.key === key)) {
@@ -465,7 +466,7 @@ const autoGoogleFirstLoadRef = useRef(false);
     });
 
     return items;
-  }, [googleGrantedScopes]);
+  }, [googleAuthInfo.grantedScopes]);
 
   const clearGoogleAuthPoll = useCallback(() => {
     if (googleAuthPollRef.current) {
@@ -800,7 +801,7 @@ const autoGoogleFirstLoadRef = useRef(false);
       fallback.add(DEFAULT_CALENDAR_SCOPE);
     }
     return Array.from(fallback);
-  }, [requiresGoogleAuth, googleToolIds]);
+  }, [googleToolIds]);
 
   const handleGoogleConnectNow = useCallback(async () => {
     if (!agent?.id) {
@@ -851,8 +852,6 @@ const autoGoogleFirstLoadRef = useRef(false);
     }
   }, [
     agent?.id,
-    requiresGoogleAuth,
-    googleAuthConnected,
     googleAuthUrl,
     googleAuthStarting,
     fetchRequiredGoogleScopes,

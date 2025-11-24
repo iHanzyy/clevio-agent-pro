@@ -48,8 +48,11 @@ interface Agent {
   config?: {
     system_message?: string
     system_prompt?: string
+    google_tools?: string[]
   }
   allowed_tools?: string[]
+  google_tools?: string[]
+  mcp_tools?: string[]
 }
 
 
