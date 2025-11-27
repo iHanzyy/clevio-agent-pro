@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AgentFormTour from "@/components/ui/AgentFormTour";
 import mcpTools from "@/data/mcp-tools.json";
+import { normalizeGoogleTools } from "@/lib/googleToolsNormalizer";
 import {
   Lock,
   Mail,
@@ -448,26 +449,26 @@ const SheetsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
       id: "google_sheets_get_values",
       label: "Get Values",
       description: "Baca nilai dari rentang sheet",
-      icon: FileSpreadsheet,
+      icon: FileSpreadsheet
     },
     {
       id: "google_sheets_update_values",
       label: "Update Values",
       description: "Tulis atau update nilai di sheet",
-      icon: FileSpreadsheet,
+      icon: FileSpreadsheet
     },
     {
       id: "google_sheets_create_spreadsheet",
       label: "Create Spreadsheet",
       description: "Buat spreadsheet baru",
-      icon: FileSpreadsheet,
+      icon: FileSpreadsheet
     },
     {
       id: "google_sheets_list_spreadsheets",
       label: "List Spreadsheets",
       description: "Lihat daftar spreadsheet",
-      icon: FileSpreadsheet,
-    },
+      icon: FileSpreadsheet
+    }
   ];
 
   const handleToggle = (toolId) => {
@@ -478,6 +479,7 @@ const SheetsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center">
@@ -496,10 +498,12 @@ const SheetsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
           </button>
         </div>
 
+        {/* Tools List */}
         <div className="space-y-3 mb-6">
           {sheetsTools.map((tool) => {
             const Icon = tool.icon;
             const isEnabled = values.tools[tool.id];
+
             return (
               <div
                 key={tool.id}
@@ -533,6 +537,7 @@ const SheetsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
           })}
         </div>
 
+        {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={onClose}
@@ -560,38 +565,38 @@ const DocsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
       id: "google_docs_list_documents",
       label: "List Documents",
       description: "Lihat daftar dokumen Google Docs",
-      icon: FileText,
+      icon: FileText
     },
     {
       id: "google_docs_get_document",
       label: "Get Document",
       description: "Ambil konten dokumen",
-      icon: FileText,
+      icon: FileText
     },
     {
       id: "google_docs_create_document",
       label: "Create Document",
       description: "Buat dokumen baru",
-      icon: FileText,
+      icon: FileText
     },
     {
       id: "google_docs_append_text",
       label: "Append Text",
       description: "Tambahkan teks ke dokumen",
-      icon: FileText,
+      icon: FileText
     },
     {
       id: "google_docs_update_text",
       label: "Update Text",
       description: "Perbarui teks di dokumen",
-      icon: FileText,
+      icon: FileText
     },
     {
       id: "google_docs_delete_document",
       label: "Delete Document",
-      description: "Hapus dokumen (drive.file)",
-      icon: FileText,
-    },
+      description: "Hapus dokumen (drive.file scope)",
+      icon: FileText
+    }
   ];
 
   const handleToggle = (toolId) => {
@@ -602,9 +607,10 @@ const DocsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-violet-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
               <FileText className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -620,10 +626,12 @@ const DocsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
           </button>
         </div>
 
+        {/* Tools List */}
         <div className="space-y-3 mb-6">
           {docsTools.map((tool) => {
             const Icon = tool.icon;
             const isEnabled = values.tools[tool.id];
+
             return (
               <div
                 key={tool.id}
@@ -657,6 +665,7 @@ const DocsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
           })}
         </div>
 
+        {/* Actions */}
         <div className="flex gap-3">
           <button
             onClick={onClose}
@@ -675,6 +684,7 @@ const DocsToolsPopup = ({ isOpen, onClose, values, onSave }) => {
     </div>
   );
 };
+
 const DEFAULT_VALUES = {
   name: "",
   tools: createDefaultToolState(),
@@ -698,32 +708,21 @@ function mapInitialValues(input) {
     };
   }
 
-  const normalizedToolsArraySource = Array.isArray(input.tools)
-    ? input.tools
-    : Array.isArray(input.google_tools)
-    ? input.google_tools
-    : Array.isArray(input.allowed_tools)
-    ? input.allowed_tools
-    : Array.isArray(input.config?.google_tools)
-    ? input.config.google_tools
-    : [];
-
-  const normalizedToolsArray = normalizedToolsArraySource
-    .filter((item) => typeof item === "string")
-    .map((item) => item.trim());
+  const normalizedToolsArray = [
+    ...normalizeGoogleTools(input.tools),
+    ...normalizeGoogleTools(input.google_tools),
+    ...normalizeGoogleTools(input.allowed_tools),
+    ...normalizeGoogleTools(input.config?.google_tools),
+  ];
 
   const arraySet = new Set(normalizedToolsArray);
   expandLegacySelections(arraySet);
 
-  const allowedSet = new Set(
-    Array.isArray(input.google_tools)
-      ? input.google_tools.filter((item) => typeof item === "string").map((item) => item.trim())
-      : Array.isArray(input.allowed_tools)
-      ? input.allowed_tools.filter((item) => typeof item === "string").map((item) => item.trim())
-      : Array.isArray(input.config?.google_tools)
-      ? input.config.google_tools.filter((item) => typeof item === "string").map((item) => item.trim())
-      : []
-  );
+  const allowedSet = new Set([
+    ...normalizeGoogleTools(input.google_tools),
+    ...normalizeGoogleTools(input.allowed_tools),
+    ...normalizeGoogleTools(input.config?.google_tools),
+  ]);
   expandLegacySelections(allowedSet);
 
   const normalizedToolsObject =
@@ -845,7 +844,6 @@ export default function AgentForm({
     return "Create Agent";
   }, [mode, submitButtonLabel]);
 
-  // MOVE tourSteps ABOVE any hook that references it to avoid TDZ
   const tourSteps = useMemo(
     () => [
       {
@@ -868,7 +866,7 @@ export default function AgentForm({
         selector: '[data-tour="agent-prompt"]',
         title: "Fine-tune the system prompt",
         description:
-          "This prompt guides the agent’s tone, constraints, and decision-making. Refine the interview summary or write your own instructions.",
+          "This prompt guides the agent's tone, constraints, and decision-making. Refine the interview summary or write your own instructions.",
         hint: "Include guardrails, preferred voice, and escalation rules.",
         placement: "top-start",
       },
@@ -890,7 +888,6 @@ export default function AgentForm({
     let cancelled = false;
     let rafId;
 
-    // Open only after the first anchor exists and is laid out
     const firstSelector = tourSteps[0]?.selector || null;
 
     const waitForAnchor = () => {
@@ -927,6 +924,7 @@ export default function AgentForm({
       (tool) => !KNOWN_TOOL_IDS.has(tool)
     );
   }, [initialValues]);
+
   const lockedToolIds = useMemo(() => new Set(), []);
   const lockedMcpToolIds = useMemo(() => {
     const locked = new Set();
@@ -971,16 +969,6 @@ export default function AgentForm({
     }));
   };
 
-  const toggleGmailTool = (toolId) => {
-    setValues((prev) => ({
-      ...prev,
-      tools: {
-        ...prev.tools,
-        [toolId]: !prev.tools[toolId],
-      },
-    }));
-  };
-
   const validate = () => {
     const errors = {};
     if (!values.name.trim()) {
@@ -1012,7 +1000,6 @@ export default function AgentForm({
       (toolId) => values.mcpTools?.[toolId]
     ).filter((toolId) => {
       const lower = toolId.toLowerCase();
-      // Prevent Google tool IDs from leaking into MCP list
       return !lower.includes("google") && !lower.includes("gmail");
     });
 
@@ -1069,30 +1056,41 @@ export default function AgentForm({
     }
   };
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-8 bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-8"
-    >
-      <AgentFormTour
-        steps={tourSteps}
-        isOpen={isTourOpen}
-        onClose={handleTourClose}
-        onStepChange={onGuidedTourStepChange}
-      />
-      {serverError && (
-        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-          {serverError}
-        </div>
-      )}
+  const hasGmailTools = Object.keys(values.tools).filter(id => id.startsWith('gmail_')).some(id => values.tools[id]);
+  const hasCalendarTools = Object.keys(values.tools).filter(id => id.startsWith('google_calendar')).some(id => values.tools[id]);
+  const hasSheetsTools = Object.keys(values.tools).filter(id => id.startsWith('google_sheets')).some(id => values.tools[id]);
+  const hasDocsTools = Object.keys(values.tools).filter(id => id.startsWith('google_docs')).some(id => values.tools[id]);
 
-      <section>
-        <h2 className="text-xl font-semibold text-foreground mb-4">
-          Agent Basics
-        </h2>
-        <div className="space-y-4">
-          <div data-tour="agent-name">
-            <label className="block text-sm font-medium text-muted">
+  return (
+    <div className="w-full max-w-4xl mx-auto">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-8 bg-surface rounded-xl shadow-sm border border-surface-strong/60 p-6 md:p-8"
+      >
+        <AgentFormTour
+          steps={tourSteps}
+          isOpen={isTourOpen}
+          onClose={handleTourClose}
+          onStepChange={onGuidedTourStepChange}
+        />
+        {serverError && (
+          <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+            {serverError}
+          </div>
+        )}
+
+        <section className="space-y-6">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground mb-4">
+              Agent Basics
+            </h2>
+            <p className="text-sm text-muted mb-6">
+              Configure basic information and capabilities for your AI agent.
+            </p>
+          </div>
+
+          <div data-tour="agent-name" className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
               Agent Name
             </label>
             <input
@@ -1102,143 +1100,127 @@ export default function AgentForm({
                 setValues((prev) => ({ ...prev, name: event.target.value }))
               }
               placeholder="e.g. Inbox Concierge"
-              className="mt-1 w-full rounded-lg border border-surface-strong/60 bg-surface px-4 py-2 focus:outline-none focus:ring-2 focus:ring-accent"
+              className="w-full rounded-lg border border-surface-strong/60 bg-surface px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
             />
             {formErrors.name && (
-              <p className="mt-1 text-sm text-red-600">{formErrors.name}</p>
+              <p className="text-sm text-red-600">{formErrors.name}</p>
             )}
           </div>
 
-          <div data-tour="agent-tools">
-            <label className="block text-sm font-medium text-muted mb-4">
-              Google Workspace Tools
-            </label>
-            <div className="grid md:grid-cols-2 gap-4">
+          <div data-tour="agent-tools" className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Google Workspace Tools
+              </label>
+              <p className="text-sm text-muted mb-4">
+                Choose which Google Workspace services your agent can access and control.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Gmail Card */}
               <div
                 onClick={() => setShowGmailPopup(true)}
                 className={`
-                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
-                  ${Object.keys(values.tools).filter(id => id.startsWith('gmail_')).some(id => values.tools[id])
-                    ? 'border-accent bg-accent/5'
-                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  relative group rounded-xl border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5
+                  ${hasGmailTools
+                    ? 'border-accent bg-gradient-to-br from-accent/10 to-accent/5 shadow-md'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong hover:bg-surface-hover'
                   }
                 `}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                    <Mail className="h-6 w-6 text-white" />
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-primary flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                    <Mail className="h-7 w-7 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">Gmail</h3>
-                    <p className="text-sm text-muted">Assistant Gmail</p>
+                    <h3 className="font-semibold text-foreground text-sm">Gmail</h3>
+                    <p className="text-xs text-muted">Email automation</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted" />
                 </div>
-                {Object.keys(values.tools).filter(id => id.startsWith('gmail_')).some(id => values.tools[id]) && (
-                  <div className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"></div>
+                {hasGmailTools && (
+                  <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-accent rounded-full shadow-sm"></div>
                 )}
+                <ChevronRight className="absolute bottom-3 right-3 h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
 
               {/* Calendar Card */}
               <div
                 onClick={() => setShowCalendarPopup(true)}
                 className={`
-                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
-                  ${values.tools.google_calendar || values.tools.google_calendar_create_event || values.tools.google_calendar_list_events || values.tools.google_calendar_get_event
-                    ? 'border-accent bg-accent/5'
-                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  relative group rounded-xl border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5
+                  ${hasCalendarTools
+                    ? 'border-accent bg-gradient-to-br from-accent/10 to-accent/5 shadow-md'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong hover:bg-surface-hover'
                   }
                 `}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-white" />
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-xl bg-blue-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                    <Calendar className="h-7 w-7 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">Calendar</h3>
-                    <p className="text-sm text-muted">Kelola Kalender</p>
+                    <h3 className="font-semibold text-foreground text-sm">Calendar</h3>
+                    <p className="text-xs text-muted">Event management</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted" />
                 </div>
-                {(values.tools.google_calendar || values.tools.google_calendar_create_event || values.tools.google_calendar_list_events || values.tools.google_calendar_get_event) && (
-                  <div className="absolute top-2 right-2 w-2 h-2 bg-accent rounded-full"></div>
+                {hasCalendarTools && (
+                  <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-accent rounded-full shadow-sm"></div>
                 )}
-            </div>
-            <div className="grid md:grid-cols-2 gap-4 mt-4">
+                <ChevronRight className="absolute bottom-3 right-3 h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+
               {/* Sheets Card */}
               <div
                 onClick={() => setShowSheetsPopup(true)}
                 className={`
-                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
-                  ${Object.keys(values.tools).filter(id => id.startsWith('google_sheets')).some(id => values.tools[id])
-                    ? 'border-accent bg-accent/5'
-                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  relative group rounded-xl border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5
+                  ${hasSheetsTools
+                    ? 'border-accent bg-gradient-to-br from-accent/10 to-accent/5 shadow-md'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong hover:bg-surface-hover'
                   }
                 `}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                    <FileSpreadsheet className="h-6 w-6 text-white" />
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-xl bg-green-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                    <FileSpreadsheet className="h-7 w-7 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">Google Sheets</h3>
-                    <p className="text-sm text-muted">Baca & tulis spreadsheet</p>
+                    <h3 className="font-semibold text-foreground text-sm">Sheets</h3>
+                    <p className="text-xs text-muted">Spreadsheets</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted" />
                 </div>
-                {Object.keys(values.tools).filter(id => id.startsWith('google_sheets')).some(id => values.tools[id]) && (
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-                    {(() => {
-                      const selected = Object.keys(values.tools).filter(
-                        id => id.startsWith('google_sheets') && values.tools[id]
-                      );
-                      const parts = [];
-                      const sheetsCount = selected.length;
-                      if (sheetsCount > 0) parts.push(`${sheetsCount} Sheets tools`);
-                      return parts.join(" • ");
-                    })()}
-                  </div>
+                {hasSheetsTools && (
+                  <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-accent rounded-full shadow-sm"></div>
                 )}
+                <ChevronRight className="absolute bottom-3 right-3 h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
 
               {/* Docs Card */}
               <div
                 onClick={() => setShowDocsPopup(true)}
                 className={`
-                  relative rounded-xl border-2 p-4 cursor-pointer transition-all hover:shadow-md
-                  ${Object.keys(values.tools).filter(id => id.startsWith('google_docs')).some(id => values.tools[id])
-                    ? 'border-accent bg-accent/5'
-                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong'
+                  relative group rounded-xl border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5
+                  ${hasDocsTools
+                    ? 'border-accent bg-gradient-to-br from-accent/10 to-accent/5 shadow-md'
+                    : 'border-surface-strong/60 bg-surface hover:border-surface-strong hover:bg-surface-hover'
                   }
                 `}
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                    <FileText className="h-6 w-6 text-white" />
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="w-14 h-14 rounded-xl bg-purple-500 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
+                    <FileText className="h-7 w-7 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground">Google Docs</h3>
-                    <p className="text-sm text-muted">Kelola dokumen</p>
+                    <h3 className="font-semibold text-foreground text-sm">Docs</h3>
+                    <p className="text-xs text-muted">Documents</p>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted" />
                 </div>
-                {Object.keys(values.tools).filter(id => id.startsWith('google_docs')).some(id => values.tools[id]) && (
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted">
-                    {(() => {
-                      const selected = Object.keys(values.tools).filter(
-                        id => id.startsWith('google_docs') && values.tools[id]
-                      );
-                      const parts = [];
-                      const docsCount = selected.length;
-                      if (docsCount > 0) parts.push(`${docsCount} Docs tools`);
-                      return parts.join(" • ");
-                    })()}
-                  </div>
+                {hasDocsTools && (
+                  <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-accent rounded-full shadow-sm"></div>
                 )}
+                <ChevronRight className="absolute bottom-3 right-3 h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
             </div>
-          </div>
 
             {/* Selected tools summary */}
             <div className="mt-4 p-3 rounded-lg bg-surface/50 border border-surface-strong/30">
@@ -1264,231 +1246,272 @@ export default function AgentForm({
               <p className="mt-2 text-sm text-red-600">{formErrors.tools}</p>
             )}
           </div>
+        </section>
 
-          {MCP_TOOL_OPTIONS.length > 0 && (
+        {MCP_TOOL_OPTIONS.length > 0 && (
+          <section className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-muted mb-2">
-                MCP Tools (optional)
+              <label className="block text-sm font-medium text-foreground mb-2">
+                MCP Tools
               </label>
-              <div className="grid md:grid-cols-2 gap-4">
-                {MCP_TOOL_OPTIONS.map((tool) => (
-                  <label
-                    key={tool.id}
-                    className={`flex items-start space-x-3 rounded-lg border p-4 transition ${
-                      lockedMcpToolIds.has(tool.id)
-                        ? "border-surface-strong/60 bg-surface/60 cursor-not-allowed opacity-70"
-                        : "border-surface-strong/60 bg-background cursor-pointer hover:border-accent"
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={values.mcpTools?.[tool.id] || false}
-                      onChange={() => toggleMcpTool(tool.id)}
-                      disabled={lockedMcpToolIds.has(tool.id)}
-                      className="mt-1 h-4 w-4 text-accent border-surface-strong/60 rounded focus:ring-accent disabled:cursor-not-allowed"
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold text-foreground">
-                        {tool.label}
-                      </span>
-                      {tool.description && (
-                        <span className="mt-1 block text-xs text-muted">
-                          {tool.description}
-                        </span>
-                      )}
-                      {lockedMcpToolIds.has(tool.id) && (
-                        <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-accent">
-                          <Lock className="h-3 w-3" />
-                          Upgrade required
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <p className="text-sm text-muted mb-4">
+                Advanced automation capabilities powered by external integrations.
+              </p>
             </div>
-          )}
-        </div>
-      </section>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {MCP_TOOL_OPTIONS.map((tool) => {
+                const isEnabled = values.mcpTools?.[tool.id] || false;
+                const isLocked = lockedMcpToolIds.has(tool.id);
 
-      <section>
-        <h2 className="text-xl font-semibold text-foreground mb-4">
-          System Prompt
-        </h2>
-        <p className="text-sm text-muted mb-3">
-          Describe how the agent should behave, what tone to use, and any
-          constraints. You can keep the template below or provide your own
-          instructions.
-        </p>
-        <div data-tour="agent-prompt">
-          <textarea
-            value={values.systemPrompt}
-            onChange={(event) =>
-              setValues((prev) => ({
-                ...prev,
-                systemPrompt: event.target.value,
-              }))
-            }
-            rows={6}
-            className="w-full rounded-lg border border-surface-strong/60 bg-surface px-4 py-3 focus:outline-none focus:ring-2 focus:ring-accent"
-          />
-        </div>
-        {formErrors.systemPrompt && (
-          <p className="mt-2 text-sm text-red-600">{formErrors.systemPrompt}</p>
+                const getIcon = (toolId) => {
+                  switch (toolId) {
+                    case 'fetch_web_content':
+                    case 'web_search':
+                      return '🌐';
+                    case 'docx_generate':
+                      return '📄';
+                    case 'deep_research':
+                      return '🔬';
+                    default:
+                      return '⚡';
+                  }
+                };
+
+                const getGradientColor = (toolId) => {
+                  switch (toolId) {
+                    case 'fetch_web_content':
+                    case 'web_search':
+                      return 'from-blue-500 to-indigo-600';
+                    case 'docx_generate':
+                      return 'from-emerald-500 to-teal-600';
+                    case 'deep_research':
+                      return 'from-purple-500 to-violet-600';
+                    default:
+                      return 'from-gray-500 to-gray-600';
+                  }
+                };
+
+                return (
+                  <div
+                    key={tool.id}
+                    onClick={() => !isLocked && toggleMcpTool(tool.id)}
+                    className={`
+                      relative group rounded-xl border-2 p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5
+                      ${isEnabled
+                        ? 'border-accent bg-gradient-to-br from-accent/10 to-accent/5 shadow-md'
+                        : isLocked
+                        ? 'border-surface-strong/60 bg-surface/60 cursor-not-allowed opacity-70'
+                        : 'border-surface-strong/60 bg-surface hover:border-surface-strong hover:bg-surface-hover'
+                      }
+                    `}
+                  >
+                    <div className="flex flex-col items-center text-center space-y-3">
+                      <div className={`
+                        w-14 h-14 rounded-xl bg-gradient-to-br ${getGradientColor(tool.id)} flex items-center justify-center shadow-sm
+                        ${!isLocked && 'group-hover:shadow-md transition-shadow'}
+                      `}>
+                        <span className="text-2xl">{getIcon(tool.id)}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-foreground text-sm">{tool.label}</h3>
+                        <p className="text-xs text-muted line-clamp-2">{tool.description}</p>
+                      </div>
+                    </div>
+                    {isEnabled && (
+                      <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-accent rounded-full shadow-sm"></div>
+                    )}
+                    {isLocked && (
+                      <div className="absolute top-3 right-3">
+                        <Lock className="h-4 w-4 text-muted" />
+                      </div>
+                    )}
+                    {!isLocked && (
+                      <ChevronRight className="absolute bottom-3 right-3 h-4 w-4 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                    {isLocked && (
+                      <div className="mt-2 text-center">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted">
+                          <Lock className="h-3 w-3" />
+                          Upgrade
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         )}
-      </section>
 
-      {/* LLM configuration is intentionally fixed to platform defaults. */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground mb-2">
+              System Prompt
+            </h2>
+            <p className="text-sm text-muted">
+              Define how your agent should behave, its tone, and any constraints. You can use the template below or provide custom instructions.
+            </p>
+          </div>
+          <div data-tour="agent-prompt" className="space-y-2">
+            <textarea
+              value={values.systemPrompt}
+              onChange={(event) =>
+                setValues((prev) => ({
+                  ...prev,
+                  systemPrompt: event.target.value,
+                }))
+              }
+              rows={6}
+              placeholder="Describe your agent's behavior, tone, and constraints..."
+              className="w-full rounded-lg border border-surface-strong/60 bg-surface px-4 py-3 text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors resize-y"
+            />
+            {formErrors.systemPrompt && (
+              <p className="text-sm text-red-600">{formErrors.systemPrompt}</p>
+            )}
+          </div>
+        </section>
 
-      <div
-        className="flex items-center justify-end space-x-3"
-        data-tour="agent-actions"
-      >
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => {
-            setServerError("");
-            setFormErrors({});
-            setValues(mapInitialValues(initialValues));
-          }}
-          className="px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 disabled:opacity-60"
+        <div
+          className="pt-6 border-t border-surface-strong/30"
+          data-tour="agent-actions"
         >
-          Reset
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="inline-flex items-center px-5 py-2.5 rounded-lg bg-accent hover:bg-accent-hover text-accent-foreground text-sm font-semibold transition disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {isSubmitting ? (
-            <>
-              <svg
-                className="animate-spin -ml-1 mr-2 h-4 w-4 text-accent-foreground"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted">
+              <p>All changes are saved automatically when you create agent.</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  setServerError("");
+                  setFormErrors({});
+                  setValues(mapInitialValues(initialValues));
+                }}
+                className="px-4 py-2 rounded-lg border border-surface-strong/60 text-sm font-medium text-muted hover:bg-surface/70 disabled:opacity-60 transition-colors"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              Processing...
-            </>
-          ) : (
-            submitLabel
-          )}
-        </button>
-      </div>
-      {showUpgradeModal && (
-        <UpgradePromptModal
-          isTrialPlan={isTrialPlan}
-          isProMonthlyPlan={isProMonthlyPlan}
-          onClose={() => setShowUpgradeModal(false)}
-          onUpgrade={() => {
-            setShowUpgradeModal(false);
-            router.push("/payment?plan=PRO_Y&source=mcp-lock");
-          }}
+                Reset Form
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center px-6 py-2.5 rounded-lg bg-gradient-primary hover:opacity-90 text-white text-sm font-semibold transition-all shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    Creating Agent...
+                  </>
+                ) : (
+                  submitLabel
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
+              <div className="flex items-center gap-3 text-accent">
+                <Lock className="h-6 w-6" />
+                <p className="text-xs font-semibold uppercase tracking-[0.3em]">
+                  Upgrade required
+                </p>
+              </div>
+              <h3 className="mt-3 text-lg font-semibold text-foreground">
+                {isTrialPlan
+                  ? "Upgrade to unlock MCP tools"
+                  : "Upgrade for premium MCP actions"}
+              </h3>
+              <p className="mt-2 text-sm text-muted">
+                {isTrialPlan
+                  ? "Trial accounts cannot use MCP tools. Upgrade to a paid plan to automate browsing, document generation, and advanced research flows."
+                  : "This tool requires Pro Yearly plan. Upgrade to unlock document generation and deep research capabilities."}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-medium text-muted hover:bg-surface/70"
+                >
+                  Maybe later
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUpgradeModal(false);
+                    router.push("/payment?plan=PRO_Y&source=mcp-lock");
+                  }}
+                  className="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover shadow-lg"
+                >
+                  Upgrade plan
+                </button>
+              </div>
+              <p className="mt-4 text-xs text-muted">
+                Need help choosing a plan? Contact{" "}
+                <a
+                  href="mailto:support@clevio.ai"
+                  className="text-accent font-semibold"
+                >
+                  support@clevio.ai
+                </a>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Gmail Tools Popup */}
+        <GmailToolsPopup
+          isOpen={showGmailPopup}
+          onClose={() => setShowGmailPopup(false)}
+          values={values}
+          onSave={toggleTool}
         />
-      )}
 
-      {/* Gmail Tools Popup */}
-      <GmailToolsPopup
-        isOpen={showGmailPopup}
-        onClose={() => setShowGmailPopup(false)}
-        values={values}
-        onSave={toggleGmailTool}
-      />
+        {/* Calendar Tools Popup */}
+        <CalendarToolsPopup
+          isOpen={showCalendarPopup}
+          onClose={() => setShowCalendarPopup(false)}
+          values={values}
+          onSave={toggleTool}
+        />
 
-      {/* Calendar Tools Popup */}
-      <CalendarToolsPopup
-        isOpen={showCalendarPopup}
-        onClose={() => setShowCalendarPopup(false)}
-        values={values}
-        onSave={toggleTool}
-      />
+        {/* Sheets Tools Popup */}
+        <SheetsToolsPopup
+          isOpen={showSheetsPopup}
+          onClose={() => setShowSheetsPopup(false)}
+          values={values}
+          onSave={toggleTool}
+        />
 
-      {/* Sheets Tools Popup */}
-      <SheetsToolsPopup
-        isOpen={showSheetsPopup}
-        onClose={() => setShowSheetsPopup(false)}
-        values={values}
-        onSave={toggleTool}
-      />
-
-      {/* Docs Tools Popup */}
-      <DocsToolsPopup
-        isOpen={showDocsPopup}
-        onClose={() => setShowDocsPopup(false)}
-        values={values}
-        onSave={toggleTool}
-      />
-    </form>
-  );
-}
-
-function UpgradePromptModal({
-  isTrialPlan,
-  isProMonthlyPlan,
-  onClose,
-  onUpgrade,
-}) {
-  const headline = isTrialPlan
-    ? "Upgrade to unlock MCP tools"
-    : "Upgrade for premium MCP actions";
-  const message = isTrialPlan
-    ? "Trial accounts cannot use MCP tools. Upgrade to a paid plan to automate browsing, document generation, and advanced research flows."
-    : "This tool requires the Pro Yearly plan. Upgrade to unlock document generation and deep research capabilities.";
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md rounded-2xl border border-surface-strong/60 bg-surface p-6 shadow-2xl">
-        <div className="flex items-center gap-3 text-accent">
-          <Lock className="h-6 w-6" />
-          <p className="text-xs font-semibold uppercase tracking-[0.3em]">
-            Upgrade required
-          </p>
-        </div>
-        <h3 className="mt-3 text-lg font-semibold text-foreground">
-          {headline}
-        </h3>
-        <p className="mt-2 text-sm text-muted">{message}</p>
-        <div className="mt-6 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-surface-strong/60 px-4 py-2 text-sm font-medium text-muted hover:bg-surface/70"
-          >
-            Maybe later
-          </button>
-          <button
-            type="button"
-            onClick={onUpgrade}
-            className="flex-1 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent-hover shadow-lg"
-          >
-            Upgrade plan
-          </button>
-        </div>
-        <p className="mt-4 text-xs text-muted">
-          Need help choosing a plan? Contact{" "}
-          <a
-            href="mailto:support@clevio.ai"
-            className="text-accent font-semibold"
-          >
-            support@clevio.ai
-          </a>
-        </p>
-      </div>
+        {/* Docs Tools Popup */}
+        <DocsToolsPopup
+          isOpen={showDocsPopup}
+          onClose={() => setShowDocsPopup(false)}
+          values={values}
+          onSave={toggleTool}
+        />
+      </form>
     </div>
   );
 }

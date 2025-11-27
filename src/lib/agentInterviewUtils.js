@@ -1,48 +1,11 @@
 "use client";
 
 import { TOOL_OPTIONS } from "@/app/dashboard/agents/components/AgentForm";
+import { normalizeGoogleTools } from "@/lib/googleToolsNormalizer";
 
 const GMAIL_TOOL_IDS = TOOL_OPTIONS.filter((tool) =>
   tool.id.startsWith("gmail"),
 ).map((tool) => tool.id);
-
-const parseGoogleTools = (rawValue) => {
-  if (!rawValue) {
-    return [];
-  }
-
-  if (Array.isArray(rawValue)) {
-    return rawValue;
-  }
-
-  if (typeof rawValue === "string") {
-    const trimmed = rawValue.trim();
-    if (!trimmed) {
-      return [];
-    }
-
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch (error) {
-        console.warn(
-          "[agentInterviewUtils] Failed to parse google_tools JSON string:",
-          error,
-        );
-      }
-    }
-
-    return trimmed
-      .split(/[,\s]+/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-};
 
 export const extractAllowedTools = (agentData) => {
   const result = new Set();
@@ -66,7 +29,7 @@ export const extractAllowedTools = (agentData) => {
   appendTools(agentData.allowedTools);
   appendTools(agentData.mcp_tools);
 
-  const googleTools = parseGoogleTools(agentData.google_tools);
+  const googleTools = normalizeGoogleTools(agentData.google_tools);
   appendTools(googleTools);
 
   if (result.has("gmail")) {

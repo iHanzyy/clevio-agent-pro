@@ -1988,7 +1988,7 @@ class ApiService {
     }
 
     // Use the proxy endpoint to avoid CORS issues
-    // The proxy will route to: https://wapi-v1.chiefaiofficer.id/sessions/{agentId}
+   
     const proxyUrl = `/api/whatsapp-status/agents/${encodeURIComponent(agentId)}/sessions`;
 
     debugLog(`DELETE WhatsApp session via proxy: ${proxyUrl}`);

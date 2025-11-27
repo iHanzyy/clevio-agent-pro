@@ -9,6 +9,7 @@ import agentTemplates from "@/data/agent-templates.json";
 import AiAssistat from "@/components/ui/ai-assistat";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { normalizeGoogleTools } from "@/lib/googleToolsNormalizer";
 
 export default function TemplateInterviewPageContent({
   fallbackPath,
@@ -129,45 +130,14 @@ export default function TemplateInterviewPageContent({
           });
         }
 
-        if (agentData.google_tools) {
-          const rawValue = agentData.google_tools;
-          let parsedTools = [];
-
-          if (Array.isArray(rawValue)) {
-            parsedTools = rawValue;
-          } else if (typeof rawValue === "string") {
-            const trimmed = rawValue.trim();
-            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-              try {
-                const parsed = JSON.parse(trimmed);
-                if (Array.isArray(parsed)) {
-                  parsedTools = parsed;
-                }
-              } catch (error) {
-                console.warn(
-                  "[TemplateInterview] Failed to parse google_tools JSON string:",
-                  error,
-                );
-              }
-            }
-
-            if (parsedTools.length === 0) {
-              parsedTools = trimmed
-                .split(/[,\s]+/)
-                .map((item) => item.trim())
-                .filter(Boolean);
-            }
-          }
-
-          parsedTools.forEach((tool) => {
-            if (typeof tool === "string" && tool.trim()) {
-              allowedTools.add(tool.trim());
-            }
-          });
-        }
+        const parsedGoogleTools = normalizeGoogleTools(agentData.google_tools);
+        parsedGoogleTools.forEach((tool) => {
+          allowedTools.add(tool);
+        });
 
         return {
           ...agentData,
+          google_tools: parsedGoogleTools,
           allowed_tools: Array.from(allowedTools),
           mcp_tools: Array.isArray(agentData.mcp_tools)
             ? agentData.mcp_tools
