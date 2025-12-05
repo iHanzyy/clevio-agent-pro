@@ -60,13 +60,21 @@ const extractFromNested = (raw, keys = []) => {
 };
 
 const extractBase64FromRaw = (raw) =>
-  extractFromNested(raw, ["base64", "qr_base64", "qrBase64"]);
+  extractFromNested(raw, [
+    "base64",
+    "qr",
+    "qr_base64",
+    "qrBase64",
+    "qrCodeBase64",
+    "qr_code_base64",
+  ]);
 
 const extractContentTypeFromRaw = (raw) =>
   extractFromNested(raw, [
     "contentType",
     "qr_content_type",
     "qrContentType",
+    "qrCodeContentType",
     "mime_type",
     "mimeType",
   ]);
@@ -111,11 +119,26 @@ export const resolveSessionQrImage = (session) => {
   if (typeof session.qrUrl === "string" && session.qrUrl.trim()) {
     return session.qrUrl.trim();
   }
+  if (typeof session.qr === "string" && session.qr.trim()) {
+    const qrString = session.qr.trim();
+    if (qrString.startsWith("data:") || qrString.startsWith("http")) {
+      return qrString;
+    }
+    const contentType =
+      session.qrContentType ||
+      session.qr_content_type ||
+      session.contentType ||
+      "image/png";
+    return buildQrImageFromBase64(qrString, contentType);
+  }
 
   const base64Candidate =
     trimString(session.base64) ||
     trimString(session.qrBase64) ||
     trimString(session.qr_base64) ||
+    trimString(session.qrCodeBase64) ||
+    trimString(session.qr_code_base64) ||
+    trimString(session.qr) ||
     extractBase64FromRaw(session.raw);
 
   if (!base64Candidate) {

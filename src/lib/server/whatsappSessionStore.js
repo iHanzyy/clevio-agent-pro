@@ -90,27 +90,52 @@ const extractQrEnvelope = (payload = {}) => {
     payload.qrDetails ||
     payload.qr_code ||
     payload.qrCode ||
+    (payload.data && payload.data.qr) ||
+    (payload.data && payload.data.qrCode) ||
     null;
+
+  // Some backends return the QR as a raw string (either data URL or pure base64).
+  const qrString =
+    typeof qr === "string" && qr.trim().length ? qr.trim() : null;
 
   const contentType =
     payload.qr_content_type ||
     payload.qrContentType ||
+    payload.qrCodeContentType ||
+    (payload.data && payload.data.qrContentType) ||
     qr?.contentType ||
     qr?.mime_type ||
     qr?.mimeType ||
     "image/png";
 
+  const base64FromQrString =
+    qrString && !qrString.startsWith("http") && !qrString.startsWith("data:")
+      ? qrString
+      : null;
+
   const base64 =
     payload.qr_base64 ||
     payload.qrBase64 ||
+    payload.qrCodeBase64 ||
+    payload.qr_code_base64 ||
+    (payload.data && payload.data.qrCodeBase64) ||
+    (payload.data && payload.data.qrBase64) ||
     qr?.base64 ||
     qr?.data ||
     qr?.qr ||
+    qr?.qrCode ||
+    qr?.qr_code ||
+    payload.qrCode ||
+    payload.qr_code ||
+    // Fallback: when QR is supplied as a plain base64 string
+    base64FromQrString ||
     null;
 
   const url =
     payload.qr_url ||
     payload.qrUrl ||
+    payload.qrCodeUrl ||
+    payload.qr_code_url ||
     qr?.url ||
     qr?.qrUrl ||
     qr?.deeplink ||
@@ -139,6 +164,7 @@ const extractQrEnvelope = (payload = {}) => {
       typeof expiresIn === "number" && Number.isFinite(expiresIn)
         ? expiresIn
         : null,
+    qrString,
     raw: qr,
   };
 };
@@ -160,6 +186,9 @@ export const upsertWhatsAppSessionRecord = (
   const qrImage =
     payload.qrImage ||
     payload.qr_image ||
+    (qrEnvelope.qrString && qrEnvelope.qrString.startsWith("data:")
+      ? qrEnvelope.qrString
+      : null) ||
     (qrEnvelope.base64
       ? `data:${qrEnvelope.contentType};base64,${qrEnvelope.base64}`
       : null);
@@ -187,7 +216,9 @@ export const upsertWhatsAppSessionRecord = (
       payload.is_active === true ||
       status === "active",
     qrImage,
-    qrUrl: qrEnvelope.url,
+    qrUrl:
+      qrEnvelope.url ||
+      (qrEnvelope.qrString?.startsWith("http") ? qrEnvelope.qrString : null),
     qrBase64: qrEnvelope.base64,
     qrContentType: qrEnvelope.contentType,
     qrExpiresAt: qrEnvelope.expiresAt,

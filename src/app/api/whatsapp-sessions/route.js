@@ -10,13 +10,19 @@ import {
 } from "@/lib/server/whatsappSessionResponses";
 
 const DEFAULT_BACKEND_BASE_URL =
+  process.env.WHATSAPP_STATUS_BASE_URL ||
   process.env.WHATSAPP_BACKEND_BASE_URL ||
-  "https://lfzlwlbz-8080.asse.devtunnels.ms"; ;
+  "http://localhost:8080/api/v1";
 
-const buildBackendUrl = (path = "/") => {
+const buildBackendUrl = (path = "/", params = {}) => {
   const trimmedBase = DEFAULT_BACKEND_BASE_URL.replace(/\/+$/, "");
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${trimmedBase}${normalizedPath}`;
+  const url = new URL(`${trimmedBase}${normalizedPath}`);
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    url.searchParams.set(key, value);
+  });
+  return url.toString();
 };
 
 const respondWithError = (message, status = 400, extra = {}) =>
@@ -40,74 +46,22 @@ const pickString = (...candidates) => {
 
 export async function GET(request) {
   pruneWhatsAppSessionRecords();
-  const agentId = request.nextUrl.searchParams.get("agentId");
+  const agentId =
+    request.nextUrl.searchParams.get("agentId") ||
+    request.nextUrl.searchParams.get("agent_id");
 
   if (!agentId) {
     return respondWithError("agentId query parameter is required", 400);
   }
 
-  const record = getWhatsAppSessionRecord(agentId);
-  if (!record) {
-    return buildWhatsAppNotFoundResponse();
-  }
-
-  return NextResponse.json(buildWhatsAppSessionResponse(record), {
-    status: 200,
-  });
-}
-
-export async function POST(request) {
-  let payload = null;
   try {
-    payload = await parseJsonFromBody(request);
-  } catch (error) {
-    return respondWithError(
-      "Invalid JSON payload. Ensure the request body is valid JSON or set Content-Type: application/json.",
-      400,
-      { detail: error instanceof Error ? error.message : String(error) },
-    );
-  }
-
-  if (!payload || typeof payload !== "object") {
-    return respondWithError(
-      "Request payload must be a JSON object containing userId, agentId, and apiKey.",
-    );
-  }
-
-  const userId = pickString(payload.userId, payload.user_id);
-  const agentId = pickString(payload.agentId, payload.agent_id, payload.agent);
-  const agentName =
-    pickString(payload.agentName, payload.agent_name) || agentId || null;
-  const apiKey = pickString(
-    payload.apiKey,
-    payload.api_key,
-    payload.apikey,
-    payload.Apikey,
-    payload.ApiKey,
-  );
-
-  if (!userId || !agentId || !apiKey) {
-    return respondWithError(
-      "WhatsApp session requires userId, agentId, and apiKey.",
-    );
-  }
-
-  pruneWhatsAppSessionRecords();
-
-  try {
-    const remoteResponse = await fetch(buildBackendUrl("/sessions"), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const remoteResponse = await fetch(
+      buildBackendUrl("/sessions/detail", { agentId }),
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
       },
-      body: JSON.stringify({
-        userId,
-        agentId,
-        agentName: agentName || agentId,
-        apikey: apiKey,
-        apiKey,
-      }),
-    });
+    );
 
     const remotePayload = await remoteResponse.json().catch(() => ({}));
 
@@ -115,9 +69,9 @@ export async function POST(request) {
       const detail =
         typeof remotePayload?.detail === "string"
           ? remotePayload.detail
-          : remotePayload?.message ??
-            remotePayload?.error ??
-            "Failed to create WhatsApp session";
+          : remotePayload?.message ||
+            remotePayload?.error ||
+            "Failed to fetch WhatsApp session detail";
       return respondWithError(detail, remoteResponse.status, {
         raw: remotePayload,
       });
@@ -134,14 +88,129 @@ export async function POST(request) {
       upsertWhatsAppSessionRecord(
         {
           agentId,
-          status: "pending",
           ...(typeof remotePayload === "object" && remotePayload !== null
             ? remotePayload
             : {}),
         },
         { traceId },
-      ) ||
-      getWhatsAppSessionRecord(agentId);
+      ) || getWhatsAppSessionRecord(agentId);
+
+    if (!record) {
+      return buildWhatsAppNotFoundResponse();
+    }
+
+    return NextResponse.json(
+      buildWhatsAppSessionResponse(record, {
+        rawPayload: remotePayload,
+      }),
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error("Failed to fetch WhatsApp session detail", {
+      agentId,
+      error,
+    });
+    return respondWithError(
+      "Failed to reach WhatsApp session service",
+      502,
+    );
+  }
+}
+
+export async function POST(request) {
+  let payload = null;
+  try {
+    payload = await parseJsonFromBody(request);
+  } catch (error) {
+    return respondWithError(
+      "Invalid JSON payload. Ensure the request body is valid JSON or set Content-Type: application/json.",
+      400,
+      { detail: error instanceof Error ? error.message : String(error) },
+    );
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return respondWithError(
+      "Request payload must be a JSON object containing agentId and apiKey.",
+    );
+  }
+
+  const agentId = pickString(payload.agentId, payload.agent_id, payload.agent);
+  const agentName =
+    pickString(payload.agentName, payload.agent_name) || agentId || null;
+  const apiKey = pickString(
+    payload.apiKey,
+    payload.api_key,
+    payload.apikey,
+    payload.Apikey,
+    payload.ApiKey,
+  );
+
+  if (!agentId || !apiKey) {
+    return respondWithError(
+      "WhatsApp session requires agentId and apiKey.",
+    );
+  }
+
+  pruneWhatsAppSessionRecords();
+
+  try {
+    const remoteResponse = await fetch(
+      buildBackendUrl("/sessions/create"),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          agentId,
+          agentName: agentName || agentId,
+          apiKey,
+          langchainUrl: `https://new-langchain.chiefaiofficer.id/api/v1/agents/${agentId}/execute`,
+        }),
+      },
+    );
+
+    let remotePayload = await remoteResponse.json().catch(() => ({}));
+
+    // Handle array response: [ { data: ... } ]
+    if (Array.isArray(remotePayload) && remotePayload.length > 0) {
+      remotePayload = remotePayload[0];
+    }
+
+    if (!remoteResponse.ok) {
+      const detail =
+        typeof remotePayload?.detail === "string"
+          ? remotePayload.detail
+          : remotePayload?.message ??
+            remotePayload?.error ??
+            "Failed to create WhatsApp session";
+      return respondWithError(detail, remoteResponse.status, {
+        raw: remotePayload,
+      });
+    }
+
+    // Extract data from nested object if present
+    const payloadData = remotePayload?.data || remotePayload;
+
+    const traceId =
+      remotePayload?.traceId ||
+      remotePayload?.trace_id ||
+      payloadData?.traceId ||
+      payloadData?.trace_id ||
+      null;
+
+    const record =
+      upsertWhatsAppSessionRecord(
+        {
+          agentId,
+          status: payloadData?.status || "pending",
+          ...(typeof remotePayload === "object" && remotePayload !== null
+            ? remotePayload
+            : {}),
+        },
+        { traceId },
+      ) || getWhatsAppSessionRecord(agentId);
 
     const responseBody = buildWhatsAppSessionResponse(record, {
       rawPayload: remotePayload,

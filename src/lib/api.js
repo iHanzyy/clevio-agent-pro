@@ -14,7 +14,7 @@ const debugLog = (...args) => {
     console.log(...args);
   }
 };
-const DEFAULT_WHATSAPP_STATUS_BASE = "/api/whatsapp-status";
+const DEFAULT_WHATSAPP_STATUS_BASE = "/api/whatsapp-sessions/status";
 const DEFAULT_PAYMENT_WEBHOOK =
   "https://n8n-new.chiefaiofficer.id/webhook/pembayaranMidtrans";
 
@@ -23,14 +23,7 @@ const resolveWhatsAppStatusBaseUrl = () => {
     const raw = process.env.NEXT_PUBLIC_WHATSAPP_STATUS_BASE_URL;
     if (typeof raw === "string") {
       const trimmed = raw.trim();
-      if (!trimmed) {
-        return DEFAULT_WHATSAPP_STATUS_BASE;
-      }
-      if (
-        trimmed.startsWith("http://") ||
-        trimmed.startsWith("https://") ||
-        trimmed.startsWith("/")
-      ) {
+      if (trimmed) {
         return trimmed.replace(/\/+$/, "");
       }
     }
@@ -49,7 +42,17 @@ const buildWhatsAppStatusCheckUrl = (agentId) => {
       : base.endsWith("/")
       ? base.slice(0, -1)
       : base;
-  return `${normalizedBase}/agents/${encodeURIComponent(agentId)}/get-status`;
+  const url = new URL(
+    normalizedBase.startsWith("http")
+      ? normalizedBase
+      : `http://dummy${normalizedBase}`,
+  );
+  url.searchParams.set("agentId", agentId);
+  const serialized =
+    normalizedBase.startsWith("http") || normalizedBase.startsWith("/")
+      ? `${normalizedBase}?${url.searchParams.toString()}`
+      : `/${normalizedBase}?${url.searchParams.toString()}`;
+  return serialized;
 };
 
 const buildWhatsAppUrl = (agentId = null) => {
@@ -1467,6 +1470,7 @@ class ApiService {
       session.session_status ||
       session.state ||
       session.sessionState ||
+      session.connection_state ||
       "";
     if (rawStatus && typeof rawStatus === "object") {
       rawStatus =
@@ -1481,7 +1485,8 @@ class ApiService {
       session.is_active === true ||
       session.active === true ||
       normalizedStatus === "active" ||
-      normalizedStatus === "connected";
+      normalizedStatus === "connected" ||
+      normalizedStatus === "ready";
     const statusUpdatedSource =
       session.qr_updated_at ||
       session.qrUpdatedAt ||
@@ -1504,8 +1509,13 @@ class ApiService {
         ? statusUpdatedSource
         : null);
 
+    const qrString =
+      typeof session.qr === "string" && session.qr.trim().length
+        ? session.qr.trim()
+        : null;
+
     const qrRecord =
-      session.qr ||
+      (typeof session.qr === "object" && session.qr) ||
       session.qr_details ||
       session.qrDetails ||
       session.qr_code_details ||
@@ -1583,21 +1593,33 @@ class ApiService {
     }
 
     const rawQrContent =
+      qrString ||
       session.base64 ||
       session.qrBase64 ||
       session.qr_base64 ||
-      (qrRecord && (qrRecord.base64 || qrRecord.data || qrRecord.qr || null)) ||
+      session.qrCodeBase64 ||
+      session.qr_code_base64 ||
+      session.qrCode ||
+      session.qr_code ||
+      (qrRecord &&
+        (qrRecord.base64 ||
+          qrRecord.data ||
+          qrRecord.qr ||
+          qrRecord.qrCode ||
+          qrRecord.qr_code ||
+          qrRecord.qrCodeBase64 ||
+          null)) ||
       session.qr_image ||
       session.qrImage ||
-      session.qr_code ||
-      session.qrCode ||
       session.image ||
+      session.qrCodeImage ||
       null;
     const qrContentType =
       (qrRecord &&
         (qrRecord.contentType || qrRecord.mime_type || qrRecord.mimeType)) ||
       session.qr_content_type ||
       session.qrContentType ||
+      session.qrCodeContentType ||
       session.image_type ||
       "image/png";
 
@@ -1681,9 +1703,12 @@ class ApiService {
         session.qr_base64
     );
 
+    const finalStatus =
+      normalizedStatus || (qrBase64 ? "waiting_scan" : "inactive");
+
     return {
       isActive,
-      status: isActive ? "active" : normalizedStatus || "inactive",
+      status: isActive ? "connected" : finalStatus,
       qrImage,
       qrUrl,
       qrBase64,
@@ -1722,7 +1747,7 @@ class ApiService {
       {};
 
     // Handle status from various possible locations
-    const statusFromData = data.status;
+    const statusFromData = data.status || data.state;
     const statusFromLiveState = liveState.sessionState || liveState.state;
     const rawStatus = statusFromData || statusFromLiveState || "";
 
@@ -1731,35 +1756,58 @@ class ApiService {
     // Determine connection status based on multiple indicators
     const isActive =
       normalizedStatus === "connected" ||
-      normalizedStatus === "active" ||
+      normalizedStatus === "ready" ||
       liveState.isReady === true ||
       liveState.hasClient === true;
 
     // Extract QR code information
+    const qrString =
+      (typeof liveState.qr === "string" && liveState.qr.trim().length
+        ? liveState.qr.trim()
+        : null) ||
+      (typeof data.qr === "string" && data.qr.trim().length
+        ? data.qr.trim()
+        : null);
+
     const qrSource =
-      liveState.qr ||
+      (typeof liveState.qr === "object" && liveState.qr) ||
       liveState.qr_details ||
       liveState.qrDetails ||
+      (typeof data.qr === "object" && data.qr) ||
+      data.qrCode ||
       {};
 
     const qrBase64 =
-      typeof qrSource.base64 === "string" ? qrSource.base64 : null;
+      typeof qrSource.base64 === "string"
+        ? qrSource.base64
+        : typeof data.qrCodeBase64 === "string"
+          ? data.qrCodeBase64
+          : qrString && !qrString.startsWith("http") && !qrString.startsWith("data:")
+            ? qrString
+            : null;
     const qrContentType =
       qrSource.contentType ||
       qrSource.mime_type ||
       qrSource.mimeType ||
+      data.qrCodeContentType ||
+      data.qr_content_type ||
       "image/png";
     const qrImage =
-      qrBase64 && qrContentType
-        ? `data:${qrContentType};base64,${qrBase64}`
-        : null;
+      qrString && qrString.startsWith("data:")
+        ? qrString
+        : qrBase64 && qrContentType
+          ? `data:${qrContentType};base64,${qrBase64}`
+          : null;
+
+    const finalStatus =
+      normalizedStatus || (qrBase64 ? "waiting_scan" : "inactive");
 
     // Return comprehensive status object
     return {
       // Primary connection status
       connected: isActive,
       isActive,
-      status: normalizedStatus || (isActive ? "connected" : "inactive"),
+      status: isActive ? "connected" : finalStatus,
 
       // Agent identification
       agentId: data.agentId || data.agent_id || null,
@@ -1767,7 +1815,10 @@ class ApiService {
 
       // QR code information
       qrImage,
-      qrUrl: qrSource.url || qrSource.qrUrl || null,
+      qrUrl:
+        qrSource.url ||
+        qrSource.qrUrl ||
+        (qrString && qrString.startsWith("http") ? qrString : null),
       qrBase64,
       qrContentType,
       qrUpdatedAt: liveState.qrUpdatedAt || qrSource.updatedAt || null,
@@ -1841,14 +1892,11 @@ class ApiService {
   }
 
   async createWhatsAppSession({ userId, agentId, agentName, apiKey } = {}) {
-    if (!userId || !agentId || !apiKey) {
-      throw new Error(
-        "WhatsApp session requires user ID, agent ID, and an API key."
-      );
+    if (!agentId || !apiKey) {
+      throw new Error("WhatsApp session requires agent ID and an API key.");
     }
 
     const payload = {
-      userId,
       agentId,
       agentName: agentName || agentId,
       apiKey,
@@ -1987,9 +2035,10 @@ class ApiService {
       throw new Error("Agent ID is required to delete WhatsApp session.");
     }
 
-    // Use the proxy endpoint to avoid CORS issues
-   
-    const proxyUrl = `/api/whatsapp-status/agents/${encodeURIComponent(agentId)}/sessions`;
+    const proxyUrl = buildWhatsAppAgentResourceUrl(agentId);
+    if (!proxyUrl) {
+      throw new Error("Unable to resolve WhatsApp delete endpoint.");
+    }
 
     debugLog(`DELETE WhatsApp session via proxy: ${proxyUrl}`);
 

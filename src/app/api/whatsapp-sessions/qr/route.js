@@ -7,12 +7,15 @@ import {
 import { buildWhatsAppSessionResponse } from "@/lib/server/whatsappSessionResponses";
 
 const DEFAULT_BACKEND_BASE_URL =
-  process.env.WHATSAPP_BACKEND_BASE_URL || "https://lfzlwlbz-8080.asse.devtunnels.ms";
+  process.env.WHATSAPP_STATUS_BASE_URL ||
+  process.env.WHATSAPP_BACKEND_BASE_URL ||
+  "http://localhost:8080/api/v1";
 
 const buildBackendUrl = (agentId) => {
   const trimmedBase = DEFAULT_BACKEND_BASE_URL.replace(/\/+$/, "");
-  const encodedAgentId = encodeURIComponent(agentId);
-  return `${trimmedBase}/sessions/${encodedAgentId}/qr`;
+  const url = new URL(`${trimmedBase}/sessions/detail`);
+  url.searchParams.set("agentId", agentId);
+  return url.toString();
 };
 
 const respondWithError = (message, status = 400, extra = {}) =>
@@ -32,48 +35,6 @@ const pickString = (...candidates) => {
     }
   }
   return null;
-};
-
-const extractQrDetails = (payload = {}) => {
-  if (!payload || typeof payload !== "object") {
-    return {
-      base64: null,
-      contentType: "image/png",
-      qrRaw: null,
-    };
-  }
-
-  const qrCandidate =
-    payload?.data?.qr ||
-    payload?.qr ||
-    payload?.data?.qr_code ||
-    payload?.data?.qrCode ||
-    payload?.qr_code ||
-    payload?.qrCode ||
-    null;
-
-  const base64 =
-    pickString(
-      qrCandidate?.base64,
-      qrCandidate?.qr,
-      qrCandidate?.data,
-      payload?.data?.base64,
-      payload?.base64,
-    ) || null;
-
-  const contentType =
-    pickString(
-      qrCandidate?.contentType,
-      qrCandidate?.mime_type,
-      qrCandidate?.mimeType,
-      payload?.contentType,
-    ) || "image/png";
-
-  return {
-    base64,
-    contentType,
-    qrRaw: qrCandidate,
-  };
 };
 
 export async function POST(request) {
@@ -101,13 +62,18 @@ export async function POST(request) {
 
   try {
     const remoteResponse = await fetch(buildBackendUrl(agentId), {
-      method: "POST",
+      method: "GET",
       headers: {
         "Content-Type": "application/json",
       },
     });
 
-    const remotePayload = await remoteResponse.json().catch(() => ({}));
+    let remotePayload = await remoteResponse.json().catch(() => ({}));
+
+    // Handle array response: [ { data: ... } ]
+    if (Array.isArray(remotePayload) && remotePayload.length > 0) {
+      remotePayload = remotePayload[0];
+    }
 
     if (!remoteResponse.ok) {
       const detail =
@@ -115,40 +81,30 @@ export async function POST(request) {
           ? remotePayload.detail
           : remotePayload?.message ??
             remotePayload?.error ??
-            "Failed to generate WhatsApp QR";
+            "Failed to fetch WhatsApp session detail";
       return respondWithError(detail, remoteResponse.status, {
         raw: remotePayload,
       });
     }
 
-    const { base64, contentType, qrRaw } = extractQrDetails(remotePayload);
-    if (!base64) {
-      return respondWithError(
-        "WhatsApp backend did not return a QR payload",
-        502,
-        { raw: remotePayload },
-      );
-    }
+    // Extract data from nested object if present
+    const payloadData = remotePayload?.data || remotePayload;
 
     const traceId =
       remotePayload?.traceId ||
       remotePayload?.trace_id ||
-      remotePayload?.data?.traceId ||
-      remotePayload?.data?.trace_id ||
+      payloadData?.traceId ||
+      payloadData?.trace_id ||
       null;
 
     const record =
       upsertWhatsAppSessionRecord(
         {
           agentId,
-          status: "pending",
-          qr: {
-            ...(qrRaw && typeof qrRaw === "object" ? qrRaw : {}),
-            base64,
-            contentType,
-          },
-          qrUpdatedAt: new Date().toISOString(),
-          data: remotePayload,
+          status: payloadData?.status || "pending",
+          ...(typeof remotePayload === "object" && remotePayload !== null
+            ? remotePayload
+            : {}),
         },
         { traceId },
       ) || getWhatsAppSessionRecord(agentId);

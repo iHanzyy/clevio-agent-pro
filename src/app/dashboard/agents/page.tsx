@@ -164,7 +164,9 @@ const AgentCard = ({
   onRefreshStatus,
   onConnectWhatsApp,
   onDisconnectWhatsApp,
+  onDeleteWhatsApp,
   refreshLoading,
+  deleteLoading,
   sessionError,
   initialLoading
 }: {
@@ -173,7 +175,9 @@ const AgentCard = ({
   onRefreshStatus: (agent: Agent) => void
   onConnectWhatsApp: (agent: Agent) => void
   onDisconnectWhatsApp: (agent: Agent) => void
+  onDeleteWhatsApp: (agent: Agent) => void
   refreshLoading?: boolean
+  deleteLoading?: boolean
   sessionError?: string
   initialLoading?: boolean
 }) => {
@@ -346,6 +350,11 @@ const AgentCard = ({
     onDisconnectWhatsApp(agent)
   }
 
+  const handleDeleteWhatsApp = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onDeleteWhatsApp(agent)
+  }
+
   return (
     <motion.div
       whileHover={{ scale: 1.02, y: -2 }}
@@ -489,6 +498,21 @@ const AgentCard = ({
                   <span className="ml-1 sm:hidden">Disconnect</span>
                 </Button>
               )}
+
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 sm:h-8 px-2 sm:px-3 text-xs font-semibold rounded-full text-red-600 hover:text-red-700 hover:bg-red-50"
+                onClick={handleDeleteWhatsApp}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+                <span className="ml-1 hidden sm:inline">Delete</span>
+              </Button>
             </div>
           </div>
 
@@ -532,6 +556,7 @@ export default function AgentsPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [whatsAppRefreshMap, setWhatsAppRefreshMap] = useState({})
+  const [whatsAppDeleteMap, setWhatsAppDeleteMap] = useState({})
   const [whatsAppErrors, setWhatsAppErrors] = useState({})
   const [qrModal, setQrModal] = useState<{ isOpen: boolean; agent: Agent | null; qrCode: string | null }>({
     isOpen: false,
@@ -884,6 +909,62 @@ export default function AgentsPage() {
     }
   }
 
+  const handleDeleteWhatsAppSession = async (agent: Agent) => {
+    const agentId = agent.id
+
+    const confirmed = typeof window !== "undefined"
+      ? window.confirm("Delete WhatsApp session for this agent?")
+      : true
+    if (!confirmed) {
+      return
+    }
+
+    // Clear error for this agent
+    setWhatsAppErrors((prev) => {
+      const next = { ...prev }
+      delete next[agentId]
+      return next
+    })
+
+    setWhatsAppDeleteMap((prev) => ({ ...prev, [agentId]: true }))
+
+    try {
+      await apiService.ensureApiKey()
+      await apiService.deleteWhatsAppSession(agentId)
+
+      // Update local state to reflect deletion
+      setAgents((prevAgents) =>
+        prevAgents.map((a) =>
+          a.id === agentId
+            ? {
+                ...a,
+                whatsapp_connected: false,
+                whatsapp_status: 'disconnected',
+                whatsapp_qr: undefined
+              }
+            : a
+        )
+      )
+
+      // Close QR modal if it belongs to the deleted agent
+      if (qrModal.isOpen && qrModal.agent?.id === agentId) {
+        closeQrModal()
+      }
+    } catch (error: any) {
+      console.error('Error deleting WhatsApp session:', error)
+      setWhatsAppErrors((prev) => ({
+        ...prev,
+        [agentId]: error?.message || "Unable to delete WhatsApp session. Please try again."
+      }))
+    } finally {
+      setWhatsAppDeleteMap((prev) => {
+        const next = { ...prev }
+        delete next[agentId]
+        return next
+      })
+    }
+  }
+
   // Filter agents based on search
   const normalizedAgents = agents.map((agent) => {
     const normalizedActive =
@@ -1026,6 +1107,8 @@ export default function AgentsPage() {
                 onConnectWhatsApp={handleConnectWhatsApp}
                 onDisconnectWhatsApp={handleDisconnectWhatsApp}
                 refreshLoading={Boolean(whatsAppRefreshMap[agent.id])}
+                onDeleteWhatsApp={handleDeleteWhatsAppSession}
+                deleteLoading={Boolean(whatsAppDeleteMap[agent.id])}
                 sessionError={whatsAppErrors[agent.id]}
                 initialLoading={loadingStatus}
               />

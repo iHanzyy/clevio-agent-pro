@@ -2466,14 +2466,33 @@ const autoGoogleFirstLoadRef = useRef(false);
                             )}
                           </Button>
 
+                          <div className="flex flex-col gap-3">
+                          <Button
+                            onClick={handleWhatsAppDelete}
+                            variant="destructive"
+                            className="w-full"
+                            disabled={whatsAppDeleting}
+                          >
+                            {whatsAppDeleting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Deleting...
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete Session
+                              </>
+                            )}
+                          </Button>
                           <Button
                             onClick={closeWhatsAppQrPreview}
                             variant="outline"
-                            className="flex-1"
+                            className="w-full"
                           >
-                            <X className="h-4 w-4 mr-2" />
-                            Cancel
+                            Close
                           </Button>
+                        </div>
                         </div>
                       </div>
                     ) : (

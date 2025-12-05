@@ -9,7 +9,7 @@
 
 - `SC_BACKEND` → `https://new-langchain.chiefaiofficer.id/api/v1` (proxied through `/api/proxy`).
 - `N8N_MAIN` → `https://n8n-new.chiefaiofficer.id`.
-- `WHATSAPP_SERVICE` → legacy remote session service env (kept for backwards compatibility; QR generation now goes straight to the n8n webhook).
+- `WHATSAPP_SERVICE` → Golang service at `WHATSAPP_BACKEND_BASE_URL` (default `http://localhost:8080/api/v1`) that exposes `/sessions/{create,status,detail,delete,reconnect}` and returns `qrCodeBase64` inline.
 - `ApiService` methods are referenced by their function name in `src/lib/api.js`.
 
 ## Local API routes
@@ -18,7 +18,7 @@
 - `/api/v1/payment/status` – in-memory store for Midtrans status payloads; accepts writes from n8n (`POST`) and readbacks from the payment page (`POST`/`GET`).
 - `/api/webhook/n8n-template` – scratchpad for template interview results; supports `PUT` (register session), `POST` (n8n completion payload), `GET` (frontend poll).
 - `/api/n8n-webhook` – generic passthrough for template chat (legacy; the new UI uses `AiAssistat` directly).
-- `/api/whatsapp-sessions` – forwards session requests to the n8n QR webhook, caches the latest base64 per agent, and serves the dashboard pollers.
+- `/api/whatsapp-sessions` – proxy to Go WhatsApp service (`/sessions/create` for POST, `/sessions/detail` for GET), caches the last QR/status per agent for UI polling.
 
 # Authentication & Subscription Lifecycle
 
@@ -184,24 +184,22 @@ flowchart LR
 flowchart LR
     detail[/Agent detail/] --> start{Session active?}
     start -->|no| createBtn[Trigger "Connect WhatsApp"]
-    createBtn --> payload[{userId, agentId, apiKey}]
-    payload --> postLocal[POST /api/whatsapp-sessions<br/>(create session)]
-    postLocal --> wait30[UI countdown (~30s)]
-    wait30 --> qrPost[POST /api/whatsapp-sessions/qr]
-    qrPost --> cache[Cache latest QR per agent]
-    cache --> result{qr provided?}
-    result -->|yes| qr[Display QR + start countdown]
-    detail --> refresh[Manual Refresh Status]
-    refresh --> apiGet[GET /api/whatsapp-sessions?agentId=…]
-    apiGet --> normalize[apiService.normalizeWhatsAppSession]
+    createBtn --> payload[{agentId, agentName, apiKey}]
+    payload --> postLocal[POST /api/whatsapp-sessions<br/>(create → /sessions/create)]
+    postLocal --> qr[QR from response (qrCodeBase64)]
+    qr --> show[Display QR + start countdown]
+    detail --> pollStatus[Poll /api/whatsapp-sessions/status?agentId=…]
+    pollStatus --> normalize[normalizeWhatsAppStatusSnapshot]
     normalize --> statusCard[Update badges + metrics]
-    normalize -->|isActive| stopPoll[Stop polling]
+    normalize -->|connected| stopPoll[Stop polling]
+    normalize -->|waiting_scan| refetchQr[/api/whatsapp-sessions/qr → /sessions/detail]
 ```
 
-1. Clicking “Connect WhatsApp” calls `createWhatsAppSession`, passing the logged-in user id, agent id, name, and API key.
-2. `/api/whatsapp-sessions` forwards the payload to the WhatsApp backend (`POST /sessions`) and returns immediately so the UI can start a visible countdown.
-3. After ~30 seconds the frontend calls `/api/whatsapp-sessions/qr`, which proxies to the backend (`POST /sessions/:agentId/qr`), waits for the base64 QR, caches it per agent, and resolves the promise.
-4. The detail page can still call `getWhatsAppSession`/`GET /api/whatsapp-sessions?agentId=…` to read back the cached payload for badges and manual refreshes.
+1. Clicking “Connect WhatsApp” calls `createWhatsAppSession`, passing `agentId`, optional `agentName`, and the Langchain `apiKey`.
+2. The proxy posts to the Go service `/sessions/create`; the response already carries `qrCodeBase64` so the UI can display QR without a delay.
+3. Polling uses `/api/whatsapp-sessions/status?agentId=…` (→ `/sessions/status`) every few seconds until `status === "connected"`; if status returns `waiting_scan`/`qr_timeout`, the UI can refetch `/api/whatsapp-sessions/qr` (→ `/sessions/detail`) to get a fresh QR.
+4. Disconnects use `DELETE /api/whatsapp-sessions/{agentId}` (→ `/sessions/delete`); reconnect uses `POST /api/whatsapp-sessions/{agentId}/reconnect` (→ `/sessions/reconnect`).
+5. Refer to `Guide-Backend-Whatsapp-Golang-NEW.md` (curl examples) and `web-integration-GOWHATSAPP.md` (frontend polling hints) for the latest payload shapes.
 
 ## Google Workspace connector flow (per-agent auth)
 
