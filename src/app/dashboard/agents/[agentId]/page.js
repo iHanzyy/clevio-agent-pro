@@ -30,6 +30,9 @@ import {
   Calendar,
   User,
   ExternalLink,
+  Wifi,
+  WifiOff,
+  MessageCircle,
 } from "lucide-react";
 import {
   describeWhatsAppStatus,
@@ -174,7 +177,6 @@ export default function AgentDetailPage() {
   const [whatsAppError, setWhatsAppError] = useState("");
   const [whatsAppQr, setWhatsAppQr] = useState(null);
   const [showWhatsAppQr, setShowWhatsAppQr] = useState(false);
-  const [whatsAppQrCountdown, setWhatsAppQrCountdown] = useState(null);
   const [whatsAppSessionInfo, setWhatsAppSessionInfo] = useState(
     EMPTY_WHATSAPP_SESSION
   );
@@ -190,11 +192,13 @@ export default function AgentDetailPage() {
   const qrPollAbortRef = useRef(null);
   const whatsAppStatusLoadingRef = useRef(false);
   const whatsAppQrUserClosedRef = useRef(false);
-const qrFlowAbortRef = useRef(null);
-const qrPreparationTimerRef = useRef(null);
-const qrExpiryTimerRef = useRef(null);
-const autoGooglePromptShownRef = useRef(false);
-const autoGoogleFirstLoadRef = useRef(false);
+  const qrFlowAbortRef = useRef(null);
+  const qrPreparationTimerRef = useRef(null);
+  const pollingIntervalRef = useRef(null);
+  const [whatsAppRefreshMap, setWhatsAppRefreshMap] = useState({});
+  const [whatsAppErrors, setWhatsAppErrors] = useState({});
+  const autoGooglePromptShownRef = useRef(false);
+  const autoGoogleFirstLoadRef = useRef(false);
 
   const queryAuthUrl = searchParams?.get("authUrl") || null;
   const queryAuthState = searchParams?.get("authState") || null;
@@ -235,13 +239,8 @@ const autoGoogleFirstLoadRef = useRef(false);
       clearTimeout(qrPreparationTimerRef.current);
       qrPreparationTimerRef.current = null;
     }
-    if (qrExpiryTimerRef.current) {
-      clearInterval(qrExpiryTimerRef.current);
-      qrExpiryTimerRef.current = null;
-    }
     setShowWhatsAppQr(false);
     setWhatsAppQr(null);
-    setWhatsAppQrCountdown(null);
     setWhatsAppError("");
   }, []);
 
@@ -299,43 +298,7 @@ const autoGoogleFirstLoadRef = useRef(false);
     setGoogleAuthError("");
   }, [agentIdParam, queryAuthUrl, queryAuthState]);
 
-  useEffect(() => {
-    if (!showWhatsAppQr || !whatsAppQr) {
-      if (qrExpiryTimerRef.current) {
-        clearInterval(qrExpiryTimerRef.current);
-        qrExpiryTimerRef.current = null;
-      }
-      return;
-    }
-
-    if (qrExpiryTimerRef.current) {
-      clearInterval(qrExpiryTimerRef.current);
-    }
-
-    const intervalId = setInterval(() => {
-      setWhatsAppQrCountdown((prev) => {
-        if (typeof prev !== "number") {
-          return prev;
-        }
-        if (prev <= 0) {
-          clearInterval(intervalId);
-          qrExpiryTimerRef.current = null;
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    qrExpiryTimerRef.current = intervalId;
-
-    return () => {
-      clearInterval(intervalId);
-      if (qrExpiryTimerRef.current === intervalId) {
-        qrExpiryTimerRef.current = null;
-      }
-    };
-  }, [showWhatsAppQr, whatsAppQr]);
-
+  
   const handleUpgradeRedirect = useCallback(() => {
     if (!selectedUpgradePlan) {
       return;
@@ -484,10 +447,6 @@ const autoGoogleFirstLoadRef = useRef(false);
       if (qrPreparationTimerRef.current) {
         clearTimeout(qrPreparationTimerRef.current);
         qrPreparationTimerRef.current = null;
-      }
-      if (qrExpiryTimerRef.current) {
-        clearInterval(qrExpiryTimerRef.current);
-        qrExpiryTimerRef.current = null;
       }
     };
   }, []);
@@ -897,53 +856,7 @@ const autoGoogleFirstLoadRef = useRef(false);
     }
   }, [agentIdParam]);
 
-  useEffect(() => {
-    if (authLoading) {
-      return;
-    }
-    if (!user) {
-      setAgent(null);
-      setLoading(false);
-      setError("You need to sign in to view this agent.");
-      return;
-    }
-
-    void loadAgent();
-  }, [authLoading, user, loadAgent]);
-
-  // Load knowledge documents when agent is loaded
-  useEffect(() => {
-    if (!agent?.id) {
-      setKnowledge([]);
-      setKnowledgeLoading(false);
-      return;
-    }
-
-    setKnowledgeLoading(true);
-    setKnowledgeError("");
-    apiService
-      .getAgentDocuments(agent.id)
-      .then((response) => {
-        const items = Array.isArray(response)
-          ? response
-          : Array.isArray(response?.items)
-          ? response.items
-          : Array.isArray(response?.data)
-          ? response.data
-          : [];
-        setKnowledge(items);
-      })
-      .catch((error) => {
-        console.error("Failed to load knowledge:", error);
-        setKnowledgeError(
-          error?.message || "Unable to load knowledge documents."
-        );
-      })
-      .finally(() => {
-        setKnowledgeLoading(false);
-      });
-  }, [agent?.id]);
-
+  // WhatsApp functions - define before useEffect to avoid ReferenceError
   const getApiKeyForWhatsApp = useCallback(async () => {
     let apiKey =
       (typeof apiService.getCurrentApiKey === "function"
@@ -980,6 +893,409 @@ const autoGoogleFirstLoadRef = useRef(false);
 
     return apiKey;
   }, [agent?.config?.api_key, user?.subscription]);
+
+  // New WhatsApp status refresh function - consistent with agents page
+  const handleRefreshWhatsAppStatus = useCallback(async (agentId = null) => {
+    const targetAgentId = agentId || agent?.id;
+    if (!targetAgentId) return;
+
+    setWhatsAppErrors((prev) => {
+      const next = { ...prev };
+      delete next[targetAgentId];
+      return next;
+    });
+
+    setWhatsAppRefreshMap((prev) => ({ ...prev, [targetAgentId]: true }));
+
+    try {
+      await apiService.ensureApiKey();
+      const statusData = await apiService.getWhatsAppConnectionStatus(targetAgentId);
+
+      console.log('Status data from API:', statusData);
+
+      // Update agent with WhatsApp status - using the correct field names from the new API response
+      setAgent(prevAgent =>
+        prevAgent?.id === targetAgentId
+          ? {
+              ...prevAgent,
+              whatsapp_connected: statusData?.connected || statusData?.isActive || false,
+              whatsapp_status: statusData?.status || 'unknown',
+              last_message_at: statusData?.lastConnectedAt || prevAgent.last_message_at
+            }
+          : prevAgent
+      );
+
+      // Update session info
+      setWhatsAppSessionInfo({
+        ...EMPTY_WHATSAPP_SESSION,
+        isActive: statusData?.connected || statusData?.isActive || false,
+        status: statusData?.status || 'unknown',
+        lastConnectedAt: statusData?.lastConnectedAt || null,
+        raw: statusData
+      });
+    } catch (error) {
+      console.log('WhatsApp status check result:', error?.message);
+
+      // Handle "Session not found" gracefully - this is normal for agents without WhatsApp
+      const errorMessage = error?.message || "";
+      if (errorMessage.includes('Session not found') ||
+          errorMessage.includes('Not found') ||
+          errorMessage.includes('session not found')) {
+
+        // This is normal - agent doesn't have a WhatsApp session yet
+        // Set status to not connected without showing error
+        setAgent(prevAgent =>
+          prevAgent?.id === targetAgentId
+            ? {
+                ...prevAgent,
+                whatsapp_connected: false,
+                whatsapp_status: 'not_connected',
+                last_message_at: prevAgent.last_message_at
+              }
+            : prevAgent
+        );
+
+        // Update session info to reflect no session
+        setWhatsAppSessionInfo({
+          ...EMPTY_WHATSAPP_SESSION,
+          isActive: false,
+          status: 'not_connected',
+          lastConnectedAt: null,
+          raw: null
+        });
+
+        console.log(`Agent ${targetAgentId} has no WhatsApp session (this is normal)`);
+      } else {
+        // For other errors, show the error message
+        console.error('Error refreshing WhatsApp status:', error);
+        setWhatsAppErrors((prev) => ({
+          ...prev,
+          [targetAgentId]: error?.message || "Unable to refresh WhatsApp status. Please try again."
+        }));
+      }
+    } finally {
+      setWhatsAppRefreshMap((prev) => {
+        const next = { ...prev };
+        delete next[targetAgentId];
+        return next;
+      });
+    }
+  }, [agent?.id]);
+
+  // WhatsApp connection handler
+  const handleConnectWhatsApp = useCallback(async () => {
+    if (!agent) {
+      return;
+    }
+
+    if (isTrialPlan) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    try {
+      await apiService.ensureApiKey();
+      const apiKey = await getApiKeyForWhatsApp();
+
+      // First, create WhatsApp session (ignore "session_created" gating; always try fetch QR)
+      const sessionData = await apiService.createWhatsAppSession({
+        userId: user?.user_id || '',
+        agentId: agent.id,
+        agentName: agent.name,
+        apiKey
+      });
+
+      // Then fetch QR code
+      const qrData = await apiService.fetchWhatsAppQr(agent.id);
+      const qrImage =
+        resolveSessionQrImage(qrData) ||
+        resolveSessionQrImage(sessionData) ||
+        qrData?.qr?.base64 ||
+        qrData?.qr?.image ||
+        null;
+
+      if (!qrImage) {
+        throw new Error('QR code unavailable right now. Please retry in a moment.');
+      }
+
+      // Show QR modal
+      setShowWhatsAppQr(true);
+      setWhatsAppQr(qrImage);
+      setWhatsAppError("");
+
+      // Update agent status
+      setAgent(prevAgent =>
+        prevAgent?.id === agent.id
+          ? {
+              ...prevAgent,
+              whatsapp_connected: false,
+              whatsapp_status: 'connecting'
+            }
+          : prevAgent
+      );
+
+      // Update session info
+      setWhatsAppSessionInfo({
+        ...EMPTY_WHATSAPP_SESSION,
+        isActive: false,
+        status: 'connecting',
+        raw: sessionData
+      });
+
+      // Start polling for status updates
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const statusData = await apiService.getWhatsAppConnectionStatus(agent.id);
+          console.log('Polling status data:', statusData);
+
+          // Check for connected status using multiple possible fields
+          const isConnected = statusData?.connected ||
+                            statusData?.isActive ||
+                            statusData?.status === 'connected';
+
+          if (isConnected) {
+            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+            setShowWhatsAppQr(false);
+
+            // Update agent status to connected
+            setAgent(prevAgent =>
+              prevAgent?.id === agent.id
+                ? {
+                    ...prevAgent,
+                    whatsapp_connected: true,
+                    whatsapp_status: 'connected',
+                    last_message_at: statusData?.lastConnectedAt || prevAgent.last_message_at
+                  }
+                : prevAgent
+            );
+
+            // Update session info
+            setWhatsAppSessionInfo({
+              ...EMPTY_WHATSAPP_SESSION,
+              isActive: true,
+              status: 'connected',
+              lastConnectedAt: statusData?.lastConnectedAt || null,
+              raw: statusData
+            });
+          }
+        } catch (error) {
+          console.error('Error polling WhatsApp status:', error);
+        }
+      }, 3000);
+
+      // Stop polling after 5 minutes
+      setTimeout(() => {
+        if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      }, 300000);
+
+    } catch (error) {
+      console.error('Error connecting WhatsApp:', error);
+      setWhatsAppErrors((prev) => ({
+        ...prev,
+        [agent.id]: 'Failed to connect WhatsApp: ' + (error.message || 'Unknown error')
+      }));
+      setShowWhatsAppQr(false);
+    }
+  }, [agent, isTrialPlan, getApiKeyForWhatsApp, user?.user_id]);
+
+  // WhatsApp disconnect handler
+  const handleDisconnectWhatsApp = useCallback(async () => {
+    if (!agent?.id) {
+      return;
+    }
+
+    try {
+      // Clear any existing error
+      setWhatsAppErrors((prev) => {
+        const next = { ...prev };
+        delete next[agent.id];
+        return next;
+      });
+
+      // Set loading state
+      setWhatsAppRefreshMap((prev) => ({ ...prev, [agent.id]: true }));
+
+      await apiService.ensureApiKey();
+      console.log(`Disconnecting WhatsApp for agent: ${agent.id}`);
+
+      // Call disconnect API
+      await apiService.disconnectWhatsApp(agent.id);
+
+      // Update agent status to disconnected
+      setAgent(prevAgent =>
+        prevAgent?.id === agent.id
+          ? {
+              ...prevAgent,
+              whatsapp_connected: false,
+              whatsapp_status: 'disconnected'
+            }
+          : prevAgent
+      );
+
+      // Update session info
+      setWhatsAppSessionInfo({
+        ...EMPTY_WHATSAPP_SESSION,
+        isActive: false,
+        status: 'disconnected'
+      });
+
+      console.log(`Successfully disconnected WhatsApp for agent: ${agent.id}`);
+
+      // Optional: Refresh status after a short delay to ensure backend is updated
+      setTimeout(async () => {
+        try {
+          await handleRefreshWhatsAppStatus();
+        } catch (error) {
+          console.log('Status refresh after disconnect failed, but disconnect was successful');
+        }
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp:', error);
+      setWhatsAppErrors((prev) => ({
+        ...prev,
+        [agent.id]: error?.message || "Unable to disconnect WhatsApp. Please try again."
+      }));
+    } finally {
+      setWhatsAppRefreshMap((prev) => {
+        const next = { ...prev };
+        delete next[agent.id];
+        return next;
+      });
+    }
+  }, [agent?.id, handleRefreshWhatsAppStatus]);
+
+  // WhatsApp reconnect handler
+  const handleWhatsAppReconnect = useCallback(async () => {
+    if (!agent?.id) {
+      return;
+    }
+    if (isTrialPlan) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    setWhatsAppError("");
+    setWhatsAppReconnecting(true);
+    try {
+      const session = await apiService.reconnectWhatsAppSession(agent.id);
+      setWhatsAppSessionInfo(session || EMPTY_WHATSAPP_SESSION);
+
+      const qr = resolveSessionQrImage(session);
+      if (qr) {
+        setShowWhatsAppQr(true);
+        setWhatsAppQr(qr);
+      }
+
+      await handleRefreshWhatsAppStatus();
+    } catch (error) {
+      setWhatsAppError(
+        error?.message || "Unable to reconnect WhatsApp session right now."
+      );
+    } finally {
+      setWhatsAppReconnecting(false);
+    }
+  }, [agent?.id, isTrialPlan, handleRefreshWhatsAppStatus]);
+
+  // WhatsApp delete handler
+  const handleWhatsAppDelete = useCallback(async () => {
+    if (!agent?.id) {
+      return;
+    }
+
+    setWhatsAppError("");
+    setWhatsAppDeleting(true);
+    try {
+      await apiService.deleteWhatsAppSession(agent.id);
+      setShowWhatsAppQr(false);
+      setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
+
+      // Update agent status
+      setAgent(prevAgent =>
+        prevAgent?.id === agent.id
+          ? {
+              ...prevAgent,
+              whatsapp_connected: false,
+              whatsapp_status: 'disconnected'
+            }
+          : prevAgent
+      );
+
+      await handleRefreshWhatsAppStatus();
+    } catch (error) {
+      setWhatsAppError(
+        error?.message || "Unable to delete WhatsApp session right now."
+      );
+    } finally {
+      setWhatsAppDeleting(false);
+    }
+  }, [agent?.id, handleRefreshWhatsAppStatus]);
+
+  useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+    if (!user) {
+      setAgent(null);
+      setLoading(false);
+      setError("You need to sign in to view this agent.");
+      return;
+    }
+
+    void loadAgent();
+  }, [authLoading, user, loadAgent]);
+
+  // Load WhatsApp status when agent is loaded
+  useEffect(() => {
+    if (agent?.id && !authLoading && user) {
+      // Load initial WhatsApp status
+      handleRefreshWhatsAppStatus(agent.id);
+    }
+  }, [agent?.id, authLoading, user, handleRefreshWhatsAppStatus]);
+
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  // Load knowledge documents when agent is loaded
+  useEffect(() => {
+    if (!agent?.id) {
+      setKnowledge([]);
+      setKnowledgeLoading(false);
+      return;
+    }
+
+    setKnowledgeLoading(true);
+    setKnowledgeError("");
+    apiService
+      .getAgentDocuments(agent.id)
+      .then((response) => {
+        const items = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response?.data)
+          ? response.data
+          : [];
+        setKnowledge(items);
+      })
+      .catch((error) => {
+        console.error("Failed to load knowledge:", error);
+        setKnowledgeError(
+          error?.message || "Unable to load knowledge documents."
+        );
+      })
+      .finally(() => {
+        setKnowledgeLoading(false);
+      });
+  }, [agent?.id]);
 
   const refreshWhatsAppSession = useCallback(async () => {
     if (whatsAppStatusLoadingRef.current) {
@@ -1060,179 +1376,8 @@ const autoGoogleFirstLoadRef = useRef(false);
     }
   }, [showWhatsAppQr, whatsAppSessionInfo.isActive, closeWhatsAppQrPreview]);
 
-  const handleWhatsAppQr = async () => {
-    if (!agent) {
-      return;
-    }
-
-    if (isTrialPlan) {
-      setShowUpgradeModal(true);
-      return;
-    }
-
-    if (qrFlowAbortRef.current) {
-      qrFlowAbortRef.current.abort();
-    }
-    const flowAbortController = new AbortController();
-    qrFlowAbortRef.current = flowAbortController;
-
-    const createAbortError = () => {
-      try {
-        return new DOMException("Aborted", "AbortError");
-      } catch (_err) {
-        const abortError = new Error("Aborted");
-        abortError.name = "AbortError";
-        return abortError;
-      }
-    };
-
-    const clearPreparationTimer = () => {
-      if (qrPreparationTimerRef.current) {
-        clearTimeout(qrPreparationTimerRef.current);
-        qrPreparationTimerRef.current = null;
-      }
-    };
-
-    const waitForQrPreparation = () =>
-      new Promise((resolve, reject) => {
-        if (WHATSAPP_QR_PREPARATION_SECONDS <= 0) {
-          resolve();
-          return;
-        }
-
-        const abortSignal = flowAbortController.signal;
-        let abortHandler;
-
-        const cleanup = () => {
-          clearPreparationTimer();
-          if (abortHandler) {
-            abortSignal.removeEventListener("abort", abortHandler);
-            abortHandler = null;
-          }
-        };
-
-        abortHandler = () => {
-          cleanup();
-          reject(createAbortError());
-        };
-
-        abortSignal.addEventListener("abort", abortHandler);
-
-        qrPreparationTimerRef.current = setTimeout(() => {
-          cleanup();
-          resolve();
-        }, WHATSAPP_QR_PREPARATION_SECONDS * 1000);
-      });
-
-    whatsAppQrUserClosedRef.current = false;
-    setWhatsAppError("");
-    setWhatsAppLoading(true);
-    setShowWhatsAppQr(true);
-    setWhatsAppQr(null);
-    setWhatsAppQrCountdown(null);
-
-    try {
-      if (!user?.user_id) {
-        throw new Error("User identifier missing. Please re-authenticate.");
-      }
-
-      const apiKey = await getApiKeyForWhatsApp();
-      await apiService.createWhatsAppSession({
-        userId: String(user.user_id),
-        agentId: String(agent.id),
-        agentName: agent.name,
-        apiKey,
-      });
-
-      await waitForQrPreparation();
-
-      const session = await apiService.fetchWhatsAppQr(agent.id);
-      const qr = resolveSessionQrImage(session);
-
-      setWhatsAppSessionInfo(session);
-
-      if (qr) {
-        setWhatsAppQr(qr);
-        setWhatsAppQrCountdown(WHATSAPP_QR_EXPIRY_SECONDS);
-      } else {
-        throw new Error(
-          "QR code unavailable right now. Please try again shortly."
-        );
-      }
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        return;
-      }
-      setWhatsAppError(
-        error?.message || "Unable to initialise WhatsApp session right now."
-      );
-      setWhatsAppSessionInfo((previous) => previous || EMPTY_WHATSAPP_SESSION);
-      setWhatsAppQr(null);
-      setShowWhatsAppQr(false);
-      setWhatsAppQrCountdown(null);
-    } finally {
-      setWhatsAppLoading(false);
-      clearPreparationTimer();
-      if (qrFlowAbortRef.current === flowAbortController) {
-        qrFlowAbortRef.current = null;
-      }
-    }
-  };
-
-  const handleWhatsAppReconnect = useCallback(async () => {
-    if (!agent?.id) {
-      return;
-    }
-    if (isTrialPlan) {
-      setShowUpgradeModal(true);
-      return;
-    }
-
-    setWhatsAppError("");
-    setWhatsAppReconnecting(true);
-    try {
-      const session = await apiService.reconnectWhatsAppSession(agent.id);
-      setWhatsAppSessionInfo(session || EMPTY_WHATSAPP_SESSION);
-
-      const qr = resolveSessionQrImage(session);
-      if (qr) {
-        whatsAppQrUserClosedRef.current = false;
-        setShowWhatsAppQr(true);
-        setWhatsAppQr(qr);
-        setWhatsAppQrCountdown(WHATSAPP_QR_EXPIRY_SECONDS);
-      }
-
-      await refreshWhatsAppSession();
-    } catch (error) {
-      setWhatsAppError(
-        error?.message || "Unable to reconnect WhatsApp session right now."
-      );
-    } finally {
-      setWhatsAppReconnecting(false);
-    }
-  }, [agent?.id, isTrialPlan, refreshWhatsAppSession]);
-
-  const handleWhatsAppDelete = useCallback(async () => {
-    if (!agent?.id) {
-      return;
-    }
-
-    setWhatsAppError("");
-    setWhatsAppDeleting(true);
-    try {
-      await apiService.deleteWhatsAppSession(agent.id);
-      closeWhatsAppQrPreview();
-      setWhatsAppSessionInfo(EMPTY_WHATSAPP_SESSION);
-      await refreshWhatsAppSession();
-    } catch (error) {
-      setWhatsAppError(
-        error?.message || "Unable to delete WhatsApp session right now."
-      );
-    } finally {
-      setWhatsAppDeleting(false);
-    }
-  }, [agent?.id, closeWhatsAppQrPreview, refreshWhatsAppSession]);
-
+  
+  
   const requiresWhatsApp = useMemo(() => {
     if (whatsAppSessionInfo.isActive) {
       return false;
@@ -1295,9 +1440,7 @@ const autoGoogleFirstLoadRef = useRef(false);
     );
   }, [whatsAppQr]);
 
-  const whatsAppQrExpired =
-    typeof whatsAppQrCountdown === "number" && whatsAppQrCountdown <= 0;
-
+  
   const handleDelete = async () => {
     if (!agent) return;
     const confirmed = window.confirm(
@@ -1778,135 +1921,163 @@ const autoGoogleFirstLoadRef = useRef(false);
                 </div>
               )}
 
-              {/* WhatsApp Section */}
-              <div className="border-t border-border pt-6 space-y-4">
+              {/* WhatsApp Section - Apple Style */}
+              <div className="border-t border-border/50 pt-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Smartphone className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">WhatsApp Integration</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center shadow-lg">
+                      <Smartphone className="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg font-semibold">WhatsApp Integration</CardTitle>
+                      <p className="text-sm text-muted-foreground">Connect your agent to WhatsApp messaging</p>
+                    </div>
                   </div>
                   <Badge
-                    variant={whatsAppSessionInfo.isActive ? "success" : "muted"}
-                    className={cn("px-3 py-1", whatsAppStatusClasses)}
+                    variant={agent?.whatsapp_connected ? "success" : "muted"}
+                    className={cn(
+                      "px-3 py-1 text-xs font-full rounded-full",
+                      agent?.whatsapp_connected
+                        ? "bg-green-100 text-green-700 border-green-200"
+                        : "bg-gray-100 text-gray-700 border-gray-200"
+                    )}
                   >
-                    {whatsAppStatusLoading ? "Checking..." : whatsAppStatusLabel}
+                    {agent?.whatsapp_connected
+                      ? "Connected"
+                      : agent?.whatsapp_status === 'not_connected'
+                      ? "No Session"
+                      : "Not Connected"}
                   </Badge>
                 </div>
 
-                {whatsAppError && !showWhatsAppQr && (
-                  <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <p className="text-sm text-destructive">{whatsAppError}</p>
+                {whatsAppErrors[agent?.id] && !showWhatsAppQr && (
+                  <div className="p-4 rounded-xl bg-red-50/80 border border-red-200/80 backdrop-blur-sm">
+                    <p className="text-sm text-red-700">{whatsAppErrors[agent.id]}</p>
                   </div>
                 )}
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    onClick={handleWhatsAppQr}
-                    disabled={
-                      whatsAppLoading || whatsAppDeleting || whatsAppReconnecting
-                    }
-                    className="bg-[#25D366] hover:bg-[#128C7E] text-white"
-                    size="sm"
-                  >
-                    {whatsAppLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Loading QR...
-                      </>
-                    ) : whatsAppSessionInfo.isActive ? (
-                      <>
-                        <QrCode className="h-4 w-4 mr-2" />
-                        Re-link WhatsApp
-                      </>
-                    ) : (
-                      <>
-                        <QrCode className="h-4 w-4 mr-2" />
+                <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center",
+                        agent?.whatsapp_connected
+                          ? "bg-green-100"
+                          : "bg-gray-100"
+                      )}>
+                        {agent?.whatsapp_connected ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <AlertCircle className="h-4 w-4 text-gray-500" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          {agent?.whatsapp_connected
+                            ? "WhatsApp is connected and ready"
+                            : agent?.whatsapp_status === 'not_connected'
+                            ? "No WhatsApp session created yet"
+                            : "Connect WhatsApp to enable messaging"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {agent?.last_message_at
+                            ? `Last active: ${new Date(agent.last_message_at).toLocaleDateString()}`
+                            : agent?.whatsapp_status === 'not_connected'
+                            ? "Create a session to start using WhatsApp"
+                            : "No recent activity"
+                          }
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={handleRefreshWhatsAppStatus}
+                        disabled={Boolean(whatsAppRefreshMap[agent?.id])}
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-3 rounded-full border border-border/50 hover:bg-background/80"
+                      >
+                        <RefreshCw className={cn("h-3 w-3", whatsAppRefreshMap[agent?.id] && "animate-spin")} />
+                        <span className="ml-1 text-xs">
+                          {whatsAppRefreshMap[agent?.id] ? "Refreshing..." : "Refresh"}
+                        </span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 pt-2">
+                    {!agent?.whatsapp_connected ? (
+                      <Button
+                        onClick={handleConnectWhatsApp}
+                        disabled={Boolean(whatsAppRefreshMap[agent?.id])}
+                        className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 rounded-full px-6"
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
                         Connect WhatsApp
-                      </>
-                    )}
-                  </Button>
-
-                  <Button
-                    onClick={refreshWhatsAppSession}
-                    disabled={
-                      whatsAppStatusLoading ||
-                      whatsAppLoading ||
-                      whatsAppDeleting ||
-                      whatsAppReconnecting
-                    }
-                    variant="outline"
-                    size="sm"
-                  >
-                    {whatsAppStatusLoading ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Refreshing...
-                      </>
+                      </Button>
                     ) : (
                       <>
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Refresh Status
+                        <Button
+                          onClick={handleConnectWhatsApp}
+                          disabled={Boolean(whatsAppRefreshMap[agent?.id])}
+                          variant="outline"
+                          className="border-green-200 text-green-700 hover:bg-green-50 rounded-full px-6"
+                        >
+                          <QrCode className="h-4 w-4 mr-2" />
+                          Re-link Device
+                        </Button>
+
+                        <Button
+                          onClick={handleDisconnectWhatsApp}
+                          disabled={Boolean(whatsAppRefreshMap[agent?.id])}
+                          variant="outline"
+                          className="border-red-200 text-red-700 hover:bg-red-50 rounded-full px-6"
+                        >
+                          <WifiOff className="h-4 w-4 mr-2" />
+                          Disconnect
+                        </Button>
+
+                        <Button
+                          onClick={handleWhatsAppDelete}
+                          disabled={whatsAppDeleting || Boolean(whatsAppRefreshMap[agent?.id])}
+                          variant="outline"
+                          className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-full px-4"
+                          title="Delete WhatsApp Session"
+                        >
+                          {whatsAppDeleting ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4" />
+                              <span className="ml-2 hidden sm:inline">Delete Session</span>
+                            </>
+                          )}
+                        </Button>
                       </>
                     )}
-                  </Button>
+
+                    {/* Show delete session button even when not connected but session exists */}
+                    {(!agent?.whatsapp_connected && agent?.whatsapp_status !== 'not_connected') && (
+                      <Button
+                        onClick={handleWhatsAppDelete}
+                        disabled={whatsAppDeleting || Boolean(whatsAppRefreshMap[agent?.id])}
+                        variant="outline"
+                        className="border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-full px-4"
+                        title="Delete WhatsApp Session"
+                      >
+                        {whatsAppDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="ml-2 hidden sm:inline">Delete Session</span>
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-
-                {whatsAppSessionInfo.isActive && (
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Button
-                      onClick={handleWhatsAppReconnect}
-                      disabled={
-                        whatsAppReconnecting ||
-                        whatsAppLoading ||
-                        whatsAppStatusLoading ||
-                        whatsAppDeleting
-                      }
-                      variant="outline"
-                      size="sm"
-                    >
-                      {whatsAppReconnecting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Reconnecting...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Reconnect Session
-                        </>
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={handleWhatsAppDelete}
-                      disabled={whatsAppDeleting || whatsAppReconnecting}
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                    >
-                      {whatsAppDeleting ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Deleting...
-                        </>
-                      ) : (
-                        <>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Session
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-
-                {whatsAppSessionInfo.isActive && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-success/10 border border-success/20">
-                    <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-success">
-                      WhatsApp session is active. Re-scan the QR if you need to link a different device.
-                    </p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -2324,136 +2495,114 @@ const autoGoogleFirstLoadRef = useRef(false);
 
               </div>
 
-      {/* WhatsApp QR Modal */}
+      {/* WhatsApp QR Modal - Apple Style */}
       {showWhatsAppQr && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-xl px-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="relative w-full max-w-md rounded-2xl bg-card border border-border shadow-xl p-6 max-h-[90vh] overflow-y-auto"
+            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="relative w-full max-w-md rounded-3xl bg-white/95 dark:bg-gray-900/95 border border-white/20 dark:border-gray-700/20 shadow-2xl backdrop-blur-xl p-8 max-h-[90vh] overflow-y-auto"
           >
             <Button
               onClick={closeWhatsAppQrPreview}
               variant="ghost"
               size="icon"
-              className="absolute right-4 top-4"
+              className="absolute right-4 top-4 w-8 h-8 rounded-full hover:bg-black/5 dark:hover:bg-white/5"
             >
               <X className="h-4 w-4" />
             </Button>
 
             <div className="text-center space-y-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto shadow-lg">
                 <QrCode className="h-8 w-8 text-white" />
               </div>
 
-              <h3 className="text-xl font-semibold text-foreground">
-                Connect WhatsApp
-              </h3>
+              <div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  Connect WhatsApp
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Scan this QR code to link your agent to WhatsApp
+                </p>
+              </div>
 
-              <div className="space-y-4">
-                {whatsAppSessionInfo.isActive ? (
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-success flex items-center justify-center mx-auto">
-                      <CheckCircle className="h-8 w-8 text-white" />
+              <div className="space-y-6">
+                {agent?.whatsapp_connected ? (
+                  <div className="space-y-6">
+                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center mx-auto shadow-lg">
+                      <CheckCircle className="h-10 w-10 text-white" />
                     </div>
-                    <div className="space-y-2">
-                      <h4 className="text-lg font-semibold text-success">Successfully Connected</h4>
-                      <p className="text-sm text-muted-foreground">
+                    <div className="space-y-3">
+                      <h4 className="text-xl font-semibold text-green-600">Successfully Connected</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         WhatsApp is now connected to this agent. Messages can be sent and received.
                       </p>
-                      {whatsAppSessionInfo.updatedAt && (
-                        <p className="text-xs text-muted-foreground">
-                          Connected at {formatDateTime(whatsAppSessionInfo.updatedAt)}
+                      {agent?.last_message_at && (
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          Connected at {formatDateTime(agent.last_message_at)}
                         </p>
                       )}
                     </div>
-                    <Button onClick={closeWhatsAppQrPreview} className="w-full">
-                      Close
+                    <Button
+                      onClick={closeWhatsAppQrPreview}
+                      className="w-full bg-gray-900 hover:bg-gray-800 text-white rounded-full py-3 font-medium"
+                    >
+                      Done
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {whatsAppLoading ? (
-                      <div className="space-y-4">
-                        <div className="w-16 h-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto"></div>
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium text-foreground">Generating QR Code...</p>
-                          <p className="text-xs text-muted-foreground">
+                      <div className="space-y-6">
+                        <div className="w-20 h-20 rounded-full border-4 border-gray-200 border-t-green-500 animate-spin mx-auto"></div>
+                        <div className="space-y-3">
+                          <p className="text-lg font-medium text-gray-900 dark:text-white">Generating QR Code...</p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
                             Please wait while we prepare your WhatsApp connection
                           </p>
                         </div>
                       </div>
                     ) : whatsAppQr ? (
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          Open WhatsApp &gt; Linked Devices and scan this QR code to connect the agent.
-                        </p>
+                      <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-lg">
+                          <Image
+                            src={whatsAppQr.startsWith('data:') ? whatsAppQr : `data:image/png;base64,${whatsAppQr}`}
+                            alt="WhatsApp QR Code"
+                            width={256}
+                            height={256}
+                            unoptimized
+                            className="h-auto w-64 mx-auto"
+                          />
+                        </div>
 
-                        {whatsAppQrIsImage ? (
-                          <div className="flex justify-center">
-                            <div className="bg-white p-4 rounded-xl border-2 border-border shadow-lg">
-                              <Image
-                                src={whatsAppQr}
-                                alt="WhatsApp QR Code"
-                                width={256}
-                                height={256}
-                                unoptimized
-                                className="h-auto w-64"
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <Button asChild className="w-full">
-                            <a href={whatsAppQr} target="_blank" rel="noopener noreferrer">
-                              <Smartphone className="h-4 w-4 mr-2" />
-                              Open WhatsApp Link
-                            </a>
-                          </Button>
-                        )}
-
-                        {typeof whatsAppQrCountdown === "number" && (
-                          <div className={`text-sm font-medium ${
-                            whatsAppQrExpired ? "text-destructive" : "text-muted-foreground"
-                          }`}>
-                            {whatsAppQrExpired
-                              ? "QR code expired. Please generate a new one."
-                              : `QR code expires in ${whatsAppQrCountdown} seconds`}
-                          </div>
-                        )}
-
-                        <div className="text-left space-y-2 bg-card dark:bg-gray-800 rounded-lg p-4">
-                          <h4 className="font-semibold text-foreground text-sm">How to connect:</h4>
-                          <ol className="space-y-1 text-sm text-muted-foreground">
-                            <li>1. Open WhatsApp on your phone</li>
-                            <li>2. Go to <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong></li>
-                            <li>3. Scan this QR code before it expires</li>
+                        
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 space-y-4">
+                          <h4 className="font-semibold text-gray-900 dark:text-white text-base">How to connect:</h4>
+                          <ol className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
+                            <li className="flex items-start gap-3">
+                              <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+                              <span>Open WhatsApp on your phone</span>
+                            </li>
+                            <li className="flex items-start gap-3">
+                              <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+                              <span>Go to <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong></span>
+                            </li>
+                            <li className="flex items-start gap-3">
+                              <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</div>
+                              <span>Scan this QR code to connect</span>
+                            </li>
                           </ol>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          {whatsAppQrExpired && (
-                            <Button onClick={handleWhatsAppQr} disabled={whatsAppLoading} className="flex-1">
-                              {whatsAppLoading ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  Loading...
-                                </>
-                              ) : (
-                                <>
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  Generate New QR
-                                </>
-                              )}
-                            </Button>
-                          )}
-
+                        <div className="flex flex-col gap-3">
+                          
                           <Button
-                            onClick={refreshWhatsAppSession}
-                            disabled={whatsAppStatusLoading || whatsAppLoading}
+                            onClick={handleRefreshWhatsAppStatus}
+                            disabled={Boolean(whatsAppRefreshMap[agent?.id])}
                             variant="outline"
-                            className="flex-1"
+                            className="w-full rounded-full py-3 font-medium border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                           >
-                            {whatsAppStatusLoading ? (
+                            {whatsAppRefreshMap[agent?.id] ? (
                               <>
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                 Refreshing...
@@ -2466,38 +2615,19 @@ const autoGoogleFirstLoadRef = useRef(false);
                             )}
                           </Button>
 
-                          <div className="flex flex-col gap-3">
-                          <Button
-                            onClick={handleWhatsAppDelete}
-                            variant="destructive"
-                            className="w-full"
-                            disabled={whatsAppDeleting}
-                          >
-                            {whatsAppDeleting ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Deleting...
-                              </>
-                            ) : (
-                              <>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete Session
-                              </>
-                            )}
-                          </Button>
                           <Button
                             onClick={closeWhatsAppQrPreview}
-                            variant="outline"
-                            className="w-full"
+                            variant="ghost"
+                            className="w-full rounded-full py-3 font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
                           >
-                            Close
+                            Cancel
                           </Button>
-                        </div>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
+                        <div className="w-16 h-16 rounded-full border-4 border-gray-200 border-t-green-500 animate-spin mx-auto"></div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           Preparing QR code... This may take a few seconds.
                         </p>
                       </div>

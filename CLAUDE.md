@@ -104,26 +104,22 @@ Status-aware routing in `/src/lib/navigation.js`:
 - **Automatic redirection** to appropriate pages based on feature status
 
 ### 5. Agent Creation Flow (wajib ikuti)
-- CTA "Create agent" **selalu** diarahkan ke galeri template (`/dashboard/agents/templates`), lanjut wawancara chat, lalu prefilled `AgentForm`, baru POST create agent. Tombol “Customize Agent” memulai wawancara dengan template khusus `custom-agent` (bukan lompat ke form).
+- CTA "Create agent" **selalu** diarahkan ke galeri template (`/dashboard/agents/templates`), lanjut wawancara chat, lalu prefilled `AgentForm`, baru POST create agent. Tombol "Customize Agent" memulai wawancara dengan template khusus `custom-agent` (bukan lompat ke form).
 - Jangan hubungkan CTA langsung ke form kosong; `/dashboard/agents/new` menolak akses jika tidak membawa hasil wawancara dan mengarahkan user kembali ke galeri template.
 - Payload wawancara disimpan di `sessionStorage.pendingAgentData` dan harus dipakai untuk prefill form; jaga kontrak ini saat ubah UI template/chat.
 - **UI/UX parity rule:** Template gallery, interview chat, dan AgentForm pada jalur trial (`/trial/*`) wajib identik dengan jalur berbayar (PRO_M/PRO_Y). Jika kamu mengubah desain, copy, atau struktur komponen pada salah satunya, segera samakan di jalur satunya agar context wawancara → form tidak pecah. Perbedaan hanya boleh pada logika (plan code, locking, provisioning), bukan tampilan/experience.
-- Setelah agent berbayar dibuat dan dialihkan ke `/dashboard/agents/{id}`, bila konfigurasi mengandung `google_tools`, wajib munculkan modal “Connect Google” secara otomatis. Modal sama juga harus muncul saat user menekan tombol “Continue with Google” di kartu konektor. CTA “Connect” membuka OAuth, sementara “Lanjut tanpa Google” butuh klik kedua setelah peringatan bahwa Gmail/Calendar tidak akan berfungsi sampai koneksi selesai.
+- Setelah agent berbayar dibuat dan dialihkan ke `/dashboard/agents/{id}`, bila konfigurasi mengandung `google_tools`, wajib munculkan modal "Connect Google" secara otomatis. Modal sama juga harus muncul saat user menekan tombol "Continue with Google" di kartu konektor. CTA "Connect" membuka OAuth, sementara "Lanjut tanpa Google" butuh klik kedua setelah peringatan bahwa Gmail/Calendar tidak akan berfungsi sampai koneksi selesai.
 
-### 6. Konsistensi Kode
-- Saat mengubah atau menambah fitur, **cek keseluruhan codebase** (lint, pattern, naming, path aliases, hook reuse) supaya gaya, arsitektur, dan flow tetap konsisten dengan dokumentasi (Flow.md, guides) dan panduan ini.
-- Hindari menambahkan jalur baru yang bertabrakan dengan flow yang sudah didefinisikan; jika perlu jalur baru, selaraskan dokumentasi dan update Flow.md terlebih dulu.
-
-### 7. Create Agent Payload Rules
+### 6. Create Agent Payload Rules
 - `google_tools` harus dipisah dari `mcp_tools`; hanya isi aksi Gmail/Google yang dipilih.
 - `mcp_servers` default: `{ calculator_sse: { transport: "sse", url: "http://0.0.0.0:8190/sse" } }` (override hanya via `NEXT_PUBLIC_MCP_SERVER_URL`).
 - `mcp_tools` hanya berisi MCP pilihan (contoh: `web_search`), jangan inject Google tools ke sini; field `tools` opsional—untuk MCP-only kirim kosong/tidak dikirim.
 
-### 8. WhatsApp QR Modal Konsistensi
+### 7. WhatsApp QR Modal Konsistensi
 - Gunakan gaya & UX yang sama antara `/dashboard/agents` dan `/dashboard/agents/{id}`: gradient header, card border, countdown expiry, tombol refresh status/new QR, dan tombol close di pojok.
 - QR modal harus muncul segera setelah `createWhatsAppSession` + `fetchWhatsAppQr`, tidak menunggu flag khusus.
 
-### 9. Google Integration Architecture (Per-Agent OAuth)
+### 8. Google Integration Architecture (Per-Agent OAuth)
 Google Workspace integration in `/src/lib/api.js` and `/src/app/dashboard/agents/[agentId]/page.js`:
 - **Per-agent authentication**: Each agent requires separate OAuth via `/auth/google` with `agent_id` in payload
 - **Manual-only status checking**: No auto-refresh; polling starts only after user clicks "Connect" or "Refresh Status"
@@ -133,7 +129,7 @@ Google Workspace integration in `/src/lib/api.js` and `/src/app/dashboard/agents
 - **API contracts**: `POST /auth/google` and `POST /auth/refresh-status-google` both require `agent_id`
 - **User experience**: User must explicitly trigger actions; no background polling when page is not visible
 
-### 10. WhatsApp Integration Architecture
+### 9. WhatsApp Integration Architecture
 Complex WhatsApp Web integration in `/src/lib/api.js`:
 - **QR code flow**: Generation, expiration handling, and session validation
 - **Session status monitoring**: Real-time connection status with automatic reconnection

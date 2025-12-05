@@ -563,16 +563,10 @@ export default function AgentsPage() {
     agent: null,
     qrCode: null
   })
-  const [qrCountdown, setQrCountdown] = useState<number | null>(null)
-  const [qrExpired, setQrExpired] = useState(false)
-  const qrIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const closeQrModal = useCallback(() => {
     setQrModal({ isOpen: false, agent: null, qrCode: null })
-    setQrCountdown(null)
-    setQrExpired(false)
-    if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
     if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
   }, [])
 
@@ -686,7 +680,6 @@ export default function AgentsPage() {
   // Cleanup intervals on unmount
   useEffect(() => {
     return () => {
-      if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
       if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
     }
   }, [])
@@ -776,20 +769,6 @@ export default function AgentsPage() {
         agent: agent,
         qrCode: qrImage
       })
-      setQrExpired(false)
-      setQrCountdown(60)
-      if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
-      qrIntervalRef.current = setInterval(() => {
-        setQrCountdown((prev) => {
-          if (prev === null) return null
-          if (prev <= 1) {
-            setQrExpired(true)
-            if (qrIntervalRef.current) clearInterval(qrIntervalRef.current)
-            return 0
-          }
-          return prev - 1
-        })
-      }, 1000)
 
       // Update agent status
       setAgents(prevAgents =>
@@ -939,8 +918,7 @@ export default function AgentsPage() {
             ? {
                 ...a,
                 whatsapp_connected: false,
-                whatsapp_status: 'disconnected',
-                whatsapp_qr: undefined
+                whatsapp_status: 'disconnected'
               }
             : a
         )
@@ -1162,33 +1140,18 @@ export default function AgentsPage() {
                     </div>
                   </div>
 
-                  {typeof qrCountdown === "number" && (
-                    <div className={`text-sm font-medium ${
-                      qrExpired ? "text-destructive" : "text-muted-foreground"
-                    }`}>
-                      {qrExpired
-                        ? "QR code expired. Please generate a new one."
-                        : `QR code expires in ${qrCountdown} seconds`}
-                    </div>
-                  )}
-
+                  
                   <div className="text-left space-y-2 bg-card rounded-lg p-4 dark:bg-gray-800/50">
                     <h4 className="font-semibold text-foreground text-sm">How to connect:</h4>
                     <ol className="space-y-1 text-sm text-muted-foreground">
                       <li>1. Open WhatsApp on your phone</li>
                       <li>2. Go to <strong>Linked Devices</strong> &gt; <strong>Link a Device</strong></li>
-                      <li>3. Scan this QR code before it expires</li>
+                      <li>3. Scan this QR code to connect</li>
                     </ol>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">
-                    {qrExpired && qrModal.agent && (
-                      <Button onClick={() => handleConnectWhatsApp(qrModal.agent!)} disabled={false} className="flex-1">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Generate New QR
-                      </Button>
-                    )}
-
+                    
                     <Button
                       onClick={() => qrModal.agent && handleRefreshWhatsAppStatus(qrModal.agent)}
                       disabled={Boolean(qrModal.agent && whatsAppRefreshMap[qrModal.agent.id])}
