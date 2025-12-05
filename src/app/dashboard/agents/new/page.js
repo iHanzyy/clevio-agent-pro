@@ -35,33 +35,51 @@ export default function NewAgentPage() {
   const [showGuidedTour, setShowGuidedTour] = useState(false);
   const [guidedTourState, setGuidedTourState] = useState("idle");
   const [hasAppliedInterviewData, setHasAppliedInterviewData] = useState(false);
+  const [accessDeniedReason, setAccessDeniedReason] = useState(null);
 
   useEffect(() => {
     if (hasAppliedInterviewData) {
       return;
     }
 
-    const fromInterview = searchParams.get("fromInterview");
-    if (fromInterview === "true") {
-      const storedData = sessionStorage.getItem("pendingAgentData");
-      if (storedData) {
-        try {
-          const agentData = JSON.parse(storedData);
-          // Using the prefilled data directly since buildPrefilledFormValues might not be available
-          setPrefilledData(agentData);
-          // TUNDA open ke frame berikutnya agar child sudah render
-          setGuidedTourState("in-progress");
-          setTimeout(() => setShowGuidedTour(true), 0);
+    const fromInterview = searchParams.get("fromInterview") === "true";
+    const storedData =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("pendingAgentData")
+        : null;
+
+    if (storedData) {
+      try {
+        const agentData = JSON.parse(storedData);
+        // Using the prefilled data directly since buildPrefilledFormValues might not be available
+        setPrefilledData(agentData);
+        // TUNDA open ke frame berikutnya agar child sudah render
+        setGuidedTourState("in-progress");
+        setTimeout(() => setShowGuidedTour(true), 0);
+      } catch (err) {
+        console.error("Failed to parse prefilled data:", err);
+        setShowGuidedTour(false);
+        setGuidedTourState("idle");
+        setAccessDeniedReason(
+          "Jawaban wawancara tidak bisa dibaca. Mulai lagi dari galeri template.",
+        );
+      } finally {
+        if (typeof window !== "undefined") {
           sessionStorage.removeItem("pendingAgentData");
-        } catch (err) {
-          console.error("Failed to parse prefilled data:", err);
-          setShowGuidedTour(false);
-          setGuidedTourState("idle");
-        } finally {
-          setHasAppliedInterviewData(true);
         }
-        return;
+        setHasAppliedInterviewData(true);
       }
+      return;
+    }
+
+    if (!fromInterview) {
+      setAccessDeniedReason(
+        "Customize agent sekarang wajib dimulai dari wawancara. Silakan pilih template dulu.",
+      );
+    } else {
+      setAccessDeniedReason(
+        "Kami tidak menemukan hasil wawancara Anda. Mulai ulang dari galeri template.",
+      );
     }
 
     setShowGuidedTour(false);
@@ -127,6 +145,38 @@ export default function NewAgentPage() {
 
   if (!user) {
     return null;
+  }
+
+  if (accessDeniedReason) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6 text-center">
+        <div className="mx-auto max-w-md space-y-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-accent/10 text-accent">
+            <Sparkles className="h-6 w-6" />
+          </div>
+          <h1 className="text-2xl font-semibold text-foreground">
+            Interview required
+          </h1>
+          <p className="text-sm text-muted-foreground">{accessDeniedReason}</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/agents/templates")}
+              className="w-full rounded-lg bg-gradient-to-r from-accent to-accent-hover px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg sm:w-auto"
+            >
+              Kembali ke galeri template
+            </button>
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="w-full rounded-lg border border-surface-strong/60 px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-surface transition-colors sm:w-auto"
+            >
+              Batal
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const normalizedPlanCode = (
@@ -385,19 +435,19 @@ export default function NewAgentPage() {
           >
             <Card className="border-surface-strong/20 bg-gradient-to-r from-surface to-surface-strong/30">
               <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/20 flex-shrink-0">
-                    <Info className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Need Help?</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Start with our template wizard for guided setup, or configure manually for full control.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/20 flex-shrink-0">
+                        <Info className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-foreground">Need Help?</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Semua agen harus melewati wawancara template. Kembali ke galeri jika ingin memulai ulang konfigurasi.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
           </motion.div>
         </div>
       </div>

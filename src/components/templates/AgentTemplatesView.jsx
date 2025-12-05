@@ -261,17 +261,19 @@ export default function AgentTemplatesView({
                   />
                 </div>
 
-                {/* Customize Agent Button */}
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => router.push('/dashboard/agents/new')}
-                  className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-hover text-white font-medium shadow-lg shadow-accent/25 hover:shadow-accent/40 transition-all flex-shrink-0"
-                >
-                  <Sparkles className="h-5 w-5" />
-                  <span className="hidden sm:inline">Customize Agent</span>
-                  <span className="sm:hidden">Custom</span>
-                </motion.button>
+                {/* Customize Agent Button (interview-first) */}
+                {allowCustomStart && (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => handleCreateFromScratch()}
+                    className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-hover text-white font-medium shadow-lg shadow-accent/25 hover:shadow-accent/40 transition-all flex-shrink-0"
+                  >
+                    <Sparkles className="h-5 w-5" />
+                    <span className="hidden sm:inline">Customize via Interview</span>
+                    <span className="sm:hidden">Custom</span>
+                  </motion.button>
+                )}
               </div>
             </CardContent>
           </Card>
