@@ -163,11 +163,27 @@ export default function TemplateInterviewPageContent({
         }),
       );
 
+      try {
+        sessionStorage.setItem("lastTemplateSessionId", sessionId);
+      } catch (error) {
+        console.warn("[TemplateInterview] Unable to cache last session id", error);
+      }
+
+      console.log("[TemplateInterview] Stored pendingAgentData", {
+        sessionId,
+        keys: Object.keys(agentData || {}),
+      });
+
       if (nextPath) {
-        router.push(nextPath);
+        const url = new URL(nextPath, window.location.origin);
+        if (!url.searchParams.has("session")) {
+          url.searchParams.set("session", sessionId);
+        }
+        console.log("[TemplateInterview] Redirecting to", url.toString());
+        router.push(url.pathname + url.search);
       }
     },
-    [nextPath, router, template?.id],
+    [nextPath, router, sessionId, template?.id],
   );
 
   useEffect(() => {
@@ -177,6 +193,13 @@ export default function TemplateInterviewPageContent({
         template: template.name,
         source: sessionQuery ? "query" : "generated",
       });
+
+      // Persist session for downstream fallback (agent form page)
+      try {
+        sessionStorage.setItem("lastTemplateSessionId", sessionId);
+      } catch (error) {
+        console.warn("[TemplateInterview] Unable to persist last session id", error);
+      }
     }
   }, [sessionId, sessionQuery, template]);
 

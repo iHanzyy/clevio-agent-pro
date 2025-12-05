@@ -106,6 +106,18 @@ const pickAgentData = (payload) => {
   if (!payload || typeof payload !== "object") {
     return null;
   }
+
+  if (Array.isArray(payload)) {
+    const [first] = payload;
+    if (first && typeof first === "object") {
+      const normalizedFirst = normalizeAgentData(first);
+      if (normalizedFirst) return normalizedFirst;
+    }
+
+    const normalizedArray = normalizeAgentData(payload);
+    if (normalizedArray) return normalizedArray;
+  }
+
   const candidates = [
     payload.agent_data,
     payload.agentData,
@@ -116,6 +128,10 @@ const pickAgentData = (payload) => {
     payload.response?.agent_data,
     payload.response?.agentData,
   ];
+
+  if (payload.system_prompt || payload.google_tools || payload.mcp_tools) {
+    candidates.unshift(payload);
+  }
   for (const candidate of candidates) {
     const normalized = normalizeAgentData(candidate);
     if (normalized) {
@@ -128,6 +144,10 @@ const pickAgentData = (payload) => {
 const detectCompletionStatus = (payload) => {
   if (!payload || typeof payload !== "object") {
     return false;
+  }
+
+  if (Array.isArray(payload)) {
+    return payload.length > 0;
   }
   const statusCandidates = [
     payload.status,

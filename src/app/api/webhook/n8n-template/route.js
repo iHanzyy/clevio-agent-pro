@@ -18,22 +18,106 @@ const getPendingSessions = () => {
   return globalThis[PENDING_SESSION_STORE_KEY];
 };
 
+const CLEANUP_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+const cleanupStore = () => {
+  const store = getSessionStore();
+  const pendingSessions = getPendingSessions();
+  const now = Date.now();
+
+  for (const [key, value] of store.entries()) {
+    if (now - value.receivedAt > CLEANUP_INTERVAL) {
+      store.delete(key);
+    }
+  }
+
+  for (const [key, value] of pendingSessions.entries()) {
+    if (now - value.registeredAt > CLEANUP_INTERVAL) {
+      pendingSessions.delete(key);
+    }
+  }
+};
+
 export async function POST(request) {
+  cleanupStore();
   try {
     const payload = await request.json();
+// ... (rest of POST function remains mostly the same, just ensuring cleanup is called)
 
     console.log("[N8N Template Webhook] Received payload:", payload);
 
-    // Validate payload structure
-    if (!payload.status || !payload.agent_data) {
+    /**
+     * Accept a more permissive payload shape from n8n.
+     * Supported variants:
+     * - { status: "completed", agent_data: { ... }, session_id }
+     * - { agent_data: { ... } }
+     * - { ...agentDataFields }
+     * - [ { ...agentDataFields } ]
+     */
+    const extractAgentData = (value) => {
+      if (!value) return null;
+
+      const candidates = [
+        value.agent_data,
+        value.agentData,
+        value.agent,
+        value.data?.agent_data,
+        value.data?.agentData,
+        value.data?.agent,
+      ];
+
+      for (const candidate of candidates) {
+        if (candidate !== undefined && candidate !== null) {
+          return candidate;
+        }
+      }
+
+      if (Array.isArray(value) && value.length > 0) {
+        const [first] = value;
+        if (first && typeof first === "object") return first;
+      }
+
+      // As a final fallback, accept the object itself if it carries meaningful fields
+      if (typeof value === "object" && Object.keys(value).length > 0) {
+        return value;
+      }
+
+      return null;
+    };
+
+    const agentData = extractAgentData(payload);
+
+    if (!agentData) {
       return NextResponse.json(
-        { success: false, error: "Invalid payload structure" },
+        { success: false, error: "Invalid payload structure: missing agent data" },
         { status: 400 }
       );
     }
 
-    // Check if interview is completed
-    if (payload.status !== "completed") {
+    const pickStatus = (value) => {
+      if (!value || typeof value !== "object") return null;
+      const raw =
+        value.status ||
+        value.state ||
+        value.result ||
+        value.outcome ||
+        value.data?.status ||
+        value.data?.state ||
+        value.data?.result ||
+        value.data?.outcome;
+      return raw ? String(raw).toLowerCase() : null;
+    };
+
+    const status = pickStatus(payload) || pickStatus(agentData) || "completed";
+    const isCompleted = [
+      "completed",
+      "complete",
+      "done",
+      "success",
+      "finished",
+    ].includes(status);
+
+    if (!isCompleted) {
       return NextResponse.json(
         { success: true, message: "Interview still in progress" },
         { status: 200 }
@@ -41,11 +125,19 @@ export async function POST(request) {
     }
 
     // Extract session_id to identify which frontend instance to notify
-    let sessionId = payload.session_id || payload.sessionId;
+    let sessionId =
+      payload.session_id ||
+      payload.sessionId ||
+      agentData.session_id ||
+      agentData.sessionId;
     const pendingSessions = getPendingSessions();
 
     if (!sessionId || typeof sessionId !== "string" || sessionId.includes("{{")) {
-      const templateIdentifier = payload.template || payload.template_id;
+      const templateIdentifier =
+        payload.template ||
+        payload.template_id ||
+        agentData.template ||
+        agentData.template_id;
       const pendingEntries = [...pendingSessions.entries()].reverse();
       const fallbackEntry = pendingEntries.find(
         ([, info]) =>
@@ -79,17 +171,23 @@ export async function POST(request) {
       "[N8N Template Webhook] Interview completed for session:",
       sessionId
     );
-    console.log("[N8N Template Webhook] Agent data:", payload.agent_data);
+    console.log("[N8N Template Webhook] Agent data:", agentData);
     console.log("[N8N Template Webhook] Store before set:", {
       keys: Array.from(getSessionStore().keys()),
     });
 
     const store = getSessionStore();
-    pendingSessions.delete(sessionId);
+    // Don't delete from pendingSessions immediately to allow for potential retries/debugging
+    // pendingSessions.delete(sessionId); 
 
     store.set(sessionId, {
-      agentData: payload.agent_data,
-      template: payload.template || payload.template_id || null,
+      agentData,
+      template:
+        payload.template ||
+        payload.template_id ||
+        agentData.template ||
+        agentData.template_id ||
+        null,
       receivedAt: Date.now(),
     });
     console.log("[N8N Template Webhook] Store after set:", {
@@ -114,6 +212,7 @@ export async function POST(request) {
 export const dynamic = "force-dynamic";
 
 export async function GET(request) {
+  cleanupStore();
   const { searchParams } = new URL(request.url);
   const sessionId = searchParams.get("session");
 
@@ -138,9 +237,13 @@ export async function GET(request) {
     );
   }
 
-  store.delete(sessionId);
-  const pendingSessions = getPendingSessions();
-  pendingSessions.delete(sessionId);
+  // CRITICAL CHANGE: Do NOT delete the session immediately.
+  // We want to allow multiple reads (e.g. poll + final fetch)
+  // The cleanupStore function will handle expiration.
+  
+  // store.delete(sessionId);
+  // const pendingSessions = getPendingSessions();
+  // pendingSessions.delete(sessionId);
 
   return NextResponse.json({
     success: true,

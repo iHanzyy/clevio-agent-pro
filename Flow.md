@@ -125,12 +125,12 @@ flowchart LR
     response -->|no| redirectNo[/push("/dashboard/agents/{id}")/]
 ```
 
-1. Tombol/CTA “Create agent” **selalu** membuka galeri template (`/dashboard/agents/templates`); tidak langsung ke form kosong. Tombol “start from scratch” di galeri dinonaktifkan.
+1. Tombol/CTA “Create agent” **selalu** membuka galeri template (`/dashboard/agents/templates`); tidak langsung ke form kosong. Tombol “Customize Agent” di galeri memulai wawancara dengan template khusus “Custom Agent”, bukan lompat ke form.
 2. Setelah memilih template, dialog konfirmasi membuat `sessionId` deterministik lalu mendaftarkan sesi ke `/api/webhook/n8n-template`; router lanjut ke halaman chat.
 3. Halaman chat menjalankan wawancara via `AiAssistat` yang POST ke `N8N_MAIN/webhook/templateAgent` dengan metadata template.
 4. Ketika n8n mengembalikan `status: "completed"` + `agent_data`, payload itu disimpan oleh `/api/webhook/n8n-template`.
 5. Chat mem-poll `GET /api/webhook/n8n-template?session=…`, menaruh hasilnya ke `sessionStorage.pendingAgentData`, lalu redirect ke `/dashboard/agents/new?fromInterview=true`.
-6. `AgentForm` memanfaatkan `pendingAgentData` untuk prefill, memvalidasi tools (minimal Gmail/Calendar), dan menambahkan metadata MCP bila ada.
+6. `AgentForm` memanfaatkan `pendingAgentData` untuk prefill, memvalidasi tools (minimal Gmail/Calendar), dan menambahkan metadata MCP bila ada. Jika halaman `/dashboard/agents/new` dibuka tanpa hasil wawancara, UI memblokir akses dan memaksa user kembali ke galeri template.
 7. Submit memanggil `apiService.createAgent` melalui `/api/proxy/agents/`; setelah sukses, frontend wajib memicu OAuth per agent lewat `POST /auth/google` dengan body `{ scopes, agent_id }` (diturunkan dari agent yang baru dibuat). Respons `auth_url`/`auth_state` diteruskan di redirect detail page.
 8. Untuk akun berbayar (PRO_M/PRO_Y), ketika redirect ke `/dashboard/agents/{id}` selesai dan agent memiliki `google_tools`, halaman detail otomatis memunculkan modal “Connect Google”. Modal ini menjalankan `/auth/google` dengan `agent_id` tersebut; CTA “Connect” membuka OAuth, sedangkan “Lanjut tanpa Google” membutuhkan konfirmasi dan menampilkan peringatan bahwa Gmail/Calendar tidak akan berfungsi sampai koneksi diselesaikan.
 
@@ -141,7 +141,7 @@ flowchart LR
 - `mcp_tools`: hanya berisi pilihan MCP (mis. `web_search`), **tidak** otomatis memasukkan `google_tools`.
 
 ### Catatan bypass manual
-- Form kosong `/dashboard/agents/new` hanya boleh diakses melalui deep link (mis. troubleshooting) dan **bukan** jalur utama CTA. Setiap perubahan UX harus mempertahankan urutan: Create → Template → Interview → Form → Create.
+- Form kosong `/dashboard/agents/new` diblokir ketika tidak membawa hasil wawancara (kecuali flag darurat `allowDirect=1`). Urutan wajib: Create → Template → Interview → Form → Create. CTA “Customize Agent” sudah otomatis lewat wawancara, jadi jangan lagi arahkan ke form langsung.
 
 ### Trial onboarding & sandbox
 

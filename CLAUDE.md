@@ -104,8 +104,8 @@ Status-aware routing in `/src/lib/navigation.js`:
 - **Automatic redirection** to appropriate pages based on feature status
 
 ### 5. Agent Creation Flow (wajib ikuti)
-- CTA "Create agent" **selalu** diarahkan ke galeri template (`/dashboard/agents/templates`), lanjut wawancara chat, lalu prefilled `AgentForm`, baru POST create agent.
-- Jangan hubungkan CTA langsung ke form kosong; `/dashboard/agents/new` tanpa `fromInterview=true` hanya untuk deep link/debug dan tombol “start from scratch” di galeri dinonaktifkan.
+- CTA "Create agent" **selalu** diarahkan ke galeri template (`/dashboard/agents/templates`), lanjut wawancara chat, lalu prefilled `AgentForm`, baru POST create agent. Tombol “Customize Agent” memulai wawancara dengan template khusus `custom-agent` (bukan lompat ke form).
+- Jangan hubungkan CTA langsung ke form kosong; `/dashboard/agents/new` menolak akses jika tidak membawa hasil wawancara dan mengarahkan user kembali ke galeri template.
 - Payload wawancara disimpan di `sessionStorage.pendingAgentData` dan harus dipakai untuk prefill form; jaga kontrak ini saat ubah UI template/chat.
 - **UI/UX parity rule:** Template gallery, interview chat, dan AgentForm pada jalur trial (`/trial/*`) wajib identik dengan jalur berbayar (PRO_M/PRO_Y). Jika kamu mengubah desain, copy, atau struktur komponen pada salah satunya, segera samakan di jalur satunya agar context wawancara → form tidak pecah. Perbedaan hanya boleh pada logika (plan code, locking, provisioning), bukan tampilan/experience.
 - Setelah agent berbayar dibuat dan dialihkan ke `/dashboard/agents/{id}`, bila konfigurasi mengandung `google_tools`, wajib munculkan modal “Connect Google” secara otomatis. Modal sama juga harus muncul saat user menekan tombol “Continue with Google” di kartu konektor. CTA “Connect” membuka OAuth, sementara “Lanjut tanpa Google” butuh klik kedua setelah peringatan bahwa Gmail/Calendar tidak akan berfungsi sampai koneksi selesai.

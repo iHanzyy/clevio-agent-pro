@@ -19,7 +19,6 @@ export default function AgentTemplatesPage() {
   return (
     <AgentTemplatesView
       onConfirmTemplate={handleConfirmTemplate}
-      allowCustomStart={false}
       subheading="Pilih template, lanjut wawancara, lalu form otomatis terisi"
     />
   );

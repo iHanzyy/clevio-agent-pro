@@ -1,5 +1,21 @@
 [
   {
+    "id": "custom-agent",
+    "name": "Custom Agent",
+    "category": "Custom",
+    "description": "Blank starting point. We’ll interview you to craft tools, tone, and prompts from scratch.",
+    "avatar": "/templates/custom.png",
+    "config": {
+      "llm_model": "gpt-4o-mini",
+      "temperature": 0.7,
+      "max_tokens": 1500,
+      "memory_type": "buffer",
+      "reasoning_strategy": "react",
+      "system_prompt": "You are a configurable agent scaffold. Ask clarifying questions and wait for the user-provided rules before acting."
+    },
+    "allowed_tools": []
+  },
+  {
     "id": "asdos-bot",
     "name": "Asdos Bot",
     "category": "Education",

@@ -42,22 +42,21 @@ export default function NewAgentPage() {
       return;
     }
 
+    const allowDirect = searchParams.get("allowDirect") === "1";
     const fromInterview = searchParams.get("fromInterview") === "true";
+    const sessionIdParam = searchParams.get("session");
     const storedData =
       typeof window !== "undefined"
         ? sessionStorage.getItem("pendingAgentData")
         : null;
 
-    if (storedData) {
+    const applyAgentData = (agentData) => {
       try {
-        const agentData = JSON.parse(storedData);
-        // Using the prefilled data directly since buildPrefilledFormValues might not be available
         setPrefilledData(agentData);
-        // TUNDA open ke frame berikutnya agar child sudah render
         setGuidedTourState("in-progress");
         setTimeout(() => setShowGuidedTour(true), 0);
       } catch (err) {
-        console.error("Failed to parse prefilled data:", err);
+        console.error("Failed to apply prefilled data:", err);
         setShowGuidedTour(false);
         setGuidedTourState("idle");
         setAccessDeniedReason(
@@ -69,14 +68,87 @@ export default function NewAgentPage() {
         }
         setHasAppliedInterviewData(true);
       }
+    };
+
+    if (storedData) {
+      try {
+        const parsed = JSON.parse(storedData);
+        console.log("[AgentNew] Found pendingAgentData in sessionStorage", parsed);
+        applyAgentData(parsed);
+        return;
+      } catch (err) {
+        console.error("Failed to parse prefilled data:", err);
+      }
+    } else {
+      console.log("[AgentNew] No pendingAgentData in sessionStorage");
+    }
+
+    // Fallback 1: use lastTemplateSessionId when URL is missing session
+    const lastSessionId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("lastTemplateSessionId")
+        : null;
+    const effectiveSessionId = sessionIdParam || lastSessionId;
+
+    const fetchFromSessionId = async () => {
+      if (!effectiveSessionId) return false;
+      try {
+        const res = await fetch(
+          `/api/webhook/n8n-template?session=${encodeURIComponent(effectiveSessionId)}`,
+          { cache: "no-store" },
+        );
+        if (!res.ok) {
+          console.warn("[AgentNew] fallback poll miss", res.status);
+          return false;
+        }
+        const data = await res.json();
+        if (data?.agentData) {
+          const agentData = {
+            ...data.agentData,
+            fromTemplate: true,
+            templateId: data.template || data.agentData?.template_id,
+          };
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem("pendingAgentData", JSON.stringify(agentData));
+          }
+          console.log("[AgentNew] Applied agentData from fallback poll", agentData);
+          applyAgentData(agentData);
+          return true;
+        }
+      } catch (err) {
+        console.error("[AgentNew] fallback poll error", err);
+      }
+      return false;
+    };
+
+    // Attempt fallback poll when redirected with session param
+    if (fromInterview && effectiveSessionId) {
+      fetchFromSessionId().then((found) => {
+        if (found) return;
+        if (!allowDirect) {
+          setAccessDeniedReason(
+            "Kami tidak menemukan hasil wawancara Anda. Mulai ulang dari galeri template.",
+          );
+          setHasAppliedInterviewData(true);
+        }
+      });
       return;
     }
 
-    if (!fromInterview) {
+    // Last safety: when fromInterview but no session info anywhere
+    if (fromInterview && !effectiveSessionId && !allowDirect) {
+      setAccessDeniedReason(
+        "Kami tidak menemukan hasil wawancara Anda. Mulai ulang dari galeri template.",
+      );
+      setHasAppliedInterviewData(true);
+      return;
+    }
+
+    if (!fromInterview && !allowDirect) {
       setAccessDeniedReason(
         "Customize agent sekarang wajib dimulai dari wawancara. Silakan pilih template dulu.",
       );
-    } else {
+    } else if (fromInterview && !storedData && !allowDirect) {
       setAccessDeniedReason(
         "Kami tidak menemukan hasil wawancara Anda. Mulai ulang dari galeri template.",
       );

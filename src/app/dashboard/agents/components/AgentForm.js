@@ -782,6 +782,7 @@ function mapInitialValues(input) {
     mcpTools: mcpState,
     systemPrompt:
       input.systemPrompt ??
+      input.system_prompt ??
       input.config?.system_prompt ??
       DEFAULT_VALUES.systemPrompt,
     model:

@@ -43,7 +43,6 @@ export default function AgentTemplatesView({
   subheading = "Select a pre-configured template or start from scratch",
   actionLabel = "+ Customize Agent",
   onConfirmTemplate,
-  onCreateFromScratch,
   allowCustomStart = true,
 }) {
   const router = useRouter();
@@ -78,6 +77,11 @@ export default function AgentTemplatesView({
         .map((template) => template.id)
     );
   }, []);
+
+  const customTemplate = useMemo(
+    () => templatesData.find((t) => t.id === "custom-agent") || null,
+    [],
+  );
 
   const filteredTemplates = useMemo(() => {
     let filtered = templatesData;
@@ -159,7 +163,19 @@ export default function AgentTemplatesView({
       handleLockedClick();
       return;
     }
-    onCreateFromScratch?.();
+    if (customTemplate) {
+      setSelectedTemplate(customTemplate);
+      setShowConfirmDialog(true);
+      setError(null);
+      return;
+    }
+    // Fallback: use first available template
+    const fallbackTemplate = templatesData[0];
+    if (fallbackTemplate) {
+      setSelectedTemplate(fallbackTemplate);
+      setShowConfirmDialog(true);
+      setError(null);
+    }
   };
 
   const closeUpgradeModal = () => {
@@ -218,22 +234,7 @@ export default function AgentTemplatesView({
                 {subheading}
               </motion.p>
             </div>
-            {allowCustomStart && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 }}
-                onClick={handleCreateFromScratch}
-                disabled={isTrialPlanUser}
-                className={`w-full rounded-xl px-6 py-3 text-sm font-medium shadow-lg transition-all sm:w-auto ${
-                  isTrialPlanUser
-                    ? "cursor-not-allowed bg-surface-strong/60 text-muted"
-                    : "bg-gradient-to-r from-accent to-accent-hover text-white shadow-accent/25 hover:shadow-accent/40 hover:scale-105"
-                }`}
-              >
-                {isTrialPlanUser ? "Upgrade to customize" : actionLabel}
-              </motion.button>
-            )}
+            {/* Only keep one Customize CTA below the search bar to avoid duplicates */}
           </div>
         </motion.div>
 
@@ -261,16 +262,16 @@ export default function AgentTemplatesView({
                   />
                 </div>
 
-                {/* Customize Agent Button (interview-first) */}
+                {/* Customize Agent Button (single entry point) */}
                 {allowCustomStart && (
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => handleCreateFromScratch()}
+                    onClick={handleCreateFromScratch}
                     className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-hover text-white font-medium shadow-lg shadow-accent/25 hover:shadow-accent/40 transition-all flex-shrink-0"
                   >
                     <Sparkles className="h-5 w-5" />
-                    <span className="hidden sm:inline">Customize via Interview</span>
+                    <span className="hidden sm:inline">Customize Agent</span>
                     <span className="sm:hidden">Custom</span>
                   </motion.button>
                 )}
