@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Menu, Send, BatteryMedium, Wifi, Signal, Check } from "lucide-react";
+import { Menu, Send, BatteryMedium, Wifi, Signal, Check, MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight, Clock, Brain, ShieldCheck, Zap, Globe } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const Clock = () => {
+const HeaderClock = () => {
   const [time, setTime] = useState("");
 
   useEffect(() => {
@@ -303,7 +303,7 @@ export default function MobileLanding() {
 
                             {/* Status Bar */}
                             <div className="flex justify-between items-center px-8 pt-3.5 pb-2 text-[10px] font-semibold text-gray-900 bg-white z-20 relative select-none">
-                                <Clock />
+                                <HeaderClock />
                                 <div className="flex gap-1.5 opacity-80">
                                     <Signal className="w-3.5 h-3.5" />
                                     <Wifi className="w-3.5 h-3.5" />
@@ -371,12 +371,15 @@ export default function MobileLanding() {
         {/* How It Works Section */}
         <HowItWorksSection />
 
+        {/* Features Section */}
+        <FeatureSection />
+
       </div>
     </div>
   );
 }
 
-const HowItWorksSection = () => {
+function HowItWorksSection() {
   const scrollRef = useRef(null);
 
   const scroll = (direction) => {
@@ -493,9 +496,76 @@ const HowItWorksSection = () => {
   );
 };
 
-import { MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight } from "lucide-react";
+// Feature Section with 1:1 Visual Match
+function FeatureSection() {
+  const features = [
+    {
+      icon: <div className="w-10 h-10 bg-[#E3F2FD] rounded-xl flex items-center justify-center"><Clock className="w-6 h-6 text-[#1565C0] stroke-[2]" /></div>,
+      title: "Tersedia 24/7",
+      desc: "Staff AI Anda tidak pernah tidur dan siap melayani kapan saja"
+    },
+    {
+      icon: <div className="w-10 h-10 bg-[#FFF9C4] rounded-xl flex items-center justify-center"><Brain className="w-6 h-6 text-[#1565C0] stroke-[2]" /></div>,
+      title: "Pembelajaran Berkelanjutan",
+      desc: "Semakin pintar seiring waktu dengan machine learning"
+    },
+    {
+      icon: <div className="w-10 h-10 bg-[#E8F5E9] rounded-xl flex items-center justify-center"><TrendingUp className="w-6 h-6 text-[#1565C0] stroke-[2]" /></div>,
+      title: "Analitik Real-time",
+      desc: "Pantau performa dan dapatkan insights mendalam"
+    },
+    {
+      icon: <div className="w-10 h-10 bg-[#E3F2FD] rounded-xl flex items-center justify-center"><ShieldCheck className="w-6 h-6 text-[#1565C0] stroke-[2]" /></div>,
+      title: "Keamanan Terjamin",
+      desc: "Data Anda dilindungi dengan enkripsi tingkat enterprise"
+    },
+    {
+      icon: <div className="w-10 h-10 bg-[#FFF9C4] rounded-xl flex items-center justify-center"><Zap className="w-6 h-6 text-[#1565C0] stroke-[2]" /></div>,
+      title: "Respons Instan",
+      desc: "Jawab pertanyaan pelanggan dalam hitungan detik"
+    },
+    {
+      icon: <div className="w-10 h-10 bg-[#E8F5E9] rounded-xl flex items-center justify-center"><Globe className="w-6 h-6 text-[#1565C0] stroke-[2]" /></div>,
+      title: "Multi-bahasa",
+      desc: "Berkomunikasi dalam berbagai bahasa dengan lancar"
+    }
+  ];
 
-const CarouselSection = () => {
+  return (
+    // Wrap in bg-white to maintain page flow
+    <div className="w-full bg-white pb-20 pt-8 px-6 flex flex-col items-center">
+        {/* Blue Card Container */}
+        <div className="w-full bg-gradient-to-b from-[#426EFF] to-[#3B66F5] rounded-[2.5rem] p-6 pb-8 flex flex-col items-center shadow-xl shadow-blue-200/50 relative overflow-hidden">
+            {/* Glow effect at top */}
+            <div className="absolute top-0 left-0 right-0 h-32 bg-white/10 blur-3xl rounded-full -translate-y-16 pointer-events-none"></div>
+
+            <h2 className="text-[26px] font-bold text-white mb-6 text-center drop-shadow-sm">
+                Fitur Unggulan
+            </h2>
+            
+            <div className="w-full flex flex-col gap-3.5">
+                {features.map((feature, idx) => (
+                    <div key={idx} className="w-full bg-white rounded-2xl p-5 flex flex-col items-start gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.08)] ring-1 ring-black/5">
+                        <div className="shrink-0 mb-1">
+                            {feature.icon}
+                        </div>
+                        <div>
+                            <h3 className="text-[#1565C0] font-bold text-[16px] leading-tight mb-1.5">
+                                {feature.title}
+                            </h3>
+                            <p className="text-gray-500 text-[13px] leading-[1.4] font-medium">
+                                {feature.desc}
+                            </p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+  );
+}
+
+function CarouselSection() {
   const scrollRef = useRef(null);
 
   const scroll = (direction) => {
