@@ -373,6 +373,7 @@ export default function MobileLanding() {
 
         {/* Features Section */}
         <FeatureSection />
+      <TestimonialSection />
 
       </div>
     </div>
@@ -738,3 +739,113 @@ function CarouselSection() {
     </div>
   );
 };
+
+function TestimonialSection() {
+    const scrollRef = useRef(null);
+
+    const scroll = (direction) => {
+        if (scrollRef.current) {
+            const { current } = scrollRef;
+            const itemWidth = 320; // 300px width + 20px gap
+            const currentScroll = current.scrollLeft;
+            const index = Math.round(currentScroll / itemWidth);
+            
+            let targetScroll;
+            if (direction === 'left') {
+                targetScroll = Math.max(0, (index - 1) * itemWidth);
+            } else {
+                targetScroll = (index + 1) * itemWidth;
+            }
+            current.scrollTo({ left: targetScroll, behavior: 'smooth' });
+        }
+    };
+
+    const testimonials = [
+        {
+            name: "Dr. Kemal H.S. I Ist",
+            role: "Konsultan Manajemen Governance, Risk and Compliance",
+            quote: "“Clevio menawarkan Kursus AI untuk Profesional, dirancang untuk meningkatkan kompetensi, produktivitas, dan efektivitas kerja Anda dengan dukungan analisis data yang kuat.”",
+            image: "/testimoni/pakKemal.png"
+        },
+        {
+            name: "Gatot Nuradi Sam",
+            role: "Executive Director Bina Antarbudaya",
+            quote: "“Kelemahan kita selalu di data dan managing information. AI bisa membantu meng-cluster informasi seperti relawan dan sponsor, lalu menunjukkan mana yang paling potensial untuk kita tindak lanjuti.”",
+            image: "/testimoni/pakKemal.png"
+        },
+        {
+            name: "Sara Dhewanto",
+            role: "Impact Incubator",
+            quote: "“Saya memakai staf AI untuk membantu pekerjaan saya agar tugas-tugas rutin bisa selesai lebih cepat dan akurat.”",
+            image: "/testimoni/pakKemal.png"
+        },
+        {
+            name: "Sinta Kaniawati",
+            role: "Ketua Dewan Pengurus Bina Antarbudaya",
+            quote: "“AI itu membantu, tapi keseimbangan manusia tetap penting. Tantangannya adalah bagaimana kita menggunakan AI dengan bijak agar tidak kehilangan nilai manusiawi.”",
+            image: "/testimoni/pakKemal.png"
+        }
+    ];
+
+    return (
+        <div className="w-full bg-white pb-20 pt-10 flex flex-col items-center">
+            <h2 className="text-[26px] font-bold text-[#1E3A8A] mb-8 text-center px-4">
+                Ini Kata Mereka :
+            </h2>
+
+            <div 
+                ref={scrollRef}
+                className="w-full flex overflow-x-auto gap-5 px-6 pb-12 snap-x snap-mandatory scrollbar-hide"
+                style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+            >
+                {testimonials.map((item, idx) => (
+                    <div 
+                        key={idx}
+                        className="relative shrink-0 w-[300px] h-[450px] bg-[#3B66F5] rounded-[2.5rem] p-8 flex flex-col justify-between snap-center shadow-[0_10px_30px_-10px_rgba(59,102,245,0.5)] overflow-hidden"
+                    >
+                         {/* Content */}
+                         <div className="relative z-10">
+                            <h3 className="text-white text-[19px] font-bold leading-tight mb-1">
+                                {item.name}
+                            </h3>
+                            <p className="text-white/80 text-[11px] font-medium leading-snug mb-6 max-w-[90%]">
+                                {item.role}
+                            </p>
+                            <p className="text-white text-[14px] leading-relaxed tracking-wide font-medium">
+                                {item.quote}
+                            </p>
+                         </div>
+
+                         {/* Image at bottom */}
+                         <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[220px] h-[220px] flex items-end justify-center">
+                            <div className="w-full h-full relative">
+                                <Image 
+                                    src={item.image} 
+                                    alt={item.name}
+                                    fill
+                                    className="object-contain object-bottom"
+                                />
+                            </div>
+                         </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Navigation Arrows */}
+            <div className="w-full flex justify-end gap-4 px-6 mt-2">
+                <button 
+                    onClick={() => scroll('left')}
+                    className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+                >
+                    <ArrowLeft className="w-5 h-5" />
+                </button>
+                <button 
+                    onClick={() => scroll('right')}
+                    className="w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+                >
+                    <ArrowRight className="w-5 h-5" />
+                </button>
+            </div>
+        </div>
+    );
+}
