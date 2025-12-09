@@ -31,6 +31,7 @@ export default function MobileLanding() {
   const resultRef = useRef(null);
   const inputRef = useRef(null); 
   const chatContainerRef = useRef(null); // Ref for message container
+  const chatCardRef = useRef(null); // Ref for the main Chat Card wrapper
 
   const scrollToBottom = () => {
     if (chatContainerRef.current) {
@@ -83,10 +84,11 @@ export default function MobileLanding() {
     setIsTyping(true);
     setIsChatOpen(true); // Ensure open on send
 
-    // Force the view to scroll UP/Center AFTER layout transition starts/renders
+    // Force the view to scroll the Entire Chat Card to Center
+    // This ensures "KEATAS" / "CHAT INPUT USER PERTAMA" behavior
     setTimeout(() => {
-        inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 300); // 300ms to allow layout expansion to take effect
+        chatCardRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300); // 300ms delay for layout transition
     
     // Dummy Interview Logic
     setTimeout(() => {
@@ -186,6 +188,7 @@ export default function MobileLanding() {
 
             {/* Chat Container */}
             <motion.div
+                ref={chatCardRef}
                 layout
                 className={`relative w-full bg-white shadow-2xl overflow-hidden flex flex-col ${
                 isChatOpen ? "rounded-t-3xl rounded-b-xl" : "rounded-full"
