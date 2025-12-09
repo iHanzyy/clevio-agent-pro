@@ -29,16 +29,35 @@ export default function MobileLanding() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
   const resultRef = useRef(null);
+  const inputRef = useRef(null); 
+  const chatContainerRef = useRef(null); // Ref for message container
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (chatContainerRef.current) {
+        chatContainerRef.current.scrollTo({
+            top: chatContainerRef.current.scrollHeight,
+            behavior: "smooth"
+        });
+    }
   };
 
   useEffect(() => {
     if (isChatOpen) {
-        scrollToBottom();
+        // Use a small timeout to ensure DOM update before scrolling
+        setTimeout(scrollToBottom, 100);
     }
   }, [messages, isTyping, isChatOpen]);
+
+  // Keep focus on input when interviewing
+  useEffect(() => {
+    if (status === 'interviewing' && !isTyping) {
+        setTimeout(() => {
+             inputRef.current?.focus({ preventScroll: true }); 
+             // We use preventScroll: true to stop the browser from jumping the whole page
+             // The chat container scroll is handled by scrollToBottom separately
+        }, 100);
+    }
+  }, [messages, status, isTyping]);
 
   // Auto-scroll to result when finished
   useEffect(() => {
@@ -53,6 +72,9 @@ export default function MobileLanding() {
   const handleSend = () => {
     if (!inputValue.trim()) return;
 
+    // Synchronous focus to force keyboard open on mobile
+    inputRef.current?.focus();
+
     // Add user message
     const userMsg = { role: "user", text: inputValue };
     setMessages((prev) => [...prev, userMsg]);
@@ -61,6 +83,11 @@ export default function MobileLanding() {
     setIsTyping(true);
     setIsChatOpen(true); // Ensure open on send
 
+    // Force the view to scroll UP/Center AFTER layout transition starts/renders
+    setTimeout(() => {
+        inputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 300); // 300ms to allow layout expansion to take effect
+    
     // Dummy Interview Logic
     setTimeout(() => {
       let aiResponseText = "";
@@ -81,13 +108,13 @@ export default function MobileLanding() {
   };
 
   const handleInputFocus = () => {
-      setIsChatOpen(true);
-      if (status === 'initial') {
-          // Optional: Can transition to 'interviewing' just by focus if desired, 
-          // but usually kept to Send. Keeping as-is, just expanding.
+      // Only expand on focus if we are already interviewing.
+      // If initial, we keep it collapsed as a pill until they hit Send.
+      if (status !== 'initial') {
+        setIsChatOpen(true);
       }
   };
-
+    
   const handleBackgroundClick = () => {
       if (status === 'interviewing' && isChatOpen) {
           setIsChatOpen(false);
@@ -170,7 +197,10 @@ export default function MobileLanding() {
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside chat
             >
                 {/* Chat Messages - Visible when Open */}
-                <div className={`flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide ${!isChatOpen ? 'hidden' : ''}`}>
+                <div 
+                    ref={chatContainerRef}
+                    className={`flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide ${!isChatOpen ? 'hidden' : ''}`}
+                >
                     {messages.map((msg, idx) => (
                     <motion.div
                         key={idx}
@@ -219,6 +249,7 @@ export default function MobileLanding() {
                     ) : (
                         <>
                             <input
+                                ref={inputRef}
                                 type="text"
                                 suppressHydrationWarning
                                 value={inputValue}
