@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Menu, Send, BatteryMedium, Wifi, Signal, Check, MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight, Clock, Brain, ShieldCheck, Zap, Globe } from "lucide-react";
+import { Menu, Send, BatteryMedium, Wifi, Signal, Check, MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight, Clock, Brain, ShieldCheck, Zap, Globe, User, Bot } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const HeaderClock = () => {
@@ -374,6 +374,7 @@ export default function MobileLanding() {
         {/* Features Section */}
         <FeatureSection />
       <TestimonialSection />
+      <ComparisonSection />
 
       </div>
     </div>
@@ -848,4 +849,87 @@ function TestimonialSection() {
             </div>
         </div>
     );
+}
+
+function ComparisonSection() {
+  const staffBiasa = [
+    "Gaji bulanan + benefit + training",
+    "Jam kerja terbatas (8 jam/hari)",
+    "1 staf = 1 customer"
+  ];
+
+  const staffAI = [
+    "Biaya langganan tetap, tanpa benefit & training",
+    "Kerja 24/7 tanpa lembur & tanpa cuti",
+    "1 Staf AI = ratusan customer sekaligus",
+    "Tidak resign, tidak sakit, selalu ikut SOP",
+    "Onboarding sangat cepat"
+  ];
+
+  return (
+    <div className="w-full bg-gradient-to-b from-[#ebf3ff] to-white pb-20 pt-16 flex flex-col items-center px-6">
+        <h2 className="text-[24px] font-black text-black text-center leading-tight mb-2">
+            Staf Biasa VS Staf AI
+        </h2>
+        <p className="text-gray-600 text-[13px] text-center mb-10 font-medium max-w-[80%] leading-relaxed">
+            Lihat perbedaan signifikan antara <br /> Staf Biasa dan Staf AI
+        </p>
+
+        <div className="flex flex-col gap-6 w-full max-w-[340px]">
+            {/* Staf Biasa Card */}
+            <div className="w-full bg-white rounded-[2.5rem] p-8 pb-10 shadow-[0_8px_30px_rgba(0,0,0,0.06)] relative flex flex-col items-center">
+                {/* Header Pill */}
+                <div className="bg-white border border-gray-200 rounded-full py-2.5 px-6 flex items-center gap-3 shadow-sm mb-8 min-w-[180px] justify-center">
+                    <User className="w-5 h-5 text-black" />
+                    <span className="font-extrabold text-[16px] text-black">Staf Biasa</span>
+                </div>
+
+                {/* List with Timeline */}
+                <div className="relative w-full pl-4">
+                    {/* Vertical Line */}
+                    <div className="absolute left-0 top-2 bottom-2 w-[2px] bg-black"></div>
+                    
+                    <div className="flex flex-col gap-6">
+                        {staffBiasa.map((item, idx) => (
+                            <div key={idx} className="relative flex items-center">
+                                {/* Dot */}
+                                <div className="absolute -left-[21px] w-3 h-3 bg-black rounded-full border-2 border-white ring-1 ring-transparent z-10"></div>
+                                <span className="text-black font-bold text-[13px] leading-snug pl-2">
+                                    {item}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Staf AI Card */}
+            <div className="w-full bg-[#3B66F5] rounded-[2.5rem] p-8 pb-10 shadow-[0_15px_40px_rgba(59,102,245,0.4)] relative flex flex-col items-center border-[3px] border-white/30">
+                {/* Header Pill */}
+                <div className="bg-white rounded-full py-2.5 px-8 flex items-center gap-3 shadow-lg shadow-blue-900/10 mb-8 min-w-[180px] justify-center">
+                    <Bot className="w-6 h-6 text-[#3B66F5]" />
+                    <span className="font-extrabold text-[16px] text-[#3B66F5]">Staf AI</span>
+                </div>
+
+                {/* List with Timeline */}
+                <div className="relative w-full pl-4">
+                    {/* Vertical Line */}
+                    <div className="absolute left-0 top-2 bottom-2 w-[2px] bg-white/50"></div>
+                    
+                    <div className="flex flex-col gap-5">
+                        {staffAI.map((item, idx) => (
+                            <div key={idx} className="relative flex items-center">
+                                {/* Dot */}
+                                <div className="absolute -left-[21px] w-3 h-3 bg-white rounded-full border-2 border-[#3B66F5] z-10"></div>
+                                <span className="text-white font-bold text-[13px] leading-snug pl-2">
+                                    {item}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+  );
 }
