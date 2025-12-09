@@ -368,10 +368,130 @@ export default function MobileLanding() {
         {/* Carousel Section - Always Rendered Below */}
         <CarouselSection />
 
+        {/* How It Works Section */}
+        <HowItWorksSection />
+
       </div>
     </div>
   );
 }
+
+const HowItWorksSection = () => {
+  const scrollRef = useRef(null);
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+        const { current } = scrollRef;
+        const itemWidth = 270; // Card width + gap
+        const currentScroll = current.scrollLeft;
+        const index = Math.round(currentScroll / itemWidth);
+        const targetScroll = direction === 'left' 
+            ? Math.max(0, (index - 1) * itemWidth)
+            : (index + 1) * itemWidth;
+        
+        current.scrollTo({ left: targetScroll, behavior: 'smooth' });
+    }
+  };
+
+  const steps = [
+    {
+        title: "Daftar & Pilih Peran",
+        desc: "Buat akun dan pilih peran Staff AI yang sesuai dengan kebutuhan bisnis Anda",
+        color: "bg-[#FF4D4D]", 
+        cornerColor: "bg-[#B71C1C]",
+        image: "/carousel-works/daftarDanPilihPeran.png"
+    },
+    {
+        title: "Kustomisasi & Latih",
+        desc: "Sesuaikan personality dan latih Staff AI dengan data bisnis Anda",
+        color: "bg-[#4466FF]", 
+        cornerColor: "bg-[#1A237E]",
+        image: "/carousel-works/kostumisasiDanLatih.png"
+    },
+    {
+        title: "Aktifkan & Pantau",
+        desc: "Aktifkan Staff AI Anda dan pantau performa secara real-time",
+        color: "bg-[#E040FB]",
+        cornerColor: "bg-[#880E4F]",
+        image: "/carousel-works/aktifkanDanPantau.png"
+    }
+  ];
+
+  return (
+    <div className="w-full bg-white pb-20 pt-4 px-0 flex flex-col items-center">
+        <div className="px-6 text-center mb-8">
+            <h2 className="text-2xl font-bold text-[#1E3A8A] leading-tight mb-2">
+                Cara Kerja Clevio
+            </h2>
+            <p className="text-black font-medium leading-snug">
+                Mulai dengan Staf AI Anda <br/> dalam 3 langkah mudah
+            </p>
+        </div>
+
+        {/* Carousel Container */}
+        <div 
+            ref={scrollRef}
+            className="w-full flex overflow-x-auto gap-5 px-6 pb-6 snap-x snap-mandatory scrollbar-hide"
+            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+        >
+            {steps.map((step, idx) => (
+                <div 
+                    key={idx}
+                    className={`relative shrink-0 w-[280px] h-[380px] ${step.color} rounded-[2rem] flex flex-col snap-center overflow-hidden group`}
+                >
+                     {/* Top Half: Illustration Area */}
+                     <div className="h-[55%] w-full relative flex items-center justify-center pt-4">
+                        <div className="relative w-[250px] h-[250px]">
+                            <Image 
+                                src={step.image} 
+                                alt={step.title}
+                                fill
+                                className="object-contain"
+                            />
+                        </div>
+                     </div>
+
+                     {/* Bottom Half: Text Content */}
+                     <div className="h-[45%] w-full px-6 pt-2 pb-6 flex flex-col text-white relative z-10">
+                        <h3 className="font-bold text-[22px] leading-tight mb-3">
+                            {step.title}
+                        </h3>
+                        <p className="text-[14px] leading-snug opacity-95">
+                            {step.desc}
+                        </p>
+                     </div>
+
+                     {/* Folded Corner Effect - MATCHING CAROUSEL SECTION EXACTLY */}
+                     {/* Using the linear gradient trick to imply a folded page/shadow */}
+                     <div 
+                        className="absolute bottom-0 right-0 w-[80px] h-[80px]"
+                        style={{
+                            background: 'linear-gradient(to top left, transparent 50%, rgba(0,0,0,0.2) 0)'
+                        }}
+                     ></div>
+                </div>
+            ))}
+             <div className="w-2 shrink-0"></div>
+        </div>
+
+         {/* Navigation Buttons - Right Aligned (Consistent with previous section) */}
+         <div className="w-full flex justify-end gap-4 px-6 mt-4">
+            <button 
+                onClick={() => scroll('left')}
+                className="w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+            >
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+            <button 
+                onClick={() => scroll('right')}
+                className="w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+            >
+                <ArrowRight className="w-5 h-5" />
+            </button>
+        </div>
+    </div>
+  );
+};
 
 import { MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight } from "lucide-react";
 
