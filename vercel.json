@@ -1,0 +1,8 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "framework": "nextjs",
+  "regions": ["sin1"],
+  "env": {
+    "NEXT_PUBLIC_API_DEBUG": "0"
+  }
+}
