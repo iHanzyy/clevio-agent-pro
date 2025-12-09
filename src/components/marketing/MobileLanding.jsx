@@ -99,7 +99,7 @@ export default function MobileLanding() {
     <div className="flex min-h-[100dvh] w-full justify-center bg-black">
       
       {/* Mobile Frame Container */}
-      <div className={`relative w-full max-w-[480px] bg-slate-900 font-sans shadow-2xl flex flex-col transition-all duration-500 ${status === 'finished' ? 'min-h-[150vh]' : 'h-[100dvh] overflow-hidden'}`}>
+      <div className={`relative w-full max-w-[480px] bg-slate-900 font-sans shadow-2xl flex flex-col transition-all duration-500 min-h-[100dvh]`}>
         
         {/* Header */}
         <header className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 pt-0 supports-[padding-top:env(safe-area-inset-top)]:pt-[env(safe-area-inset-top)]">
@@ -330,7 +330,187 @@ export default function MobileLanding() {
                 </div>
             </div>
         )}
+
+        {/* Carousel Section - Always Rendered Below */}
+        <CarouselSection />
+
       </div>
     </div>
   );
 }
+
+import { MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight } from "lucide-react";
+
+const CarouselSection = () => {
+  const scrollRef = useRef(null);
+
+  const scroll = (direction) => {
+    if (scrollRef.current) {
+        const { current } = scrollRef;
+        const itemWidth = 296; // 280px width + 16px gap
+        // Calculate current "index" based on scroll position
+        const currentScroll = current.scrollLeft;
+        const index = Math.round(currentScroll / itemWidth);
+        
+        // Determine target scroll position
+        let targetScroll;
+        if (direction === 'left') {
+            targetScroll = Math.max(0, (index - 1) * itemWidth);
+        } else {
+            targetScroll = (index + 1) * itemWidth;
+        }
+
+        current.scrollTo({ left: targetScroll, behavior: 'smooth' });
+    }
+  };
+
+  const cards = [
+    {
+        icon: <MessageSquare className="w-6 h-6 text-white" />,
+        title: "Customer Service",
+        desc: "Layani pelanggan 24/7 dengan respons cepat dan akurat",
+        color: "bg-[#4A90E2]", // Blue
+        cornerColor: "border-[#215fa8]",
+        iconBg: "bg-white/20"
+    },
+    {
+        icon: <ShoppingCart className="w-6 h-6 text-white" />,
+        title: "Sales Asistant",
+        desc: "Tingkatkan penjualan dengan rekomendasi produk yang tepat",
+        color: "bg-[#EE5253]", // Red
+        cornerColor: "border-[#b33939]",
+        iconBg: "bg-white/20"
+    },
+    {
+        icon: <Headset className="w-6 h-6 text-[#9a7d0a]" />,
+        title: "Support Agent",
+        desc: "Berikan dukungan teknis yang efisien dan profesional",
+        color: "bg-[#F4D03F]", // Yellow warning text needs contrast? keeping white on yellow might be hard? user image shows white text.
+        // Actually user image yellow card has white text? Let me check.
+        // Image shows white text on yellow card. Okay.
+        cornerColor: "border-[#d4ac0d]",
+        iconBg: "bg-white/40",
+        textColor: "text-white"
+    },
+    {
+        icon: <TrendingUp className="w-6 h-6 text-white" />,
+        title: "Marketing Assistant",
+        desc: "Otomatisasi kampanye marketing dan analisis data",
+        color: "bg-[#58D68D]", // Green
+        cornerColor: "border-[#28b463]",
+        iconBg: "bg-white/20"
+    },
+    {
+        icon: <Users className="w-6 h-6 text-white" />,
+        title: "HR Assistant",
+        desc: "Kelola rekrutmen dan onboarding karyawan dengan mudah",
+        color: "bg-[#F368E0]", // Pink
+        cornerColor: "border-[#c0392b]", // Darker pink/red
+        iconBg: "bg-white/20"
+    },
+    {
+        icon: <FileText className="w-6 h-6 text-white" />,
+        title: "Admin Assistant",
+        desc: "Atur jadwal, dokumen, dan tugas administratif lainnya",
+        color: "bg-[#FF6B6B]", // Light Red/Rose
+        cornerColor: "border-[#c0392b]",
+        iconBg: "bg-white/20"
+    }
+  ];
+
+  return (
+    <div className="w-full bg-white pb-20 pt-15 px-0 flex flex-col items-center">
+        <div className="px-6 text-center mb-8">
+            <h2 className="text-2xl font-bold text-blue-900 leading-tight">
+                Staf AI Apa Lagi Yang <br /> Bisa Anda Buat?
+            </h2>
+            <p className="text-gray-600 mt-2 text-sm">
+                Banyak tugas yang bisa dibantu para staf AI Anda :
+            </p>
+        </div>
+
+        {/* Carousel Container */}
+        <div 
+            ref={scrollRef}
+            className="w-full flex overflow-x-auto gap-4 px-6 pb-8 snap-x snap-mandatory scrollbar-hide"
+            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+        >
+            {cards.map((card, idx) => (
+                <div 
+                    key={idx}
+                    className={`relative shrink-0 w-[280px] h-[180px] ${card.color} rounded-2xl p-5 flex flex-col justify-between snap-center shadow-lg group overflow-hidden`}
+                >
+                     {/* 3 Dots */}
+                     <div className="absolute top-3 left-1/2 -translate-x-1/2 flex space-x-2">
+                        <div className="w-2.5 h-2.5 bg-white rounded-full opacity-90 shadow-sm"></div>
+                        <div className="w-2.5 h-2.5 bg-white rounded-full opacity-90 shadow-sm"></div>
+                        <div className="w-2.5 h-2.5 bg-white rounded-full opacity-90 shadow-sm"></div>
+                     </div>
+
+                     {/* Folded Corner Effect via Border Trick */}
+                     <div className={`absolute bottom-0 right-0 w-0 h-0 border-b-[40px] border-l-[40px] border-b-white/40 border-l-transparent pointer-events-none transform rotate-0`}></div>
+                     {/* We can use a different trick for the dark fold look.
+                         User image has a dark triangle at the bottom right.
+                         It looks like the corner is folded UP revealing a darker back, 
+                         OR it's just a dark triangle decoration.
+                         The image shows a dark triangular area on the bottom right corner.
+                     */}
+                     <div 
+                        className="absolute bottom-0 right-0 w-[60px] h-[60px] bg-red-800"
+                        style={{
+                            background: 'linear-gradient(to top left, transparent 50%, rgba(0,0,0,0.3) 0)'
+                        }}
+                     ></div>
+                     
+                     {/* Actual Folded Corner HTML/CSS for strict 1:1 match with provided image needed.
+                        In the image, it looks like a dark triangle on the bottom right. 
+                        Let's use a solid dark color triangle.
+                     */}
+                     <div 
+                        className={`absolute -bottom-1 -right-1 w-12 h-12 ${card.cornerColor ? card.cornerColor.replace('border-', 'bg-') : 'bg-black/30'} rounded-tl-xl z-20`}
+                        style={{
+                            clipPath: 'polygon(100% 0, 0% 100%, 100% 100%)' // Bottom right triangle
+                        }}
+                     ></div>
+                      {/* Wait, the "Sticker" look usually is the page curling up.
+                          The image shows a dark triangle at the bottom right corner.
+                          It seems like the corner is "cut" or "folded". 
+                          Based on user image: there is a dark triangle at the bottom right.
+                          I will simulate this with a dark triangle.
+                      */}
+
+                     {/* Icon & Content */}
+                     <div className="relative z-10">
+                        <div className={`w-12 h-12 rounded-2xl ${card.iconBg} flex items-center justify-center mb-3 shadow-inner`}>
+                            {card.icon}
+                        </div>
+                        <h3 className={`font-bold text-lg leading-none mb-1 text-white`}>{card.title}</h3>
+                     </div>
+                     <p className="relative z-10 text-[11px] leading-snug text-white/90 font-medium pr-6">
+                        {card.desc}
+                     </p>
+                </div>
+            ))}
+             {/* Padding right to allow last card to be fully seen centrally if needed */}
+             <div className="w-2 shrink-0"></div>
+        </div>
+
+        {/* Navigation Buttons - Right Aligned */}
+        <div className="w-full flex justify-end gap-4 px-6 mt-2">
+            <button 
+                onClick={() => scroll('left')}
+                className="w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+            >
+                <ArrowLeft className="w-5 h-5" />
+            </button>
+            <button 
+                onClick={() => scroll('right')}
+                className="w-12 h-12 bg-white rounded-full shadow-lg border border-gray-100 flex items-center justify-center text-gray-700 hover:bg-gray-50 active:scale-95 transition-all"
+            >
+                <ArrowRight className="w-5 h-5" />
+            </button>
+        </div>
+
+    </div>
+  );
+};
