@@ -377,6 +377,7 @@ export default function MobileLanding() {
       <ComparisonSection />
       <PricingSection />
       <CTASection />
+      <FooterSection />
 
       </div>
     </div>
@@ -1081,6 +1082,74 @@ function CTASection() {
                 Tidak perlu kartu kredit • Setup dalam 5 menit • Cancel kapan saja
             </p>
         </div>
+    </div>
+  );
+}
+
+function FooterSection() {
+  const links = {
+    produk: ["Fitur", "Harga", "Integrasi", "API"],
+    perusahaan: ["Tentang Kami", "Blog", "Karir", "Kontak"],
+    legal: ["Privasi", "Syarat & Ketentuan", "Keamanan"]
+  };
+
+  return (
+    <div className="w-full bg-[#1A237E] text-white pt-16 pb-8 px-8 rounded-t-[2.5rem] mt-[-60px] relative z-0">
+        <div className="flex flex-col gap-8 mb-12">
+            {/* Brand */}
+            <div>
+                <div className="relative w-[160px] h-[50px] mb-3">
+                    <Image 
+                        src="/clevioAISTAFF-Logo-White.png" 
+                        alt="Clevio AI Staff Output"
+                        fill
+                        className="object-contain object-left"
+                    />
+                </div>
+                <p className="text-white/70 text-[13px] font-medium leading-relaxed whitespace-nowrap">
+                    Solusi Staff AI terdepan untuk bisnis modern
+                </p>
+            </div>
+
+            {/* Links Grid */}
+            <div className="grid grid-cols-2 gap-y-8 gap-x-4">
+                {/* Produk */}
+                <div>
+                    <h4 className="font-bold text-[15px] mb-4">Produk</h4>
+                    <ul className="flex flex-col gap-3">
+                        {links.produk.map((item, i) => (
+                            <li key={i} className="text-white/70 text-[13px] font-medium hover:text-white transition-colors cursor-pointer">{item}</li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Perusahaan */}
+                <div>
+                    <h4 className="font-bold text-[15px] mb-4">Perusahaan</h4>
+                    <ul className="flex flex-col gap-3">
+                        {links.perusahaan.map((item, i) => (
+                            <li key={i} className="text-white/70 text-[13px] font-medium hover:text-white transition-colors cursor-pointer">{item}</li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Legal */}
+                <div className="col-span-2 mt-2">
+                    <h4 className="font-bold text-[15px] mb-4">Legal</h4>
+                    <ul className="flex flex-col gap-3">
+                        {links.legal.map((item, i) => (
+                            <li key={i} className="text-white/70 text-[13px] font-medium hover:text-white transition-colors cursor-pointer">{item}</li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        {/* Divider & Copyright */}
+        <div className="w-full h-[1px] bg-white/10 mb-6"></div>
+        <p className="text-center text-white/40 text-[11px] font-medium">
+            © 2025 Clevio AI Staff. All rights reserved.
+        </p>
     </div>
   );
 }
