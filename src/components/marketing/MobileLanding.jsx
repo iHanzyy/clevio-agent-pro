@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Menu, Send, BatteryMedium, Wifi, Signal, Check, MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight, Clock, Brain, ShieldCheck, Zap, Globe, User, Bot } from "lucide-react";
+import { Menu, Send, BatteryMedium, Wifi, Signal, Check, MessageSquare, ShoppingCart, Headset, TrendingUp, Users, FileText, ArrowLeft, ArrowRight, Clock, Brain, ShieldCheck, Zap, Globe, User, Bot, Gift, Star, Rocket } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const HeaderClock = () => {
@@ -375,6 +375,7 @@ export default function MobileLanding() {
         <FeatureSection />
       <TestimonialSection />
       <ComparisonSection />
+      <PricingSection />
 
       </div>
     </div>
@@ -849,6 +850,125 @@ function TestimonialSection() {
             </div>
         </div>
     );
+}
+
+function PricingSection() {
+  const plans = [
+    {
+      name: "Gratis",
+      desc: "Sempurna untuk mencoba Staff AI",
+      icon: <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-500 mb-4"><Gift className="w-6 h-6" /></div>,
+      features: [
+        "1 Staff AI",
+        "100 percakapan/bulan",
+        "Fitur dasar",
+        "Email support",
+        "Dashboard analytics"
+      ],
+      cta: "Coba Gratis"
+    },
+    {
+      name: "Pro",
+      desc: "Untuk bisnis yang sedang berkembang",
+      price: "Rp. 1.299.000",
+      period: "/Bulan",
+      isPopular: true,
+      icon: <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center text-yellow-500 mb-4"><Star className="w-6 h-6 fill-yellow-500" /></div>,
+      features: [
+        "5 Staff AI",
+        "Unlimited percakapan",
+        "Semua fitur premium",
+        "Priority support 24/7",
+        "Advanced analytics",
+        "Custom branding",
+        "API access"
+      ],
+      cta: "Coba Sekarang"
+    },
+    {
+      name: "Enterprise",
+      desc: "Solusi lengkap untuk perusahaan",
+      price: "TBD",
+      period: "/Tahun",
+      icon: <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-500 mb-4"><Rocket className="w-6 h-6" /></div>,
+      features: [
+        "Unlimited Staff AI",
+        "Unlimited percakapan",
+        "Semua fitur Pro",
+        "Dedicated account manager",
+        "Custom integration",
+        "SLA guarantee",
+        "Training & onboarding",
+        "White-label solution"
+      ],
+      cta: "Coba Sekarang"
+    }
+  ];
+
+  return (
+    <div className="w-full bg-white pb-20 pt-10 flex flex-col items-center px-4">
+        <div className="w-full bg-[#3B66F5] rounded-[2.5rem] p-6 pb-12 flex flex-col items-center shadow-[0_10px_40px_-5px_rgba(59,102,245,0.4)]">
+            <h2 className="text-[24px] font-bold text-white text-center leading-tight mb-2">
+                Pilih Paket Anda
+            </h2>
+            <p className="text-blue-100 text-[13px] text-center mb-10 font-medium max-w-[80%] leading-relaxed">
+                Lihat perbedaan signifikan antara <br /> Staf Biasa dan Staf AI
+            </p>
+
+            <div className="flex flex-col gap-6 w-full">
+                {plans.map((plan, idx) => (
+                    <div key={idx} className="relative w-full bg-white rounded-[1.5rem] p-6 pb-8 shadow-lg flex flex-col pt-10">
+                        {/* Popular Badge */}
+                        {plan.isPopular && (
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3B66F5] text-white text-[12px] font-bold px-6 py-1.5 rounded-full shadow-md z-10 border-[3px] border-white">
+                                Paling Populer
+                            </div>
+                        )}
+                        {/* Border for Popular card */}
+                        {plan.isPopular && (
+                             <div className="absolute inset-0 rounded-[1.5rem] border-[3px] border-[#3B66F5] pointer-events-none"></div>
+                        )}
+
+                        {plan.icon}
+
+                        <h3 className="text-[#1E3A8A] font-extrabold text-[20px] mb-1">
+                            {plan.name}
+                        </h3>
+                        <p className="text-gray-500 text-[13px] mb-5 leading-snug">
+                            {plan.desc}
+                        </p>
+
+                        {plan.price && (
+                            <div className="flex items-baseline gap-1 mb-5">
+                                <span className="text-black font-extrabold text-[24px]">{plan.price}</span>
+                                <span className="text-gray-500 text-[12px] font-medium">{plan.period}</span>
+                            </div>
+                        )}
+
+                        {!plan.price && (
+                             <div className="mb-5 h-[36px]"></div> // Spacer for Free tier layout alignment if needed, or just let it flow
+                        )}
+
+                        <div className="flex flex-col gap-3 mb-8">
+                            {plan.features.map((feat, i) => (
+                                <div key={i} className="flex items-start gap-2.5">
+                                    <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" strokeWidth={3} />
+                                    <span className="text-gray-600 text-[13px] font-medium leading-tight">
+                                        {feat}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button className="w-full py-3 bg-[#3B66F5] text-white font-bold rounded-full text-[14px] shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all mt-auto">
+                            {plan.cta}
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+  );
 }
 
 function ComparisonSection() {
