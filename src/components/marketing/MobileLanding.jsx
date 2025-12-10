@@ -825,12 +825,12 @@ function TestimonialSection() {
     );
 }
 
+// Pricing Section: Wooden Board Aesthetic
 function PricingSection() {
   const plans = [
     {
       name: "Gratis",
       desc: "Sempurna untuk mencoba Staff AI",
-      icon: <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-500 mb-4"><Gift className="w-6 h-6" /></div>,
       features: [
         "1 Staff AI",
         "100 percakapan/bulan",
@@ -845,8 +845,6 @@ function PricingSection() {
       desc: "Untuk bisnis yang sedang berkembang",
       price: "Rp. 1.299.000",
       period: "/Bulan",
-      isPopular: true,
-      icon: <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center text-yellow-500 mb-4"><Star className="w-6 h-6 fill-yellow-500" /></div>,
       features: [
         "5 Staff AI",
         "Unlimited percakapan",
@@ -861,9 +859,7 @@ function PricingSection() {
     {
       name: "Enterprise",
       desc: "Solusi lengkap untuk perusahaan",
-      price: "TBD",
-      period: "/Tahun",
-      icon: <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center text-green-500 mb-4"><Rocket className="w-6 h-6" /></div>,
+      customTitle: "Mari berdiskusi!", // Special emphasis
       features: [
         "Unlimited Staff AI",
         "Unlimited percakapan",
@@ -880,52 +876,54 @@ function PricingSection() {
 
   return (
     <div className="w-full bg-white pb-20 pt-10 flex flex-col items-center px-4">
-        <div className="w-full bg-[#3B66F5] rounded-[2.5rem] p-6 pb-12 flex flex-col items-center shadow-[0_10px_40px_-5px_rgba(59,102,245,0.4)]">
-            <h2 className="text-[24px] font-bold text-white text-center leading-tight mb-2">
+        {/* Wooden Board Container */}
+        <div className="w-full bg-[#EBCFB2] rounded-[3rem] p-6 pb-12 flex flex-col items-center shadow-md border border-[#D7B696]">
+            <h2 className="text-[26px] font-black text-[#4E342E] text-center leading-tight mb-2 mt-4">
                 Pilih Paket Anda
             </h2>
-            <p className="text-blue-100 text-[13px] text-center mb-10 font-medium max-w-[80%] leading-relaxed">
+            <p className="text-[#795548] text-[13px] text-center mb-10 font-bold max-w-[80%] leading-relaxed">
                 Lihat perbedaan signifikan antara <br /> Staf Biasa dan Staf AI
             </p>
 
             <div className="flex flex-col gap-6 w-full">
                 {plans.map((plan, idx) => (
-                    <div key={idx} className="relative w-full bg-white rounded-[1.5rem] p-6 pb-8 shadow-lg flex flex-col pt-10">
-                        {/* Popular Badge */}
-                        {plan.isPopular && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#3B66F5] text-white text-[12px] font-bold px-6 py-1.5 rounded-full shadow-md z-10 border-[3px] border-white">
-                                Paling Populer
-                            </div>
-                        )}
-                        {/* Border for Popular card */}
-                        {plan.isPopular && (
-                             <div className="absolute inset-0 rounded-[1.5rem] border-[3px] border-[#3B66F5] pointer-events-none"></div>
-                        )}
-
-                        {plan.icon}
-
-                        <h3 className="text-[#1E3A8A] font-extrabold text-[20px] mb-1">
+                    <div key={idx} className="relative w-full bg-white rounded-[2.5rem] p-8 pb-10 shadow-[0_4px_20px_rgba(0,0,0,0.08)] flex flex-col items-start border border-white/50">
+                        
+                        {/* Title Section */}
+                        <h3 className="text-[#1565C0] font-bold text-[20px] mb-2 leading-tight">
                             {plan.name}
                         </h3>
-                        <p className="text-gray-500 text-[13px] mb-5 leading-snug">
+                        <p className="text-gray-500 text-[13px] mb-6 leading-snug font-medium">
                             {plan.desc}
                         </p>
 
+                        {/* Price Display */}
                         {plan.price && (
-                            <div className="flex items-baseline gap-1 mb-5">
-                                <span className="text-black font-extrabold text-[24px]">{plan.price}</span>
-                                <span className="text-gray-500 text-[12px] font-medium">{plan.period}</span>
+                            <div className="flex items-baseline gap-1 mb-6">
+                                <span className="text-black font-black text-[28px] tracking-tight">{plan.price}</span>
+                                <span className="text-gray-500 text-[12px] font-bold">{plan.period}</span>
                             </div>
                         )}
 
-                        {!plan.price && (
-                             <div className="mb-5 h-[36px]"></div> // Spacer for Free tier layout alignment if needed, or just let it flow
+                        {/* Enterprise Custom Title */}
+                        {plan.customTitle && (
+                            <div className="mb-6">
+                                <span className="text-black font-black text-[24px] tracking-tight leading-tight block">
+                                    {plan.customTitle}
+                                </span>
+                            </div>
+                        )}
+                        
+                        {/* Spacing for Gratis (if no price/customTitle) */}
+                        {!plan.price && !plan.customTitle && (
+                            <div className="mb-2"></div>
                         )}
 
-                        <div className="flex flex-col gap-3 mb-8">
+                        {/* Features List */}
+                        <div className="flex flex-col gap-3.5 mb-10 w-full">
                             {plan.features.map((feat, i) => (
-                                <div key={i} className="flex items-start gap-2.5">
-                                    <Check className="w-4 h-4 text-green-500 shrink-0 mt-0.5" strokeWidth={3} />
+                                <div key={i} className="flex items-start gap-3">
+                                    <Check className="w-4 h-4 text-[#4CAF50] shrink-0 mt-0.5" strokeWidth={3} />
                                     <span className="text-gray-600 text-[13px] font-medium leading-tight">
                                         {feat}
                                     </span>
@@ -933,8 +931,10 @@ function PricingSection() {
                             ))}
                         </div>
 
-                        <button className="w-full py-3 bg-[#3B66F5] text-white font-bold rounded-full text-[14px] shadow-lg shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all mt-auto">
-                            {plan.cta}
+                        {/* 3D Pill Button */}
+                        <button className="w-full py-3.5 bg-gradient-to-b from-white to-[#F0F0F0] text-black font-bold rounded-full text-[15px] shadow-[0_4px_6px_rgba(0,0,0,0.1),0_1px_3px_rgba(0,0,0,0.08),inset_0_-2px_4px_rgba(0,0,0,0.1)] border border-gray-100 hover:to-[#E0E0E0] active:scale-[0.98] active:shadow-inner transition-all mt-auto relative overflow-hidden group">
+                           <span className="relative z-10">{plan.cta}</span>
+                           <div className="absolute inset-0 bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         </button>
                     </div>
                 ))}
