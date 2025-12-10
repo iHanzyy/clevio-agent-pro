@@ -405,22 +405,25 @@ function HowItWorksSection() {
     {
         title: "Daftar & Pilih Peran",
         desc: "Buat akun dan pilih peran Staff AI yang sesuai dengan kebutuhan bisnis Anda",
-        color: "bg-[#FF4D4D]", 
-        cornerColor: "bg-[#B71C1C]",
+        color: "bg-[#FDF4C8]", // Cream
+        cornerColor: "bg-[#C0A865]", // Dark Gold
+        textColor: "text-[#5D4037]", // Dark Brown
         image: "/carousel-works/daftarDanPilihPeran.png"
     },
     {
         title: "Kustomisasi & Latih",
         desc: "Sesuaikan personality dan latih Staff AI dengan data bisnis Anda",
-        color: "bg-[#4466FF]", 
-        cornerColor: "bg-[#1A237E]",
+        color: "bg-[#7895A9]", // Slate Blue
+        cornerColor: "bg-[#455A64]", // Dark Slate
+        textColor: "text-[#263238]", // Dark Blue Gray
         image: "/carousel-works/kostumisasiDanLatih.png"
     },
     {
         title: "Aktifkan & Pantau",
         desc: "Aktifkan Staff AI Anda dan pantau performa secara real-time",
-        color: "bg-[#E040FB]",
-        cornerColor: "bg-[#880E4F]",
+        color: "bg-[#FAD9D5]", // Pink
+        cornerColor: "bg-[#A67C7C]", // Dark Pink
+        textColor: "text-[#4E342E]", // Dark Red Brown
         image: "/carousel-works/aktifkanDanPantau.png"
     }
   ];
@@ -445,7 +448,7 @@ function HowItWorksSection() {
             {steps.map((step, idx) => (
                 <div 
                     key={idx}
-                    className={`relative shrink-0 w-[280px] h-[380px] ${step.color} rounded-[2rem] flex flex-col snap-center overflow-hidden group`}
+                    className={`relative shrink-0 w-[280px] h-[380px] ${step.color} rounded-[2rem] flex flex-col snap-center overflow-hidden shadow-lg group`}
                 >
                      {/* Top Half: Illustration Area */}
                      <div className="h-[55%] w-full relative flex items-center justify-center pt-4">
@@ -460,23 +463,30 @@ function HowItWorksSection() {
                      </div>
 
                      {/* Bottom Half: Text Content */}
-                     <div className="h-[45%] w-full px-6 pt-2 pb-6 flex flex-col text-white relative z-10">
+                     <div className={`h-[45%] w-full px-6 pt-2 pb-6 flex flex-col ${step.textColor} relative z-10`}>
                         <h3 className="font-bold text-[22px] leading-tight mb-3">
                             {step.title}
                         </h3>
-                        <p className="text-[14px] leading-snug opacity-95">
+                        <p className="text-[14px] leading-snug opacity-90 font-medium">
                             {step.desc}
                         </p>
                      </div>
 
-                     {/* Folded Corner Effect - MATCHING CAROUSEL SECTION EXACTLY */}
-                     {/* Using the linear gradient trick to imply a folded page/shadow */}
-                     <div 
-                        className="absolute bottom-0 right-0 w-[80px] h-[80px]"
-                        style={{
-                            background: 'linear-gradient(to top left, transparent 50%, rgba(0,0,0,0.2) 0)'
-                        }}
-                     ></div>
+                     {/* Folded Corner Effect - 1:1 Match with Carousel Section */}
+                     <div className="absolute bottom-0 right-0 w-[80px] h-[80px]">
+                        {/* The Fold itself (Dark Shape)
+                            - "Kiri atas lancip" -> Top-Left Sharp (rounded-tl-none)
+                            - "Kanan bawah rounded" -> Bottom-Right Rounded (rounded-br-[2rem])
+                        */}
+                        <div className={`absolute bottom-0 right-0 w-[80px] h-[80px] ${step.cornerColor} rounded-br-[2rem] rounded-tl-none shadow-[-2px_-2px_10px_rgba(0,0,0,0.15)] z-20`}></div>
+                        
+                        {/* Masking the card corner behind isn't strictly necessary if the fold covers it,
+                            but putting a container-bg colored block behind helps if there are gaps or for alpha blending.
+                            Wait, the container BG here is WHITE (the section bg), NOT the card BG.
+                            So we mask it with WHITE.
+                        */}
+                        <div className="absolute bottom-0 right-0 w-[80px] h-[80px] bg-white rounded-br-[2.5rem] z-10"></div>
+                     </div>
                 </div>
             ))}
              <div className="w-2 shrink-0"></div>
