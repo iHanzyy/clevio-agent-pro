@@ -1037,29 +1037,32 @@ function ComparisonSection() {
   );
 }
 
+// CTA Section: Orange Card with Folded Corner
 function CTASection() {
   return (
-    <div className="w-full bg-white pb-32 pt-10 px-4 flex justify-center">
-        <div className="w-full bg-[#1A45D0] rounded-[2.5rem] p-8 pb-10 shadow-[0_15px_40px_-10px_rgba(59,102,245,0.6)] relative overflow-hidden flex flex-col items-center text-center">
+    <div className="w-full bg-white pb-20 pt-10 px-4 flex justify-center">
+        {/* Orange Card Container */}
+        <div className="w-full max-w-[360px] bg-[#E68A44] rounded-[2.5rem] p-8 pb-12 flex flex-col items-center text-center relative overflow-hidden shadow-xl">
             
-            {/* Background Decorations */}
-            <div className="absolute -top-10 -left-10 w-40 h-40 bg-white/5 rounded-[2rem] transform rotate-12"></div>
-            <div className="absolute top-20 -right-10 w-32 h-32 bg-white/5 rounded-[2rem] transform -rotate-12"></div>
-            <div className="absolute bottom-[-50px] left-[20%] w-60 h-60 bg-white/5 rounded-[3rem] transform rotate-6"></div>
+            {/* Folded Corner Effect (Bottom Right) */}
+            <div className="absolute -bottom-1 -right-1 w-24 h-24 bg-[#8B5E3C] rounded-tl-[3rem] z-10"></div>
+            {/* Corner Cover to simulate fold shape */}
+             <div className="absolute -bottom-1 -right-1 w-24 h-24 bg-white rounded-tl-[3rem] z-0 translate-x-10 translate-y-10"></div>
 
-            <h2 className="text-[28px] font-bold text-white mb-3 mt-4 relative z-10 leading-tight">
-                Bangun tim Staff AI <br /> Anda
+
+            <h2 className="text-[32px] font-black text-white leading-[1.1] mb-6 mt-4">
+                Bangun tim <br/> staf AI Anda
             </h2>
-            
-            <p className="text-blue-100 text-[14px] leading-relaxed mb-8 max-w-[90%] relative z-10 font-medium">
-                Mulai transformasi digital bisnis Anda hari ini. Gratis untuk memulai, tidak perlu kartu kredit.
+
+            <p className="text-white text-[15px] font-medium leading-relaxed mb-10 max-w-[90%]">
+                Mulai transformasi digital bisnis Anda hari ini. Gratis untuk memulai, <br/> tidak perlu kartu kredit.
             </p>
 
-            <button className="bg-white text-[#1A45D0] font-bold text-[16px] py-3.5 px-10 rounded-2xl shadow-lg hover:bg-gray-50 active:scale-95 transition-all relative z-10 mb-8 w-full max-w-[280px]">
+            <button className="w-full py-4 bg-gradient-to-b from-white to-[#F0F0F0] text-black font-extrabold rounded-full text-[16px] shadow-[0_4px_10px_rgba(0,0,0,0.2),inset_0_-3px_5px_rgba(0,0,0,0.1)] border border-white/50 active:scale-[0.98] transition-all relative z-20 mb-8">
                 Mulai Gratis
             </button>
 
-            <p className="text-blue-200/80 text-[11px] font-medium relative z-10">
+            <p className="text-white/90 text-[12px] font-medium leading-relaxed z-20">
                 Tidak perlu kartu kredit • Setup dalam 5 menit • Cancel kapan saja
             </p>
         </div>
