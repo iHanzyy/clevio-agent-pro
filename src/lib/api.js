@@ -16,7 +16,7 @@ const debugLog = (...args) => {
 };
 const DEFAULT_WHATSAPP_STATUS_BASE = "/api/whatsapp-sessions/status";
 const DEFAULT_PAYMENT_WEBHOOK =
-  "https://n8n-new.chiefaiofficer.id/webhook/pembayaranMidtrans";
+  "https://n8n.srv651498.hstgr.cloud/webhook/pembayaranMidtrans";
 const DEFAULT_LANGCHAIN_BASE_URL = "https://new-langchain.chiefaiofficer.id/api/v1";
 
 const resolveWhatsAppStatusBaseUrl = () => {

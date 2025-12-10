@@ -37,7 +37,7 @@ export default function TemplateChat({
 
         const webhookUrl =
           process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ||
-          "https://n8n-new.chiefaiofficer.id/webhook/44e8e63d-ebf4-4278-bdf6-ff0f8e5955fb/chat";
+          "https://n8n.srv651498.hstgr.cloud/webhook/44e8e63d-ebf4-4278-bdf6-ff0f8e5955fb/chat";
 
         const instance = createChat({
           webhookUrl,

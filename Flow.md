@@ -8,7 +8,7 @@
 **Terminology used below**
 
 - `SC_BACKEND` → `https://new-langchain.chiefaiofficer.id/api/v1` (proxied through `/api/proxy`).
-- `N8N_MAIN` → `https://n8n-new.chiefaiofficer.id`.
+- `N8N_MAIN` → `https://n8n.srv651498.hstgr.cloud/`.
 - `WHATSAPP_SERVICE` → Golang service at `WHATSAPP_BACKEND_BASE_URL` (default `http://localhost:8080/api/v1`) that exposes `/sessions/{create,status,detail,delete,reconnect}` and returns `qrCodeBase64` inline.
 - `ApiService` methods are referenced by their function name in `src/lib/api.js`.
 

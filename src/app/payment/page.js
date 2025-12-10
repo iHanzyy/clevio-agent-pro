@@ -691,7 +691,7 @@ function PaymentContent() {
 
       try {
         const response = await fetch(
-          "https://n8n-new.chiefaiofficer.id/webhook/registerTrial",
+          "https://n8n.srv651498.hstgr.cloud/webhook/registerTrial",
           {
             method: "POST",
             headers: {
